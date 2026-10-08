@@ -1,0 +1,45 @@
+# Dependencies
+/backend/vendor/
+/frontend/node_modules/
+/frontend/.pnp
+/frontend/.pnp.js
+
+# Environment Files
+.env
+.env.backup
+.env.production
+/backend/.env
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# Build & Cache Outputs
+/backend/bootstrap/cache/
+/backend/storage/*.key
+/backend/storage/framework/cache/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+/backend/storage/logs/*
+/backend/public/storage
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+/frontend/dist/
+
+.agents/
+.agent/
+_agents/
+_agent/
+AGENTS.md
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
