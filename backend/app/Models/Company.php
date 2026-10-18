@@ -26,13 +26,14 @@ class Company extends Model
 
     /**
      * FR-04.1: Kiểm tra hồ sơ công ty đã cập nhật đủ thông tin bắt buộc chưa
+     * (Tên công ty, Giới thiệu công ty, Địa chỉ trụ sở, Tỉnh/Thành phố)
      */
     public function isComplete(): bool
     {
-        return !empty($this->name) &&
-               !empty($this->description) &&
-               !empty($this->address) &&
-               !empty($this->city);
+        return !empty(trim((string) $this->name)) &&
+               !empty(trim((string) $this->description)) &&
+               !empty(trim((string) $this->address)) &&
+               !empty(trim((string) $this->city));
     }
 
     public function user(): BelongsTo

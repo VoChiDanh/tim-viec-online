@@ -212,7 +212,7 @@ class JobController extends Controller
             'deadline' => $request->deadline,
             'description' => $request->description,
             'requirements' => $request->requirements,
-            'benefits' => $request->benefits,
+            'benefits' => $request->benefits ?? '',
             'is_negotiable' => $isNegotiable,
             'salary_min' => $isNegotiable ? null : $request->salary_min,
             'salary_max' => $isNegotiable ? null : $request->salary_max,
@@ -260,7 +260,7 @@ class JobController extends Controller
             'deadline' => $request->deadline,
             'description' => $request->description,
             'requirements' => $request->requirements,
-            'benefits' => $request->benefits,
+            'benefits' => $request->benefits ?? '',
             'is_negotiable' => $isNegotiable,
             'salary_min' => $isNegotiable ? null : $request->salary_min,
             'salary_max' => $isNegotiable ? null : $request->salary_max,
@@ -296,11 +296,15 @@ class JobController extends Controller
 
         $request->validate([
             'status' => ['required', 'in:active,closed'],
+            'deadline' => ['nullable', 'date', 'after:today'],
         ]);
 
-        $job->update([
-            'status' => $request->status,
-        ]);
+        $updateData = ['status' => $request->status];
+        if ($request->status === 'active' && $request->filled('deadline')) {
+            $updateData['deadline'] = $request->deadline;
+        }
+
+        $job->update($updateData);
 
         $msg = $job->status === 'active' ? 'Đã mở lại tin tuyển dụng' : 'Đã đóng tin tuyển dụng';
 
@@ -310,6 +314,7 @@ class JobController extends Controller
             'data' => [
                 'id' => $job->id,
                 'status' => $job->status,
+                'deadline' => $job->deadline?->format('Y-m-d'),
             ],
         ], 200);
     }

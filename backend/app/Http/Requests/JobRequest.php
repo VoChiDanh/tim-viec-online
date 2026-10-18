@@ -13,9 +13,49 @@ class JobRequest extends FormRequest
         return $this->user() && $this->user()->isEmployer();
     }
 
+    protected function prepareForValidation(): void
+    {
+        // FR-04.4: Chuẩn hóa 3 trường hợp nhập lương
+        $salaryType = $this->input('salary_type');
+
+        if ($salaryType === 'negotiable') {
+            $this->merge([
+                'is_negotiable' => true,
+                'salary_min' => null,
+                'salary_max' => null,
+            ]);
+        } elseif ($salaryType === 'from' || $salaryType === 'starting') {
+            $this->merge([
+                'is_negotiable' => false,
+                'salary_max' => null,
+            ]);
+        } elseif ($salaryType === 'specific' || $salaryType === 'range') {
+            $this->merge([
+                'is_negotiable' => false,
+            ]);
+        } elseif ($this->has('is_negotiable')) {
+            $isNegotiable = filter_var($this->input('is_negotiable'), FILTER_VALIDATE_BOOLEAN);
+            if ($isNegotiable) {
+                $this->merge([
+                    'is_negotiable' => true,
+                    'salary_min' => null,
+                    'salary_max' => null,
+                ]);
+            }
+        }
+
+        // Tự động kế thừa địa chỉ chi tiết từ hồ sơ công ty nếu để trống
+        if (!$this->filled('address') && $this->user()?->company?->address) {
+            $this->merge([
+                'address' => $this->user()->company->address,
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
+            // FR-04.2: Các mục bắt buộc
             'title' => ['required', 'string', 'min:10', 'max:200'],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
             'job_level' => ['required', 'string', 'max:50'],
@@ -23,13 +63,14 @@ class JobRequest extends FormRequest
             'job_type' => ['required', 'string', 'in:full_time,part_time,remote,internship'],
             'city' => ['required', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
-            'deadline' => ['required', 'date', 'after:today'], // FR-04.3: Lớn hơn ngày hiện tại ít nhất 1 ngày
+            'deadline' => ['required', 'date', 'after:today'], // FR-04.3: Hạn nộp phải sau ngày hôm nay
             'description' => ['required', 'string'],
             'requirements' => ['required', 'string'],
             'benefits' => ['nullable', 'string'],
             'is_negotiable' => ['nullable', 'boolean'],
-            'salary_min' => ['nullable', 'integer', 'min:0'],
-            'salary_max' => ['nullable', 'integer', 'min:0'],
+            'salary_type' => ['nullable', 'string', 'in:specific,range,from,starting,negotiable'],
+            'salary_min' => ['nullable', 'integer'],
+            'salary_max' => ['nullable', 'integer'],
             'skills' => ['required', 'array', 'min:1'],
             'skills.*' => ['integer', 'exists:skills,id'],
         ];
@@ -66,10 +107,20 @@ class JobRequest extends FormRequest
             $salaryMin = $this->filled('salary_min') ? (int) $this->input('salary_min') : null;
             $salaryMax = $this->filled('salary_max') ? (int) $this->input('salary_max') : null;
 
+            // FR-04.4: Kiểm tra quy tắc mức lương
             if (!$isNegotiable) {
-                // Nếu không phải lương thỏa thuận và nhập cả 2 mức lương, min không được lớn hơn max
-                if ($salaryMin !== null && $salaryMax !== null && $salaryMin > $salaryMax) {
-                    $validator->errors()->add('salary_min', 'Mức lương tối thiểu không được lớn hơn mức lương tối đa');
+                // TH1: Khoảng lương cụ thể (cả min và max đều có)
+                if ($salaryMin !== null && $salaryMax !== null) {
+                    if ($salaryMin <= 0 || $salaryMax <= 0) {
+                        $validator->errors()->add('salary_min', 'Mức lương tối thiểu và tối đa phải lớn hơn 0');
+                    } elseif ($salaryMin > $salaryMax) {
+                        $validator->errors()->add('salary_min', 'Mức lương tối thiểu không được lớn hơn mức lương tối đa');
+                    }
+                } elseif ($salaryMin !== null) {
+                    // TH2: Lương khởi điểm (chỉ có min)
+                    if ($salaryMin <= 0) {
+                        $validator->errors()->add('salary_min', 'Mức lương khởi điểm phải lớn hơn 0');
+                    }
                 }
             }
         });
@@ -80,8 +131,8 @@ class JobRequest extends FormRequest
         $errors = $validator->errors();
         $statusCode = 422;
 
-        // Phụ lục B SRS: Các lỗi 400 Bad Request
-        if ($errors->has('deadline') || $errors->has('salary_min')) {
+        // Phụ lục B SRS: Các lỗi liên quan đến deadline và salary trả 400 Bad Request
+        if ($errors->has('deadline') || $errors->has('salary_min') || $errors->has('salary_max')) {
             $statusCode = 400;
         }
 

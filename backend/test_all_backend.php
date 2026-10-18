@@ -274,10 +274,36 @@ $respEmp = $app->handle($reqEmp);
 assertTest("3.3 Nhà tuyển dụng cập nhật hồ sơ công ty (/api/employer/company)", $respEmp->getStatusCode() === 200);
 
 // -------------------------------------------------------------------------
-// 4. MODULE CORE VIỆC LÀM & TÌM KIẾM, BỘ LỌC
+// 4. MODULE CORE VIỆC LÀM & QUẢN LÝ VÒNG ĐỜI TIN TUYỂN DỤNG (FR-04)
 // -------------------------------------------------------------------------
-echo "\n4. KIỂM THỬ CORE VIỆC LÀM (JOBS CRUD & BỘ LỌC):\n";
-// Test 4.1: Đăng tin với hạn nộp ở quá khứ -> 400
+echo "\n4. KIỂM THỬ CORE VIỆC LÀM (FR-04 CRUD & VÒNG ĐỜI TIN TUYỂN DỤNG):\n";
+
+// Test 4.1: Chặn đăng tin khi chưa cập nhật đầy đủ thông tin công ty (FR-04.1)
+Auth::forgetGuards();
+$empCompany = $employer->company;
+$oldDesc = $empCompany->description;
+$empCompany->update(['description' => '']); // Tạm thời để trống description để test
+$reqIncompleteJob = Request::create('/api/employer/jobs', 'POST', [
+    'title' => 'Tuyển dụng Developer Kiểm tra Hồ sơ',
+    'category_id' => 1,
+    'job_level' => 'Middle',
+    'quantity' => 1,
+    'job_type' => 'full_time',
+    'city' => 'Hà Nội',
+    'deadline' => now()->addDays(10)->toDateString(),
+    'description' => 'Mô tả',
+    'requirements' => 'Yêu cầu',
+    'skills' => [1, 2],
+]);
+$reqIncompleteJob->headers->set('Accept', 'application/json');
+$reqIncompleteJob->headers->set('Authorization', 'Bearer ' . $empToken);
+$respIncomplete = $app->handle($reqIncompleteJob);
+$incompleteJson = json_decode($respIncomplete->getContent(), true);
+assertTest("4.1 Chưa cập nhật đủ hồ sơ công ty trả 400 (FR-04.1)",
+    $respIncomplete->getStatusCode() === 400 && str_contains($incompleteJson['message'] ?? '', 'Vui lòng cập nhật đầy đủ thông tin công ty'));
+$empCompany->update(['description' => $oldDesc]); // Khôi phục lại thông tin công ty
+
+// Test 4.2: Đăng tin với hạn nộp ở quá khứ -> 400 (FR-04.3)
 Auth::forgetGuards();
 $reqPastJob = Request::create('/api/employer/jobs', 'POST', [
     'title' => 'Tuyển dụng Developer Lỗi Hạn Nộp',
@@ -294,9 +320,32 @@ $reqPastJob = Request::create('/api/employer/jobs', 'POST', [
 $reqPastJob->headers->set('Accept', 'application/json');
 $reqPastJob->headers->set('Authorization', 'Bearer ' . $empToken);
 $respPast = $app->handle($reqPastJob);
-assertTest("4.1 Hạn nộp hồ sơ ở quá khứ trả 400 'Hạn nộp hồ sơ phải sau ngày hôm nay'", $respPast->getStatusCode() === 400);
+assertTest("4.2 Hạn nộp hồ sơ ở quá khứ trả 400 'Hạn nộp hồ sơ phải sau ngày hôm nay' (FR-04.3)", $respPast->getStatusCode() === 400);
 
-// Test 4.2: Đăng tin hợp lệ -> 201
+// Test 4.3: Nhập mức lương min > max trả 400 (FR-04.4)
+Auth::forgetGuards();
+$reqSalaryErr = Request::create('/api/employer/jobs', 'POST', [
+    'title' => 'Tuyển dụng Developer Lỗi Mức Lương',
+    'category_id' => 1,
+    'job_level' => 'Middle',
+    'quantity' => 1,
+    'job_type' => 'full_time',
+    'city' => 'Hà Nội',
+    'deadline' => now()->addDays(20)->toDateString(),
+    'salary_min' => 30000000,
+    'salary_max' => 20000000,
+    'description' => 'Mô tả',
+    'requirements' => 'Yêu cầu',
+    'skills' => [1, 2],
+]);
+$reqSalaryErr->headers->set('Accept', 'application/json');
+$reqSalaryErr->headers->set('Authorization', 'Bearer ' . $empToken);
+$respSalaryErr = $app->handle($reqSalaryErr);
+$salErrJson = json_decode($respSalaryErr->getContent(), true);
+assertTest("4.3 Lương min > max trả 400 'Mức lương tối thiểu không được lớn hơn mức lương tối đa' (FR-04.4)",
+    $respSalaryErr->getStatusCode() === 400 && ($salErrJson['message'] ?? '') === 'Mức lương tối thiểu không được lớn hơn mức lương tối đa');
+
+// Test 4.4: Đăng tin hợp lệ (khoảng lương cụ thể) -> 201 Created & status='active' (FR-04.2 & FR-04.5)
 Auth::forgetGuards();
 $reqValidJob = Request::create('/api/employer/jobs', 'POST', [
     'title' => 'Lập Trình Viên Fullstack Laravel & NextJS',
@@ -319,21 +368,112 @@ $reqValidJob->headers->set('Authorization', 'Bearer ' . $empToken);
 $respValidJob = $app->handle($reqValidJob);
 $jobCreated = json_decode($respValidJob->getContent(), true);
 $createdJobId = $jobCreated['data']['id'] ?? 0;
-assertTest("4.2 Đăng tin tuyển dụng hợp lệ trả 201 Created", $respValidJob->getStatusCode() === 201 && $createdJobId > 0);
+$createdJobStatus = $jobCreated['data']['status'] ?? '';
+assertTest("4.4 Đăng tin tuyển dụng hợp lệ trả 201 Created & status='active' (FR-04.5)", 
+    $respValidJob->getStatusCode() === 201 && $createdJobId > 0 && $createdJobStatus === 'active');
 
-// Test 4.3: Tìm kiếm theo từ khóa & Lọc lương
+// Test 4.5: Đăng tin với Lương khởi điểm và Lương thỏa thuận (FR-04.4)
+Auth::forgetGuards();
+$reqFromSalary = Request::create('/api/employer/jobs', 'POST', [
+    'title' => 'Lập Trình Viên Backend Lương Khởi Điểm',
+    'category_id' => 1,
+    'job_level' => 'Middle',
+    'quantity' => 1,
+    'job_type' => 'full_time',
+    'city' => 'Hà Nội',
+    'deadline' => now()->addDays(30)->toDateString(),
+    'salary_type' => 'from',
+    'salary_min' => 18000000,
+    'description' => 'Mô tả chi tiết',
+    'requirements' => 'Yêu cầu chuyên môn',
+    'skills' => [1, 2],
+]);
+$reqFromSalary->headers->set('Accept', 'application/json');
+$reqFromSalary->headers->set('Authorization', 'Bearer ' . $empToken);
+$respFromSal = $app->handle($reqFromSalary);
+$fromSalJson = json_decode($respFromSal->getContent(), true);
+$fromSalDisplay = $fromSalJson['data']['salary_display'] ?? '';
+$tempJob1Id = $fromSalJson['data']['id'] ?? 0;
+
+$reqNegoSalary = Request::create('/api/employer/jobs', 'POST', [
+    'title' => 'Lập Trình Viên Frontend Lương Thỏa Thuận',
+    'category_id' => 1,
+    'job_level' => 'Senior',
+    'quantity' => 1,
+    'job_type' => 'remote',
+    'city' => 'TP.HCM',
+    'deadline' => now()->addDays(30)->toDateString(),
+    'salary_type' => 'negotiable',
+    'description' => 'Mô tả chi tiết',
+    'requirements' => 'Yêu cầu chuyên môn',
+    'skills' => [1, 3],
+]);
+$reqNegoSalary->headers->set('Accept', 'application/json');
+$reqNegoSalary->headers->set('Authorization', 'Bearer ' . $empToken);
+$respNegoSal = $app->handle($reqNegoSalary);
+$negoSalJson = json_decode($respNegoSal->getContent(), true);
+$negoSalDisplay = $negoSalJson['data']['salary_display'] ?? '';
+$tempJob2Id = $negoSalJson['data']['id'] ?? 0;
+
+assertTest("4.5 Định dạng mức lương: Lương khởi điểm 'Từ X triệu VNĐ' & Lương thỏa thuận 'Thỏa thuận' (FR-04.4)",
+    str_starts_with($fromSalDisplay, 'Từ ') && $negoSalDisplay === 'Thỏa thuận');
+
+// Dọn dẹp 2 tin phụ vừa tạo
+Job::find($tempJob1Id)?->delete();
+Job::find($tempJob2Id)?->delete();
+
+// Test 4.6: Xem trang công ty công khai (/api/companies/{id}) kèm danh sách tin active (FR-04.7)
+Auth::forgetGuards();
+$reqPublicComp = Request::create('/api/companies/' . $empCompany->id, 'GET');
+$reqPublicComp->headers->set('Accept', 'application/json');
+$respPublicComp = $app->handle($reqPublicComp);
+$pubCompJson = json_decode($respPublicComp->getContent(), true);
+$compData = $pubCompJson['data'] ?? [];
+assertTest("4.6 Xem trang công ty công khai trả 200 kèm danh sách tin đang mở (FR-04.7)",
+    $respPublicComp->getStatusCode() === 200 && !empty($compData['name']) && isset($compData['jobs']) && count($compData['jobs']) >= 1);
+
+// Test 4.7: Đóng tin tuyển dụng & Chặn ứng viên nộp hồ sơ mới (FR-04.6)
+Auth::forgetGuards();
+$reqClose = Request::create('/api/employer/jobs/' . $createdJobId . '/status', 'PATCH', ['status' => 'closed']);
+$reqClose->headers->set('Accept', 'application/json');
+$reqClose->headers->set('Authorization', 'Bearer ' . $empToken);
+$respClose = $app->handle($reqClose);
+$closeJson = json_decode($respClose->getContent(), true);
+
+Auth::forgetGuards();
+$reqApplyClosed = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', ['cover_letter' => 'Thư ứng tuyển thử nghiệm']);
+$reqApplyClosed->headers->set('Accept', 'application/json');
+$reqApplyClosed->headers->set('Authorization', 'Bearer ' . $candToken);
+$respApplyClosed = $app->handle($reqApplyClosed);
+$applyClosedJson = json_decode($respApplyClosed->getContent(), true);
+
+assertTest("4.7 Đóng tin tuyển dụng trả 200 & chặn ứng viên apply trả lỗi 422 (FR-04.6)",
+    $respClose->getStatusCode() === 200 && ($closeJson['message'] ?? '') === 'Đã đóng tin tuyển dụng' &&
+    $respApplyClosed->getStatusCode() === 422 && ($applyClosedJson['message'] ?? '') === 'Tin tuyển dụng này đã đóng hoặc đã hết hạn nộp hồ sơ');
+
+// Test 4.8: Mở lại tin tuyển dụng bất cứ lúc nào (FR-04.6)
+Auth::forgetGuards();
+$reqReopen = Request::create('/api/employer/jobs/' . $createdJobId . '/status', 'PATCH', ['status' => 'active']);
+$reqReopen->headers->set('Accept', 'application/json');
+$reqReopen->headers->set('Authorization', 'Bearer ' . $empToken);
+$respReopen = $app->handle($reqReopen);
+$reopenJson = json_decode($respReopen->getContent(), true);
+assertTest("4.8 Mở lại tin tuyển dụng thành công trả 200 'Đã mở lại tin tuyển dụng' (FR-04.6)",
+    $respReopen->getStatusCode() === 200 && ($reopenJson['message'] ?? '') === 'Đã mở lại tin tuyển dụng');
+
+// Test 4.9: Tìm kiếm theo từ khóa & Lọc lương
 $reqSearch = Request::create('/api/jobs?keyword=Laravel&salary_range=10_20', 'GET');
 $reqSearch->headers->set('Accept', 'application/json');
 $respSearch = $app->handle($reqSearch);
-assertTest("4.3 Tìm kiếm từ khóa và lọc khoảng mức lương (/api/jobs)", $respSearch->getStatusCode() === 200);
+assertTest("4.9 Tìm kiếm từ khóa và lọc khoảng mức lương (/api/jobs)", $respSearch->getStatusCode() === 200);
 
-// Test 4.4: Ứng viên lưu việc làm
+// Test 4.10: Ứng viên lưu việc làm
 Auth::forgetGuards();
 $reqSave = Request::create('/api/jobs/' . $createdJobId . '/save', 'POST');
 $reqSave->headers->set('Accept', 'application/json');
 $reqSave->headers->set('Authorization', 'Bearer ' . $candToken);
 $respSave = $app->handle($reqSave);
-assertTest("4.4 Ứng viên lưu việc làm yêu thích (/api/jobs/{id}/save)", $respSave->getStatusCode() === 200);
+assertTest("4.10 Ứng viên lưu việc làm yêu thích (/api/jobs/{id}/save)", $respSave->getStatusCode() === 200);
 
 // -------------------------------------------------------------------------
 // 5. MODULE ỨNG TUYỂN & TÍCH HỢP GEMINI AI

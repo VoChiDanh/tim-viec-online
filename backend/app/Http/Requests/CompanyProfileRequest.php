@@ -13,6 +13,19 @@ class CompanyProfileRequest extends FormRequest
         return $this->user() && $this->user()->isEmployer();
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Hỗ trợ alias size -> company_size
+        if ($this->has('size') && !$this->has('company_size')) {
+            $this->merge(['company_size' => $this->input('size')]);
+        }
+
+        // Tự động chuẩn hóa protocol website nếu người dùng chỉ nhập domain
+        if ($this->filled('website') && !preg_match('~^(?:f|ht)tps?://~i', (string) $this->input('website'))) {
+            $this->merge(['website' => 'https://' . $this->input('website')]);
+        }
+    }
+
     public function rules(): array
     {
         return [

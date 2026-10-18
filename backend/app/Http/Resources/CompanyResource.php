@@ -27,11 +27,12 @@ class CompanyResource extends JsonResource
             'logo' => $logoUrl,
             'website' => $this->website,
             'company_size' => $this->company_size,
+            'size' => $this->company_size, // Alias cho FR-04.7
             'address' => $this->address,
             'city' => $this->city,
             'description' => $this->description,
             'active_jobs_count' => $this->when(isset($this->jobs_count), $this->jobs_count),
-            'jobs' => $this->whenLoaded('jobs'),
+            'jobs' => JobResource::collection($this->whenLoaded('jobs')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'employer' => $this->whenLoaded('user', function () {
