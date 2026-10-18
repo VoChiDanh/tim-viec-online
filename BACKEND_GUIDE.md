@@ -604,13 +604,14 @@ erDiagram
 | `PATCH` | `/api/employer/applications/{id}/status` | Employer | Duyệt trạng thái (`accepted`/`rejected`) | `status` |
 | `POST` | `/api/applications/{id}/ai-analyze` | Auth | Kích hoạt AI phân tích lại đơn | None |
 
-### 7.6. Module Nhắn tin Realtime & Thông báo
+### 7.6. Module Nhắn tin Realtime & Thông báo (FR-08, FR-10)
 | Method | Endpoint | Quyền | Mục đích | Body / Params |
 |---|---|---|---|---|
-| `GET` | `/api/conversations` | Auth | Danh sách phòng chat của user | None |
-| `POST` | `/api/conversations` | Auth | Mở cuộc trò chuyện mới giữa NTD và Ứng viên | `job_id`, `candidate_id` |
-| `GET` | `/api/conversations/{id}/messages` | Auth | Lịch sử tin nhắn theo phòng | `?page=&limit=` |
-| `POST` | `/api/conversations/{id}/messages` | Auth | Gửi tin nhắn & bắn sự kiện Reverb | `message` (1 - 1000 ký tự) |
+| `GET` | `/api/conversations` | Auth | Danh sách phòng chat của user kèm nhãn phụ tin đóng (FR-08.6) | None |
+| `POST` | `/api/conversations` | Auth | Mở phòng chat (chỉ khi ứng viên đã nộp hồ sơ vào tin, FR-08.1) | `job_id`, `partner_id` |
+| `GET` | `/api/conversations/{id}/messages` | Thành viên | Lịch sử tin nhắn theo phòng (auto 'Đã xem', FR-08.4, bảo mật FR-08.5) | `?page=&per_page=` |
+| `POST` | `/api/conversations/{id}/messages` | Thành viên | Gửi tin nhắn văn bản (1-1000 chars) / hình ảnh (<= 5MB) & broadcast Reverb (FR-08.2, FR-08.3) | `message` (1 - 1000 ký tự), `image` (file ảnh JPEG, PNG, WEBP <= 5MB) |
+| `PATCH` | `/api/conversations/{id}/read` | Thành viên | Đánh dấu tất cả tin nhắn trong phòng là "Đã xem" (FR-08.4) | None |
 | `GET` | `/api/notifications` | Auth | Danh sách thông báo in-app | None |
 | `PATCH` | `/api/notifications/{id}/read` | Auth | Đánh dấu 1 thông báo đã đọc | None |
 | `PATCH` | `/api/notifications/read-all` | Auth | Đánh dấu tất cả thông báo đã đọc | None |

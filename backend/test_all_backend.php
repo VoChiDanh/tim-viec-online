@@ -594,10 +594,45 @@ assertTest("5.9 Ứng viên xem lịch sử ứng tuyển & lọc trạng thái 
 
 
 // -------------------------------------------------------------------------
-// 6. MODULE NHẮN TIN REALTIME & THÔNG BÁO IN-APP
+// 6. MODULE NHẮN TIN REALTIME & THÔNG BÁO IN-APP (FR-08)
 // -------------------------------------------------------------------------
-echo "\n6. KIỂM THỬ REALTIME CHAT & THÔNG BÁO IN-APP:\n";
-// Test 6.1: Mở phòng chat
+echo "\n6. KIỂM THỬ REALTIME CHAT & THÔNG BÁO IN-APP (FR-08):\n";
+
+// Test 6.1: Chặn tạo phòng chat khi ứng viên chưa nộp đơn vào tin (FR-08.1)
+Auth::forgetGuards();
+$dummyJob = Job::create([
+    'company_id' => $employer->company->id,
+    'title' => 'Vị trí kiểm thử chưa có đơn',
+    'category_id' => 1,
+    'city' => 'Hà Nội',
+    'address' => 'Hà Nội',
+    'job_level' => 'Junior',
+    'quantity' => 1,
+    'job_type' => 'full_time',
+    'salary_min' => 10000000,
+    'salary_max' => 15000000,
+    'is_negotiable' => 0,
+    'deadline' => now()->addDays(20)->toDateString(),
+    'description' => 'Mô tả',
+    'requirements' => 'Yêu cầu',
+    'benefits' => '',
+    'status' => 'active',
+]);
+
+$reqConvNoApp = Request::create('/api/conversations', 'POST', [
+    'job_id' => $dummyJob->id,
+    'partner_id' => $tempUser->id,
+]);
+$reqConvNoApp->headers->set('Accept', 'application/json');
+$reqConvNoApp->headers->set('Authorization', 'Bearer ' . $empToken);
+$respConvNoApp = $app->handle($reqConvNoApp);
+$convNoAppJson = json_decode($respConvNoApp->getContent(), true);
+assertTest("6.1 Chặn tạo phòng chat khi ứng viên chưa nộp đơn trả 400 (FR-08.1)",
+    $respConvNoApp->getStatusCode() === 400 &&
+    ($convNoAppJson['message'] ?? '') === 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này');
+$dummyJob->delete();
+
+// Test 6.2: Khởi tạo phòng chat thành công giữa NTD và Ứng viên đã nộp đơn (FR-08.1)
 Auth::forgetGuards();
 $reqConv = Request::create('/api/conversations', 'POST', [
     'job_id' => $createdJobId,
@@ -608,9 +643,36 @@ $reqConv->headers->set('Authorization', 'Bearer ' . $empToken);
 $respConv = $app->handle($reqConv);
 $convData = json_decode($respConv->getContent(), true);
 $convId = $convData['data']['id'] ?? 0;
-assertTest("6.1 Mở cuộc trò chuyện 1-1 giữa NTD & Ứng viên (/api/conversations)", $respConv->getStatusCode() === 200 && $convId > 0);
+assertTest("6.2 Khởi tạo phòng chat thành công giữa NTD & Ứng viên đã nộp đơn (FR-08.1)",
+    $respConv->getStatusCode() === 200 && $convId > 0);
 
-// Test 6.2: Gửi tin nhắn
+// Test 6.3: Chặn gửi tin nhắn rỗng toàn dấu cách hoặc enter -> 400 (FR-08.2)
+Auth::forgetGuards();
+$reqEmptyMsg = Request::create('/api/conversations/' . $convId . '/messages', 'POST', [
+    'message' => "   \n\t   ",
+]);
+$reqEmptyMsg->headers->set('Accept', 'application/json');
+$reqEmptyMsg->headers->set('Authorization', 'Bearer ' . $empToken);
+$respEmptyMsg = $app->handle($reqEmptyMsg);
+$emptyMsgJson = json_decode($respEmptyMsg->getContent(), true);
+assertTest("6.3 Chặn gửi tin nhắn rỗng toàn dấu cách/enter trả 400 (FR-08.2)",
+    $respEmptyMsg->getStatusCode() === 400 &&
+    ($emptyMsgJson['message'] ?? '') === 'Nội dung tin nhắn không được để trống hoặc chỉ chứa khoảng trắng');
+
+// Test 6.4: Chặn gửi tin nhắn vượt quá 1.000 ký tự -> 400 (FR-08.2)
+Auth::forgetGuards();
+$reqLongMsg = Request::create('/api/conversations/' . $convId . '/messages', 'POST', [
+    'message' => str_repeat('A', 1001),
+]);
+$reqLongMsg->headers->set('Accept', 'application/json');
+$reqLongMsg->headers->set('Authorization', 'Bearer ' . $empToken);
+$respLongMsg = $app->handle($reqLongMsg);
+$longMsgJson = json_decode($respLongMsg->getContent(), true);
+assertTest("6.4 Chặn gửi tin nhắn vượt quá 1.000 ký tự trả 400 (FR-08.2)",
+    $respLongMsg->getStatusCode() === 400 &&
+    ($longMsgJson['message'] ?? '') === 'Nội dung tin nhắn không được vượt quá 1.000 ký tự');
+
+// Test 6.5: Gửi tin nhắn văn bản hợp lệ (1-1.000 ký tự) trả 201 Created & Broadcast Reverb (FR-08.2 & FR-08.3)
 Auth::forgetGuards();
 $reqSend = Request::create('/api/conversations/' . $convId . '/messages', 'POST', [
     'message' => 'Chào bạn, chúng tôi muốn mời bạn phỏng vấn trực tiếp.',
@@ -618,16 +680,105 @@ $reqSend = Request::create('/api/conversations/' . $convId . '/messages', 'POST'
 $reqSend->headers->set('Accept', 'application/json');
 $reqSend->headers->set('Authorization', 'Bearer ' . $empToken);
 $respSend = $app->handle($reqSend);
-assertTest("6.2 Gửi tin nhắn thành công kích hoạt Broadcast Event (201 Created)", $respSend->getStatusCode() === 201);
+$sendData = json_decode($respSend->getContent(), true);
+$msgData = $sendData['data'] ?? [];
+assertTest("6.5 Gửi tin nhắn văn bản thành công kích hoạt Broadcast Event (201 Created) (FR-08.2 & FR-08.3)",
+    $respSend->getStatusCode() === 201 &&
+    ($msgData['sender_name'] ?? '') === $employer->name &&
+    ($msgData['message'] ?? '') === 'Chào bạn, chúng tôi muốn mời bạn phỏng vấn trực tiếp.' &&
+    ($msgData['status_display'] ?? '') === 'Đã gửi' &&
+    preg_match('/^\d{2}:\d{2}$/', $msgData['time_display'] ?? ''));
 
-// Test 6.3: Kiểm tra thông báo in-app
+// Test 6.6: Gửi tin nhắn kèm hình ảnh hợp lệ (FR-08.2 hỗ trợ gửi hình)
+Auth::forgetGuards();
+$fakeImage = UploadedFile::fake()->create('interview_invitation.png', 300, 'image/png');
+$reqSendImage = Request::create('/api/conversations/' . $convId . '/messages', 'POST', [
+    'message' => 'Sơ đồ địa chỉ văn phòng phỏng vấn',
+], [], ['image' => $fakeImage]);
+$reqSendImage->headers->set('Accept', 'application/json');
+$reqSendImage->headers->set('Authorization', 'Bearer ' . $empToken);
+$respSendImage = $app->handle($reqSendImage);
+$sendImageJson = json_decode($respSendImage->getContent(), true);
+$imgData = $sendImageJson['data'] ?? [];
+assertTest("6.6 Hỗ trợ gửi tin nhắn đính kèm hình ảnh trả 201 kèm image_url (FR-08.2)",
+    $respSendImage->getStatusCode() === 201 &&
+    !empty($imgData['image_url']) &&
+    ($imgData['message'] ?? '') === 'Sơ đồ địa chỉ văn phòng phỏng vấn');
+
+// Test 6.7: Đối phương mở phòng chat tự động chuyển sang 'Đã xem' (is_read=1) & HH:mm (FR-08.4)
+Auth::forgetGuards();
+$reqGetMsgs = Request::create('/api/conversations/' . $convId . '/messages', 'GET');
+$reqGetMsgs->headers->set('Accept', 'application/json');
+$reqGetMsgs->headers->set('Authorization', 'Bearer ' . $candToken);
+$respGetMsgs = $app->handle($reqGetMsgs);
+$getMsgsJson = json_decode($respGetMsgs->getContent(), true);
+$msgsList = $getMsgsJson['data'] ?? [];
+$firstMsg = $msgsList[0] ?? [];
+assertTest("6.7 Mở xem tin nhắn: tự động cập nhật trạng thái 'Đã xem' & thời gian HH:mm (FR-08.4)",
+    $respGetMsgs->getStatusCode() === 200 &&
+    count($msgsList) >= 2 &&
+    ($firstMsg['is_read'] ?? false) === true &&
+    ($firstMsg['status_display'] ?? '') === 'Đã xem' &&
+    preg_match('/^\d{2}:\d{2}$/', $firstMsg['time_display'] ?? ''));
+
+// Test 6.8: Bảo mật: Người ngoài không phải thành viên bị từ chối 403 (FR-08.5)
+Auth::forgetGuards();
+$outsider = User::where('role', 'candidate')->where('id', '!=', $tempUser->id)->first();
+$outsiderToken = $outsider ? $outsider->createToken('test_outsider')->plainTextToken : '';
+
+$reqOutsiderGet = Request::create('/api/conversations/' . $convId . '/messages', 'GET');
+$reqOutsiderGet->headers->set('Accept', 'application/json');
+$reqOutsiderGet->headers->set('Authorization', 'Bearer ' . $outsiderToken);
+$respOutsiderGet = $app->handle($reqOutsiderGet);
+
+$reqOutsiderPost = Request::create('/api/conversations/' . $convId . '/messages', 'POST', ['message' => 'Xem trộm']);
+$reqOutsiderPost->headers->set('Accept', 'application/json');
+$reqOutsiderPost->headers->set('Authorization', 'Bearer ' . $outsiderToken);
+$respOutsiderPost = $app->handle($reqOutsiderPost);
+
+assertTest("6.8 Cơ chế bảo mật: Người ngoài không thể xem hoặc gửi tin vào phòng chat trả 403 (FR-08.5)",
+    $respOutsiderGet->getStatusCode() === 403 &&
+    $respOutsiderPost->getStatusCode() === 403);
+
+// Test 6.9: Duy trì liên lạc bình thường khi tin đóng kèm nhãn phụ 'Tin tuyển dụng đã đóng' (FR-08.6)
+Auth::forgetGuards();
+$createdJob = Job::find($createdJobId);
+$createdJob->update(['status' => 'closed']);
+
+// Ứng viên gửi phản hồi cho NTD khi tin đã đóng
+$reqSendClosed = Request::create('/api/conversations/' . $convId . '/messages', 'POST', [
+    'message' => 'Dạ em cảm ơn quý công ty, em sẽ đến đúng giờ phỏng vấn ạ.',
+]);
+$reqSendClosed->headers->set('Accept', 'application/json');
+$reqSendClosed->headers->set('Authorization', 'Bearer ' . $candToken);
+$respSendClosed = $app->handle($reqSendClosed);
+
+// NTD mở xem danh sách phòng chat kiểm tra nhãn phụ
+Auth::forgetGuards();
+$reqConvList = Request::create('/api/conversations', 'GET');
+$reqConvList->headers->set('Accept', 'application/json');
+$reqConvList->headers->set('Authorization', 'Bearer ' . $empToken);
+$respConvList = $app->handle($reqConvList);
+$convListJson = json_decode($respConvList->getContent(), true);
+$convItem = collect($convListJson['data'] ?? [])->firstWhere('id', $convId);
+
+assertTest("6.9 Duy trì liên lạc khi tin đóng trả 201 & kèm nhãn 'Tin tuyển dụng đã đóng' (FR-08.6)",
+    $respSendClosed->getStatusCode() === 201 &&
+    ($convItem['job_status'] ?? '') === 'closed' &&
+    ($convItem['job_notice'] ?? '') === 'Tin tuyển dụng đã đóng');
+
+// Mở lại tin để các module sau hoạt động bình thường
+$createdJob->update(['status' => 'active']);
+
+// Test 6.10: Kiểm tra thông báo in-app
 Auth::forgetGuards();
 $reqNotify = Request::create('/api/notifications', 'GET');
 $reqNotify->headers->set('Accept', 'application/json');
 $reqNotify->headers->set('Authorization', 'Bearer ' . $candToken);
 $respNotify = $app->handle($reqNotify);
 $notifyData = json_decode($respNotify->getContent(), true);
-assertTest("6.3 Nhận thông báo in-app kèm unread badge count (/api/notifications)", $respNotify->getStatusCode() === 200 && ($notifyData['unread_count'] ?? 0) >= 1);
+assertTest("6.10 Nhận thông báo in-app kèm unread badge count (/api/notifications)",
+    $respNotify->getStatusCode() === 200 && ($notifyData['unread_count'] ?? 0) >= 1);
 
 // -------------------------------------------------------------------------
 // 7. MODULE QUẢN TRỊ VIÊN ADMIN DASHBOARD

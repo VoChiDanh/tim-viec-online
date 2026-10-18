@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\MessageSent;
+use App\Events\MessagesRead;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\Conversation;
@@ -16,7 +17,7 @@ use Illuminate\Http\Request;
 class ChatController extends Controller
 {
     /**
-     * Danh sách phòng trò chuyện của người dùng hiện tại (FR-08.1)
+     * Danh sách phòng trò chuyện của người dùng hiện tại (FR-08.1, FR-08.4, FR-08.6)
      */
     public function index(Request $request): JsonResponse
     {
@@ -49,11 +50,31 @@ class ChatController extends Controller
 
             $lastMsg = $conv->messages->first();
 
+            // Đếm số tin nhắn chưa đọc từ đối phương
+            $unreadCount = Message::where('conversation_id', $conv->id)
+                ->where('sender_id', '!=', $userId)
+                ->where('is_read', 0)
+                ->count();
+
+            // FR-04.6 & FR-08.6: Duy trì liên lạc khi tin đóng kèm nhãn thông báo phụ
+            $isClosed = $conv->job?->status === 'closed';
+            $isExpired = $conv->job?->deadline && $conv->job->deadline->isPast();
+            $jobNotice = null;
+            if ($isClosed) {
+                $jobNotice = 'Tin tuyển dụng đã đóng';
+            } elseif ($isExpired) {
+                $jobNotice = 'Tin tuyển dụng đã hết hạn';
+            }
+
             return [
                 'id' => $conv->id,
                 'job_id' => $conv->job_id,
                 'job_title' => $conv->job?->title,
-                'job_status' => $conv->job?->status, // Để hiển thị nhãn phụ "Tin tuyển dụng đã đóng" theo FR-04.6 & FR-08.6
+                'job_status' => $conv->job?->status,
+                'is_closed' => $isClosed,
+                'is_expired' => $isExpired,
+                'job_notice' => $jobNotice,
+                'unread_count' => $unreadCount,
                 'partner' => [
                     'id' => $partner?->id,
                     'name' => $partnerName,
@@ -64,8 +85,11 @@ class ChatController extends Controller
                     'id' => $lastMsg->id,
                     'sender_id' => $lastMsg->sender_id,
                     'message' => $lastMsg->message,
+                    'image_url' => $lastMsg->image_url,
                     'is_read' => (bool) $lastMsg->is_read,
-                    'time_display' => $lastMsg->created_at?->format('H:i'),
+                    'read_at' => $lastMsg->read_at?->toIso8601String(),
+                    'status_display' => $lastMsg->status_display,
+                    'time_display' => $lastMsg->time_display ?? $lastMsg->created_at?->format('H:i'),
                     'created_at' => $lastMsg->created_at?->toIso8601String(),
                 ] : null,
                 'last_message_at' => $conv->last_message_at?->toIso8601String(),
@@ -92,36 +116,84 @@ class ChatController extends Controller
             'partner_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
-        $job = Job::with('company')->find($request->job_id);
+        $job = Job::with('company.user')->find($request->job_id);
 
-        if ($user->isCandidate()) {
-            $candidateId = $user->id;
-            $employerId = $request->partner_id;
-        } else {
-            $employerId = $user->id;
-            $candidateId = $request->partner_id;
-        }
-
-        // FR-08.1: Kiểm tra ứng viên đã nộp đơn vào công việc này chưa
-        $candidateUser = User::find($candidateId);
-        $candidateProfile = $candidateUser?->candidateProfile;
-
-        if (!$candidateProfile) {
+        if (!$job) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy hồ sơ của ứng viên',
+                'message' => 'Công việc không tồn tại',
             ], 404);
         }
 
-        $hasApplication = Application::where('job_id', $job->id)
-            ->where('candidate_id', $candidateProfile->id)
-            ->exists();
+        if ($user->isCandidate()) {
+            $candidateId = $user->id;
+            $employerId = (int) $request->partner_id;
 
-        if (!$hasApplication) {
+            // Kiểm tra partner_id có phải là NTD sở hữu tin này không
+            if (!$job->company || (int) $job->company->user_id !== $employerId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nhà tuyển dụng không quản lý tin tuyển dụng này',
+                ], 400);
+            }
+
+            $candidateProfile = $user->candidateProfile;
+            if (!$candidateProfile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng hoàn thiện hồ sơ ứng viên trước khi nhắn tin',
+                ], 400);
+            }
+
+            // FR-08.1: Kiểm tra ứng viên đã nộp đơn vào tin tuyển dụng này chưa
+            $hasApplication = Application::where('job_id', $job->id)
+                ->where('candidate_id', $candidateProfile->id)
+                ->where('status', '!=', 'withdrawn')
+                ->exists();
+
+            if (!$hasApplication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này',
+                ], 400);
+            }
+        } elseif ($user->isEmployer()) {
+            $employerId = $user->id;
+            $candidateId = (int) $request->partner_id;
+
+            // Kiểm tra NTD có phải là chủ sở hữu tin này không
+            if (!$job->company || (int) $job->company->user_id !== $employerId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền quản lý tin tuyển dụng này',
+                ], 403);
+            }
+
+            $candidateUser = User::with('candidateProfile')->find($candidateId);
+            if (!$candidateUser || !$candidateUser->isCandidate() || !$candidateUser->candidateProfile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy hồ sơ của ứng viên',
+                ], 404);
+            }
+
+            // FR-08.1: Kiểm tra ứng viên đã nộp đơn vào tin tuyển dụng này chưa
+            $hasApplication = Application::where('job_id', $job->id)
+                ->where('candidate_id', $candidateUser->candidateProfile->id)
+                ->where('status', '!=', 'withdrawn')
+                ->exists();
+
+            if (!$hasApplication) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này',
+                ], 400);
+            }
+        } else {
             return response()->json([
                 'success' => false,
-                'message' => 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này',
-            ], 400);
+                'message' => 'Chỉ Nhà tuyển dụng và Ứng viên mới có thể tham gia cuộc trò chuyện',
+            ], 403);
         }
 
         $conversation = Conversation::firstOrCreate([
@@ -143,12 +215,12 @@ class ChatController extends Controller
     }
 
     /**
-     * Xem lịch sử tin nhắn trong phòng chat (FR-08.4)
+     * Xem lịch sử tin nhắn trong phòng chat (FR-08.4, FR-08.5, FR-08.6)
      */
     public function messages(Request $request, $id): JsonResponse
     {
         $userId = $request->user()->id;
-        $conversation = Conversation::find($id);
+        $conversation = Conversation::with(['job', 'candidate.candidateProfile', 'employer.company'])->find($id);
 
         if (!$conversation) {
             return response()->json([
@@ -157,42 +229,82 @@ class ChatController extends Controller
             ], 404);
         }
 
-        // FR-08.5: Kiểm tra quyền bảo mật
+        // FR-08.5: Kiểm tra quyền bảo mật - chỉ thành viên mới được xem
         if ((int) $userId !== (int) $conversation->candidate_id && (int) $userId !== (int) $conversation->employer_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền truy cập vào chức năng này',
+                'message' => 'Bạn không có quyền truy cập vào cuộc trò chuyện này',
             ], 403);
         }
 
-        // Đánh dấu tất cả tin nhắn gửi cho mình là "Đã xem" (is_read = 1) theo FR-08.4
-        Message::where('conversation_id', $conversation->id)
+        // FR-08.4: Đánh dấu tất cả tin nhắn đối phương gửi cho mình là "Đã xem" (is_read = 1, read_at = now())
+        $unreadMessagesCount = Message::where('conversation_id', $conversation->id)
             ->where('sender_id', '!=', $userId)
             ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->update([
+                'is_read' => 1,
+                'read_at' => now(),
+            ]);
+
+        if ($unreadMessagesCount > 0) {
+            try {
+                broadcast(new MessagesRead($conversation->id, $userId))->toOthers();
+            } catch (\Throwable $e) {
+                // Tiếp tục luồng nếu Reverb socket chưa kết nối
+            }
+        }
+
+        $perPage = (int) $request->input('per_page', 50);
+        $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 50;
 
         $messages = Message::where('conversation_id', $conversation->id)
-            ->with('sender')
+            ->with(['sender.candidateProfile', 'sender.company'])
             ->orderBy('created_at', 'asc')
-            ->paginate(50);
+            ->paginate($perPage);
 
         $formatted = $messages->map(function ($msg) {
+            $senderAvatar = $msg->sender?->isCandidate()
+                ? ($msg->sender?->candidateProfile?->avatar ? asset('storage/' . $msg->sender->candidateProfile->avatar) : null)
+                : ($msg->sender?->company?->logo ? asset('storage/' . $msg->sender->company->logo) : null);
+
             return [
                 'id' => $msg->id,
                 'conversation_id' => $msg->conversation_id,
                 'sender_id' => $msg->sender_id,
                 'sender_name' => $msg->sender?->name,
+                'sender_avatar_url' => $senderAvatar,
                 'message' => $msg->message,
+                'image_url' => $msg->image_url,
                 'is_read' => (bool) $msg->is_read,
-                'time_display' => $msg->created_at?->format('H:i'),
+                'read_at' => $msg->read_at?->toIso8601String(),
+                'status_display' => $msg->status_display, // "Đã xem" hoặc "Đã gửi" (FR-08.4)
+                'time_display' => $msg->time_display ?? $msg->created_at?->format('H:i'), // Định dạng HH:mm (FR-08.4)
                 'created_at' => $msg->created_at?->toIso8601String(),
             ];
         });
+
+        $isClosed = $conversation->job?->status === 'closed';
+        $isExpired = $conversation->job?->deadline && $conversation->job->deadline->isPast();
+        $jobNotice = null;
+        if ($isClosed) {
+            $jobNotice = 'Tin tuyển dụng đã đóng';
+        } elseif ($isExpired) {
+            $jobNotice = 'Tin tuyển dụng đã hết hạn';
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Lấy lịch sử tin nhắn thành công',
             'data' => $formatted,
+            'conversation' => [
+                'id' => $conversation->id,
+                'job_id' => $conversation->job_id,
+                'job_title' => $conversation->job?->title,
+                'job_status' => $conversation->job?->status,
+                'is_closed' => $isClosed,
+                'is_expired' => $isExpired,
+                'job_notice' => $jobNotice, // FR-08.6: Kèm nhãn thông báo phụ
+            ],
             'meta' => [
                 'current_page' => $messages->currentPage(),
                 'last_page' => $messages->lastPage(),
@@ -203,7 +315,7 @@ class ChatController extends Controller
     }
 
     /**
-     * Gửi tin nhắn mới & Phát Broadcast Realtime (FR-08.2 - FR-08.4)
+     * Gửi tin nhắn mới & Phát Broadcast Realtime (FR-08.2, FR-08.3, FR-08.4, FR-08.5, FR-08.6)
      */
     public function sendMessage(Request $request, $id): JsonResponse
     {
@@ -217,42 +329,67 @@ class ChatController extends Controller
             ], 404);
         }
 
-        // FR-08.5: Kiểm tra quyền
+        // FR-08.5: Kiểm tra quyền bảo mật - chỉ thành viên mới được gửi tin nhắn
         if ((int) $user->id !== (int) $conversation->candidate_id && (int) $user->id !== (int) $conversation->employer_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền truy cập vào chức năng này',
+                'message' => 'Bạn không có quyền truy cập vào cuộc trò chuyện này',
             ], 403);
         }
 
-        // FR-08.2: Ràng buộc tin nhắn 1 đến 1.000 ký tự, không rỗng dấu cách
-        $rawMessage = (string) $request->input('message');
-        $trimmed = trim($rawMessage);
+        // FR-08.2: Hỗ trợ gửi tin nhắn văn bản (1 đến 1.000 ký tự) và gửi hình ảnh
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+            if (!in_array($file->getMimeType(), $allowedMimes) || $file->getSize() > 5 * 1024 * 1024) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hình ảnh đính kèm phải có định dạng JPEG, PNG, GIF hoặc WEBP và dung lượng không quá 5MB',
+                ], 400);
+            }
+            $imagePath = $file->store('chat_images', 'public');
+        }
 
-        if (mb_strlen($trimmed) < 1 || mb_strlen($trimmed) > 1000) {
+        $rawMessage = $request->input('message');
+        $trimmed = $rawMessage !== null ? trim((string) $rawMessage) : '';
+
+        // Không có ảnh và tin nhắn rỗng toàn khoảng trắng/enter (FR-08.2)
+        if (!$imagePath && mb_strlen($trimmed) === 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nội dung tin nhắn phải từ 1 đến 1.000 ký tự và không được để trống',
+                'message' => 'Nội dung tin nhắn không được để trống hoặc chỉ chứa khoảng trắng',
             ], 400);
         }
+
+        if (mb_strlen($trimmed) > 1000) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nội dung tin nhắn không được vượt quá 1.000 ký tự',
+            ], 400);
+        }
+
+        $messageContent = mb_strlen($trimmed) > 0 ? $trimmed : null;
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $user->id,
-            'message' => $trimmed,
+            'message' => $messageContent,
+            'image_path' => $imagePath,
             'is_read' => 0,
+            'read_at' => null,
         ]);
 
-        // Cập nhật last_message_at cho phòng chat
+        // Cập nhật last_message_at cho phòng chat (FR-08.6: duy trì phòng chat hoạt động bình thường kể cả khi tin đóng)
         $conversation->update([
             'last_message_at' => now(),
         ]);
 
-        // Kích hoạt Broadcast WebSocket Reverb
+        // Kích hoạt Broadcast WebSocket Reverb trong thời gian thực < 1s (FR-08.3)
         try {
             broadcast(new MessageSent($message))->toOthers();
         } catch (\Throwable $e) {
-            // Không làm ngắt luồng API nếu Reverb daemon chưa chạy
+            // Không làm gián đoạn luồng API nếu Reverb daemon chưa bật
         }
 
         // FR-10: Gửi thông báo in-app cho người nhận
@@ -260,10 +397,11 @@ class ChatController extends Controller
             ? $conversation->employer_id
             : $conversation->candidate_id;
 
+        $previewText = $messageContent ?: '[Hình ảnh đính kèm]';
         Notification::create([
             'user_id' => $receiverId,
             'title' => 'Tin nhắn mới từ ' . $user->name,
-            'content' => mb_substr($trimmed, 0, 100),
+            'content' => mb_substr($previewText, 0, 100),
             'type' => 'new_message',
             'data' => [
                 'conversation_id' => $conversation->id,
@@ -280,10 +418,61 @@ class ChatController extends Controller
                 'sender_id' => $message->sender_id,
                 'sender_name' => $user->name,
                 'message' => $message->message,
+                'image_url' => $message->image_url,
                 'is_read' => (bool) $message->is_read,
-                'time_display' => $message->created_at?->format('H:i'),
+                'read_at' => $message->read_at?->toIso8601String(),
+                'status_display' => $message->status_display,
+                'time_display' => $message->time_display ?? $message->created_at?->format('H:i'),
                 'created_at' => $message->created_at?->toIso8601String(),
             ],
         ], 201);
+    }
+
+    /**
+     * Đánh dấu tất cả tin nhắn trong phòng chat là "Đã xem" (FR-08.4)
+     */
+    public function markAsRead(Request $request, $id): JsonResponse
+    {
+        $userId = $request->user()->id;
+        $conversation = Conversation::find($id);
+
+        if (!$conversation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cuộc trò chuyện không tồn tại',
+            ], 404);
+        }
+
+        // FR-08.5: Kiểm tra quyền bảo mật
+        if ((int) $userId !== (int) $conversation->candidate_id && (int) $userId !== (int) $conversation->employer_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền truy cập vào cuộc trò chuyện này',
+            ], 403);
+        }
+
+        $updated = Message::where('conversation_id', $conversation->id)
+            ->where('sender_id', '!=', $userId)
+            ->where('is_read', 0)
+            ->update([
+                'is_read' => 1,
+                'read_at' => now(),
+            ]);
+
+        if ($updated > 0) {
+            try {
+                broadcast(new MessagesRead($conversation->id, $userId))->toOthers();
+            } catch (\Throwable $e) {
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã đánh dấu đã xem tất cả tin nhắn',
+            'data' => [
+                'conversation_id' => $conversation->id,
+                'updated_count' => $updated,
+            ],
+        ], 200);
     }
 }

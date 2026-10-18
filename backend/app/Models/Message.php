@@ -19,7 +19,15 @@ class Message extends Model
         'conversation_id',
         'sender_id',
         'message',
+        'image_path',
         'is_read',
+        'read_at',
+    ];
+
+    protected $appends = [
+        'image_url',
+        'time_display',
+        'status_display',
     ];
 
     protected function casts(): array
@@ -27,7 +35,23 @@ class Message extends Model
         return [
             'is_read' => 'boolean',
             'created_at' => 'datetime',
+            'read_at' => 'datetime',
         ];
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+    }
+
+    public function getTimeDisplayAttribute(): ?string
+    {
+        return $this->created_at?->format('H:i');
+    }
+
+    public function getStatusDisplayAttribute(): string
+    {
+        return $this->is_read ? 'Đã xem' : 'Đã gửi';
     }
 
     public function conversation(): BelongsTo

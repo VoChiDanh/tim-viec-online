@@ -40,9 +40,11 @@ class MessageSent implements ShouldBroadcast
             'sender_id' => $this->message->sender_id,
             'sender_name' => $this->message->sender?->name,
             'message' => $this->message->message,
+            'image_url' => $this->message->image_url,
             'is_read' => (bool) $this->message->is_read,
+            'status_display' => $this->message->status_display,
             'created_at' => $this->message->created_at?->toIso8601String(),
-            'time_display' => $this->message->created_at?->format('H:i'),
+            'time_display' => $this->message->time_display ?? $this->message->created_at?->format('H:i'),
         ];
     }
 }

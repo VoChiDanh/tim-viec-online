@@ -53,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations', [ChatController::class, 'startConversation']);
     Route::get('/conversations/{id}/messages', [ChatController::class, 'messages']);
     Route::post('/conversations/{id}/messages', [ChatController::class, 'sendMessage']);
+    Route::patch('/conversations/{id}/read', [ChatController::class, 'markAsRead']);
 
     // Web Notifications (FR-10)
     Route::get('/notifications', [NotificationController::class, 'index']);
