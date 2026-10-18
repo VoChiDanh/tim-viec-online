@@ -21,6 +21,11 @@ use Illuminate\Support\Facades\Route;
 // Authentication (Public)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword']);
+Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 
 // Master Data: Categories & Skills (Public)
 Route::get('/categories', [CategoryController::class, 'index']);

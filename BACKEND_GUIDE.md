@@ -206,22 +206,35 @@ Mọi quy định nghiệp vụ dưới đây bắt buộc phải được cài 
   * Trả về thông báo thành công và thông tin người dùng (không chứa trường password).
 
 ### FR-02: Đăng nhập, Quên mật khẩu & Khóa tài khoản
-* **Endpoint Đăng nhập:** `POST /api/login`
+* **Endpoint Đăng nhập:** `POST /api/login` (FR-02.1)
   * Kiểm tra tài khoản có tồn tại và đúng mật khẩu (`Hash::check`).
-  * Nếu sai email hoặc mật khẩu: Trả về HTTP 401 với thông báo chuẩn: `"Email hoặc mật khẩu không chính xác"`.
-  * **Cơ chế tạm khóa do brute-force:** Mỗi lần đăng nhập sai, tăng trường `failed_attempts` lên 1. Nếu đạt **5 lần liên tiếp**, tạm khóa tài khoản trong 15 phút (cập nhật `locked_until = now()->addMinutes(15)`). Khi người dùng cố đăng nhập tiếp trong thời gian này, trả về HTTP 403: `"Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng thử lại sau 15 phút"`. Đăng nhập đúng sẽ reset `failed_attempts = 0`.
-  * **Kiểm tra tài khoản bị Admin khóa:** Nếu `status == 'locked'`, từ chối đăng nhập với HTTP 403: `"Tài khoản của bạn đã bị khóa bởi quản trị viên"`.
-  * Đăng nhập thành công: Cấp Sanctum Token (`createToken('auth_token')->plainTextToken`), trả về token, thông tin `user` kèm theo profile/company tương ứng.
+  * Nếu sai email hoặc mật khẩu: Trả về HTTP 401 với thông báo chuẩn: `"Email hoặc mật khẩu không chính xác"` (FR-02.2).
+  * **Cơ chế tạm khóa do brute-force:** Mỗi lần đăng nhập sai, tăng trường `failed_attempts` lên 1. Nếu đạt **5 lần liên tiếp**, tạm khóa tài khoản trong 15 phút (cập nhật `locked_until = now()->addMinutes(15)`). Khi người dùng cố đăng nhập tiếp trong thời gian này, trả về HTTP 403: `"Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản"` (FR-02.4). Đăng nhập đúng sẽ reset `failed_attempts = 0` và `locked_until = null`.
+  * **Kiểm tra tài khoản bị Admin khóa:** Nếu `status == 'locked'`, từ chối đăng nhập với HTTP 403: `"Tài khoản của bạn đã bị khóa bởi quản trị viên"` (FR-02.5).
+  * **Cấp phát Token & Điều hướng tự động (FR-02.6):** Khi đăng nhập thành công, cấp Sanctum Token (`createToken('auth_token')->plainTextToken`), trả về token, thông tin `user` kèm theo `redirect_url` tương ứng:
+    * Ứng viên (`candidate`): `/jobs` (trang Việc làm)
+    * Nhà tuyển dụng (`employer`): `/employer/my-jobs` (trang Quản lý tuyển dụng)
+    * Quản trị viên (`admin`): `/admin/dashboard` (trang Dashboard Admin)
 * **Endpoint Đăng xuất:** `POST /api/logout` (Yêu cầu Token).
   * Thu hồi (revoke) token hiện tại: `$request->user()->currentAccessToken()->delete()`.
-* **Endpoint Đổi mật khẩu:** `PUT /api/user/change-password` (Yêu cầu Token).
-  * Nhập `current_password`, `password`, `password_confirmation`.
+* **Endpoint Đổi mật khẩu:** `PUT /api/user/change-password` (Yêu cầu Token) (FR-02.9).
+  * Nhập: `current_password`, `new_password` (hoặc `password`), `new_password_confirmation`.
   * Kiểm tra `current_password` đúng: Nếu sai, trả về HTTP 400: `"Mật khẩu hiện tại không chính xác"`.
   * Kiểm tra mật khẩu mới không được trùng mật khẩu cũ: Nếu trùng, trả về HTTP 400: `"Mật khẩu mới không được trùng với mật khẩu hiện tại"`.
-  * Mật khẩu mới phải thỏa mãn độ mạnh chuẩn FR-01.
+  * Mật khẩu mới phải thỏa mãn độ mạnh chuẩn FR-01.4 (8 - 32 ký tự, gồm chữ thường, chữ hoa, số và ký tự đặc biệt).
+  * Nếu hợp lệ: Cập nhật mật khẩu mới, tạo thông báo in-app bảo mật và trả về HTTP 200: `"Đổi mật khẩu thành công"`.
 * **Quên mật khẩu & Đặt lại:**
-  * `POST /api/forgot-password`: Kiểm tra email tồn tại -> Sinh token bảo mật có hạn 15 phút lưu vào bảng `password_reset_tokens`.
-  * `POST /api/reset-password`: Nhập `email`, `token`, `password`, `password_confirmation`. Nếu token hết hạn hoặc không tồn tại, trả về HTTP 400: `"Liên kết xác thực đã hết hạn hoặc không hợp lệ"`. Nếu hợp lệ, cập nhật mật khẩu mới và xóa token.
+  * **Yêu cầu quên mật khẩu (FR-02.7):** `POST /api/forgot-password` (hoặc `POST /api/password/forgot`).
+    * Nhập `email`. Kiểm tra email tồn tại trong hệ thống (nếu không, trả 404).
+    * Sinh token bảo mật có hiệu lực **15 phút** lưu vào bảng `password_reset_tokens`.
+    * Gửi email kèm liên kết đặt lại mật khẩu đến hòm thư người dùng (`/reset-password?token=...&email=...`).
+  * **Kiểm tra tính hợp lệ liên kết (FR-02.8):** `GET|POST /api/verify-reset-token`.
+    * Kiểm tra token và thời hạn 15 phút. Nếu hết hạn hoặc sai token, trả về HTTP 400: `"Liên kết xác thực đã hết hạn hoặc không hợp lệ"`.
+  * **Đặt lại mật khẩu mới (FR-02.8):** `POST /api/reset-password` (hoặc `POST /api/password/reset`).
+    * Nhập `email`, `token`, `password`, `password_confirmation`.
+    * Nếu token hết hạn (> 15 phút) hoặc không hợp lệ, trả về HTTP 400: `"Liên kết xác thực đã hết hạn hoặc không hợp lệ"`.
+    * Mật khẩu mới phải thỏa mãn tiêu chuẩn FR-01.4.
+    * Nếu hợp lệ: Cập nhật mật khẩu mới, xóa token, đặt lại `failed_attempts = 0` & `locked_until = null` (khôi phục tài khoản), tạo thông báo bảo mật và trả về HTTP 200 kèm `"Đặt lại mật khẩu thành công"` và `redirect_url: '/login'`.
 
 ### FR-03: Hồ sơ ứng viên & Tải lên CV
 * **Endpoint Xem hồ sơ:** `GET /api/candidate/profile`

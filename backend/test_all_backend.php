@@ -79,29 +79,139 @@ $respDup = $app->handle($reqDup);
 $dupJson = json_decode($respDup->getContent(), true);
 assertTest("1.3 Đăng ký trùng email trả lỗi 422 'Email đã được sử dụng'", $respDup->getStatusCode() === 422 && ($dupJson['message'] ?? '') === 'Email đã được sử dụng');
 
-// Test 1.4: Đăng nhập sai pass -> 401
+// Test 1.4: Đăng nhập sai pass -> 401 với thông báo chuẩn FR-02.2
 Auth::forgetGuards();
 $reqWrongPass = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
 $reqWrongPass->headers->set('Accept', 'application/json');
 $respWrong = $app->handle($reqWrongPass);
-assertTest("1.4 Đăng nhập sai mật khẩu trả 401", $respWrong->getStatusCode() === 401);
+$wrongJson = json_decode($respWrong->getContent(), true);
+assertTest("1.4 Đăng nhập sai mật khẩu trả 401 'Email hoặc mật khẩu không chính xác' (FR-02.2)", $respWrong->getStatusCode() === 401 && ($wrongJson['message'] ?? '') === 'Email hoặc mật khẩu không chính xác');
 
-// Test 1.5: Đăng nhập đúng -> 200
+// Test 1.5: Tạm khóa sau 5 lần sai liên tiếp (FR-02.3 & FR-02.4)
+Auth::forgetGuards();
+for ($i = 0; $i < 3; $i++) {
+    $r = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
+    $r->headers->set('Accept', 'application/json');
+    $app->handle($r);
+}
+// Lần thứ 5 sai (lần 1 ở test 1.4 + 3 lần ở vòng lặp + 1 lần này = 5 lần)
+$req5th = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
+$req5th->headers->set('Accept', 'application/json');
+$resp5th = $app->handle($req5th);
+$json5th = json_decode($resp5th->getContent(), true);
+assertTest("1.5 Sai 5 lần liên tiếp trả 403 'Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản' (FR-02.4)", 
+    $resp5th->getStatusCode() === 403 && ($json5th['message'] ?? '') === 'Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản');
+
+// Khôi phục tài khoản để tiếp tục test đăng nhập thành công
+User::where('email', 'temp_test_candidate@timviec.vn')->update(['failed_attempts' => 0, 'locked_until' => null]);
+
+// Test 1.6: Đăng nhập đúng -> 200 kèm Bearer Token & redirect_url điều hướng đúng vai trò (FR-02.6)
 Auth::forgetGuards();
 $reqLogin = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@']);
 $reqLogin->headers->set('Accept', 'application/json');
 $respLogin = $app->handle($reqLogin);
 $loginData = json_decode($respLogin->getContent(), true);
 $candToken = $loginData['data']['token'] ?? '';
-assertTest("1.5 Đăng nhập thành công trả 200 kèm Bearer Token", $respLogin->getStatusCode() === 200 && !empty($candToken));
+$redirectUrl = $loginData['data']['redirect_url'] ?? '';
+assertTest("1.6 Đăng nhập thành công trả 200 kèm Bearer Token & redirect_url=/jobs (FR-02.6)", 
+    $respLogin->getStatusCode() === 200 && !empty($candToken) && $redirectUrl === '/jobs');
 
-// Test 1.6: Lấy thông tin user hiện tại
+// Test 1.7: Lấy thông tin user hiện tại
 Auth::forgetGuards();
 $reqUser = Request::create('/api/user', 'GET');
 $reqUser->headers->set('Accept', 'application/json');
 $reqUser->headers->set('Authorization', 'Bearer ' . $candToken);
 $respUser = $app->handle($reqUser);
-assertTest("1.6 Gọi API Protected /api/user trả 200 kèm Profile", $respUser->getStatusCode() === 200);
+assertTest("1.7 Gọi API Protected /api/user trả 200 kèm Profile", $respUser->getStatusCode() === 200);
+
+// Test 1.8: Đổi mật khẩu - sai mật khẩu hiện tại trả 400 (FR-02.9)
+Auth::forgetGuards();
+$reqCpWrong = Request::create('/api/user/change-password', 'PUT', [
+    'current_password' => 'WrongPass123@',
+    'new_password' => 'NewTestPass123@',
+    'new_password_confirmation' => 'NewTestPass123@',
+]);
+$reqCpWrong->headers->set('Accept', 'application/json');
+$reqCpWrong->headers->set('Authorization', 'Bearer ' . $candToken);
+$respCpWrong = $app->handle($reqCpWrong);
+$cpWrongJson = json_decode($respCpWrong->getContent(), true);
+assertTest("1.8 Đổi mật khẩu sai mật khẩu hiện tại trả 400 'Mật khẩu hiện tại không chính xác' (FR-02.9)",
+    $respCpWrong->getStatusCode() === 400 && ($cpWrongJson['message'] ?? '') === 'Mật khẩu hiện tại không chính xác');
+
+// Test 1.9: Đổi mật khẩu - mật khẩu mới trùng mật khẩu cũ trả 400 (FR-02.9)
+Auth::forgetGuards();
+$reqCpSame = Request::create('/api/user/change-password', 'PUT', [
+    'current_password' => 'TestPass123@',
+    'new_password' => 'TestPass123@',
+    'new_password_confirmation' => 'TestPass123@',
+]);
+$reqCpSame->headers->set('Accept', 'application/json');
+$reqCpSame->headers->set('Authorization', 'Bearer ' . $candToken);
+$respCpSame = $app->handle($reqCpSame);
+$cpSameJson = json_decode($respCpSame->getContent(), true);
+assertTest("1.9 Đổi mật khẩu mới trùng mật khẩu cũ trả 400 'Mật khẩu mới không được trùng với mật khẩu hiện tại' (FR-02.9)",
+    $respCpSame->getStatusCode() === 400 && ($cpSameJson['message'] ?? '') === 'Mật khẩu mới không được trùng với mật khẩu hiện tại');
+
+// Test 1.10: Đổi mật khẩu thành công trả 200 (FR-02.9)
+Auth::forgetGuards();
+$reqCpOk = Request::create('/api/user/change-password', 'PUT', [
+    'current_password' => 'TestPass123@',
+    'new_password' => 'ChangedPass123@',
+    'new_password_confirmation' => 'ChangedPass123@',
+]);
+$reqCpOk->headers->set('Accept', 'application/json');
+$reqCpOk->headers->set('Authorization', 'Bearer ' . $candToken);
+$respCpOk = $app->handle($reqCpOk);
+$cpOkJson = json_decode($respCpOk->getContent(), true);
+assertTest("1.10 Đổi mật khẩu thành công trả 200 'Đổi mật khẩu thành công' (FR-02.9)",
+    $respCpOk->getStatusCode() === 200 && ($cpOkJson['message'] ?? '') === 'Đổi mật khẩu thành công');
+
+// Test 1.11: Quên mật khẩu - Email không tồn tại trả lỗi 404 (FR-02.7)
+Auth::forgetGuards();
+$reqFpNotFound = Request::create('/api/forgot-password', 'POST', [
+    'email' => 'nonexistent_email_12345@timviec.vn',
+]);
+$reqFpNotFound->headers->set('Accept', 'application/json');
+$respFpNotFound = $app->handle($reqFpNotFound);
+assertTest("1.11 Quên mật khẩu email không tồn tại trả 404 (FR-02.7)", $respFpNotFound->getStatusCode() === 404);
+
+// Test 1.12: Quên mật khẩu - Email hợp lệ trả 200 và sinh token có hạn 15 phút (FR-02.7)
+Auth::forgetGuards();
+$reqFp = Request::create('/api/forgot-password', 'POST', [
+    'email' => 'temp_test_candidate@timviec.vn',
+]);
+$reqFp->headers->set('Accept', 'application/json');
+$respFp = $app->handle($reqFp);
+$fpJson = json_decode($respFp->getContent(), true);
+$resetToken = $fpJson['data']['token'] ?? '';
+assertTest("1.12 Quên mật khẩu thành công trả 200 & tạo token xác thực (FR-02.7)",
+    $respFp->getStatusCode() === 200 && !empty($resetToken));
+
+// Test 1.13: Kiểm tra link đặt lại mật khẩu với token sai/hết hạn trả 400 (FR-02.8)
+Auth::forgetGuards();
+$reqVerifyInvalid = Request::create('/api/verify-reset-token', 'GET', [
+    'email' => 'temp_test_candidate@timviec.vn',
+    'token' => 'invalid_or_expired_token_xyz',
+]);
+$reqVerifyInvalid->headers->set('Accept', 'application/json');
+$respVerifyInvalid = $app->handle($reqVerifyInvalid);
+$verifyInvalidJson = json_decode($respVerifyInvalid->getContent(), true);
+assertTest("1.13 Token đặt lại mật khẩu không hợp lệ trả 400 'Liên kết xác thực đã hết hạn hoặc không hợp lệ' (FR-02.8)",
+    $respVerifyInvalid->getStatusCode() === 400 && ($verifyInvalidJson['message'] ?? '') === 'Liên kết xác thực đã hết hạn hoặc không hợp lệ');
+
+// Test 1.14: Đặt lại mật khẩu thành công và khôi phục tài khoản (FR-02.8)
+Auth::forgetGuards();
+$reqReset = Request::create('/api/reset-password', 'POST', [
+    'email' => 'temp_test_candidate@timviec.vn',
+    'token' => $resetToken,
+    'password' => 'TestPass123@', // Trả về lại pass gốc để các bài test phía sau chạy bình thường
+    'password_confirmation' => 'TestPass123@',
+]);
+$reqReset->headers->set('Accept', 'application/json');
+$respReset = $app->handle($reqReset);
+$resetJson = json_decode($respReset->getContent(), true);
+assertTest("1.14 Đặt lại mật khẩu thành công trả 200 'Đặt lại mật khẩu thành công' & redirect_url=/login (FR-02.8)",
+    $respReset->getStatusCode() === 200 && ($resetJson['message'] ?? '') === 'Đặt lại mật khẩu thành công' && ($resetJson['data']['redirect_url'] ?? '') === '/login');
 
 // -------------------------------------------------------------------------
 // 2. MODULE MASTER DATA (CATEGORIES & SKILLS)
@@ -346,7 +456,7 @@ $admin->tokens()->delete();
 echo "\n=======================================================\n";
 echo "    KẾT QUẢ KIỂM THỬ: {$passed} PASSED | {$failed} FAILED\n";
 if ($failed === 0) {
-    echo "    >>> TẤT CẢ 26 BÀI TEST HOẠT ĐỘNG HOÀN HẢO 100%! <<<\n";
+    echo "    >>> TẤT CẢ {$passed} BÀI TEST HOẠT ĐỘNG HOÀN HẢO 100%! <<<\n";
 } else {
     echo "    >>> CÓ {$failed} BÀI TEST CHƯA ĐẠT. XEM CHI TIẾT PHÍA TRÊN. <<<\n";
 }

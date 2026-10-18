@@ -13,6 +13,20 @@ class ChangePasswordRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('password') && !$this->has('new_password')) {
+            $this->merge([
+                'new_password' => $this->input('password'),
+            ]);
+        }
+        if ($this->has('password_confirmation') && !$this->has('new_password_confirmation')) {
+            $this->merge([
+                'new_password_confirmation' => $this->input('password_confirmation'),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
