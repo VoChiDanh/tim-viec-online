@@ -476,12 +476,44 @@ $respSave = $app->handle($reqSave);
 assertTest("4.10 Ứng viên lưu việc làm yêu thích (/api/jobs/{id}/save)", $respSave->getStatusCode() === 200);
 
 // -------------------------------------------------------------------------
-// 5. MODULE ỨNG TUYỂN & TÍCH HỢP GEMINI AI
+// 5. MODULE ỨNG TUYỂN & TÍCH HỢP GEMINI AI (FR-06)
 // -------------------------------------------------------------------------
-echo "\n5. KIỂM THỬ ỨNG TUYỂN & TÍCH HỢP GEMINI AI:\n";
-// Test 5.1: Nộp hồ sơ thành công & AI chấm điểm
+echo "\n5. KIỂM THỬ ỨNG TUYỂN & TÍCH HỢP GEMINI AI (FR-06):\n";
+
+// Test 5.1: Phân quyền nộp đơn: Khách trả 401 & Nhà tuyển dụng trả 403 (FR-06.1)
+Auth::forgetGuards();
+$reqGuestApply = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', []);
+$reqGuestApply->headers->set('Accept', 'application/json');
+$respGuestApply = $app->handle($reqGuestApply);
+
+Auth::forgetGuards();
+$reqEmpApply = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', []);
+$reqEmpApply->headers->set('Accept', 'application/json');
+$reqEmpApply->headers->set('Authorization', 'Bearer ' . $empToken);
+$respEmpApply = $app->handle($reqEmpApply);
+$empApplyJson = json_decode($respEmpApply->getContent(), true);
+
+assertTest("5.1 Phân quyền nộp đơn: Khách trả 401 & NTD trả 403 'Chỉ tài khoản Ứng viên mới có quyền nộp đơn ứng tuyển' (FR-06.1)",
+    $respGuestApply->getStatusCode() === 401 &&
+    $respEmpApply->getStatusCode() === 403 &&
+    ($empApplyJson['message'] ?? '') === 'Chỉ tài khoản Ứng viên mới có quyền nộp đơn ứng tuyển');
+
+// Test 5.2: Chọn hình thức CV mới nhưng thiếu file CV -> 400 (FR-06.2)
+Auth::forgetGuards();
+$reqApplyNoFile = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', [
+    'cv_source' => 'new',
+]);
+$reqApplyNoFile->headers->set('Accept', 'application/json');
+$reqApplyNoFile->headers->set('Authorization', 'Bearer ' . $candToken);
+$respApplyNoFile = $app->handle($reqApplyNoFile);
+$applyNoFileJson = json_decode($respApplyNoFile->getContent(), true);
+assertTest("5.2 Nộp CV mới nhưng không gửi kèm file PDF trả 400 'Vui lòng tải lên file CV PDF cho vị trí này' (FR-06.2)",
+    $respApplyNoFile->getStatusCode() === 400 && ($applyNoFileJson['message'] ?? '') === 'Vui lòng tải lên file CV PDF cho vị trí này');
+
+// Test 5.3: Nộp hồ sơ bằng CV hồ sơ cá nhân thành công & AI Gemini chấm điểm (FR-06.2 & FR-05.3)
 Auth::forgetGuards();
 $reqApply = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', [
+    'cv_source' => 'profile',
     'cover_letter' => 'Em muốn ứng tuyển vào vị trí này.',
 ]);
 $reqApply->headers->set('Accept', 'application/json');
@@ -489,34 +521,77 @@ $reqApply->headers->set('Authorization', 'Bearer ' . $candToken);
 $respApply = $app->handle($reqApply);
 $applyData = json_decode($respApply->getContent(), true);
 $appId = $applyData['data']['id'] ?? 0;
+$appStatus = $applyData['data']['status'] ?? '';
 $matchScore = $applyData['data']['ai_analysis']['match_score'] ?? null;
-assertTest("5.1 Nộp hồ sơ ứng tuyển thành công (201 Created)", $respApply->getStatusCode() === 201 && $appId > 0);
-assertTest("5.2 Tích hợp AI Gemini phân tích Match Score (0-100%)", is_numeric($matchScore) && $matchScore >= 0 && $matchScore <= 100);
+assertTest("5.3 Nộp hồ sơ bằng CV profile thành công trả 201 Created & status='applied' (FR-06.2 & FR-06.5)",
+    $respApply->getStatusCode() === 201 && $appId > 0 && $appStatus === 'applied');
+assertTest("5.4 Tích hợp AI Gemini phân tích Match Score (0-100%)",
+    is_numeric($matchScore) && $matchScore >= 0 && $matchScore <= 100);
 
-// Test 5.3: Chặn nộp trùng lần 2 -> 409 Conflict
+// Test 5.5: Kiểm tra trạng thái nút Ứng tuyển & Chặn nộp trùng lần 2 -> 409 Conflict (FR-06.4)
+Auth::forgetGuards();
+$reqJobDetail = Request::create('/api/jobs/' . $createdJobId, 'GET');
+$reqJobDetail->headers->set('Accept', 'application/json');
+$reqJobDetail->headers->set('Authorization', 'Bearer ' . $candToken);
+$respJobDetail = $app->handle($reqJobDetail);
+$jobDetailJson = json_decode($respJobDetail->getContent(), true);
+$jobDetailData = $jobDetailJson['data'] ?? [];
+
 Auth::forgetGuards();
 $reqDupApply = Request::create('/api/jobs/' . $createdJobId . '/apply', 'POST', []);
 $reqDupApply->headers->set('Accept', 'application/json');
 $reqDupApply->headers->set('Authorization', 'Bearer ' . $candToken);
 $respDupApply = $app->handle($reqDupApply);
-assertTest("5.3 Chặn nộp hồ sơ lần 2 trả mã 409 Conflict", $respDupApply->getStatusCode() === 409);
+$dupApplyJson = json_decode($respDupApply->getContent(), true);
 
-// Test 5.4: NTD mở xem hồ sơ -> tự động chuyển sang 'waiting'
+assertTest("5.5 Nút Ứng tuyển bị vô hiệu hóa & chặn nộp trùng lần 2 trả 409 'Bạn đã nộp hồ sơ cho công việc này rồi' (FR-06.4)",
+    ($jobDetailData['is_applied'] ?? false) === true &&
+    ($jobDetailData['apply_button_disabled'] ?? false) === true &&
+    ($jobDetailData['apply_button_message'] ?? '') === 'Bạn đã nộp hồ sơ cho công việc này rồi' &&
+    $respDupApply->getStatusCode() === 409 &&
+    ($dupApplyJson['message'] ?? '') === 'Bạn đã nộp hồ sơ cho công việc này rồi');
+
+// Test 5.6: NTD mở xem CV: tự động chuyển sang 'waiting' (FR-06.5)
 Auth::forgetGuards();
 $reqViewApp = Request::create('/api/employer/applications/' . $appId, 'GET');
 $reqViewApp->headers->set('Accept', 'application/json');
 $reqViewApp->headers->set('Authorization', 'Bearer ' . $empToken);
 $respViewApp = $app->handle($reqViewApp);
 $viewAppData = json_decode($respViewApp->getContent(), true);
-assertTest("5.4 NTD mở xem CV: tự động chuyển sang trạng thái 'waiting' (FR-06.5)", $respViewApp->getStatusCode() === 200 && ($viewAppData['data']['status'] ?? '') === 'waiting');
+assertTest("5.6 NTD mở xem CV: tự động chuyển sang trạng thái 'waiting' (FR-06.5)",
+    $respViewApp->getStatusCode() === 200 && ($viewAppData['data']['status'] ?? '') === 'waiting');
 
-// Test 5.5: Ứng viên rút hồ sơ sau khi NTD đã xem -> 400
+// Test 5.7: Ứng viên rút hồ sơ sau khi NTD đã xem -> 400 (FR-06.5)
 Auth::forgetGuards();
 $reqWithdraw = Request::create('/api/candidate/applications/' . $appId . '/withdraw', 'DELETE');
 $reqWithdraw->headers->set('Accept', 'application/json');
 $reqWithdraw->headers->set('Authorization', 'Bearer ' . $candToken);
 $respWithdraw = $app->handle($reqWithdraw);
-assertTest("5.5 Chặn rút hồ sơ khi NTD đã xem trả lỗi 400 Bad Request", $respWithdraw->getStatusCode() === 400);
+assertTest("5.7 Chặn rút hồ sơ khi NTD đã xem xét trả lỗi 400 Bad Request", $respWithdraw->getStatusCode() === 400);
+
+// Test 5.8: NTD cập nhật kết quả hồ sơ sang 'accepted' (Trúng tuyển) (FR-06.5)
+Auth::forgetGuards();
+$reqAccept = Request::create('/api/employer/applications/' . $appId . '/status', 'PATCH', [
+    'status' => 'accepted',
+]);
+$reqAccept->headers->set('Accept', 'application/json');
+$reqAccept->headers->set('Authorization', 'Bearer ' . $empToken);
+$respAccept = $app->handle($reqAccept);
+$acceptJson = json_decode($respAccept->getContent(), true);
+assertTest("5.8 NTD cập nhật trạng thái hồ sơ sang 'accepted' (Trúng tuyển) trả 200 (FR-06.5)",
+    $respAccept->getStatusCode() === 200 && ($acceptJson['data']['status'] ?? '') === 'accepted');
+
+// Test 5.9: Ứng viên theo dõi lịch sử ứng tuyển theo thời gian thực (FR-06.7)
+Auth::forgetGuards();
+$reqHistory = Request::create('/api/candidate/applications?status=accepted', 'GET');
+$reqHistory->headers->set('Accept', 'application/json');
+$reqHistory->headers->set('Authorization', 'Bearer ' . $candToken);
+$respHistory = $app->handle($reqHistory);
+$historyJson = json_decode($respHistory->getContent(), true);
+$historyItems = $historyJson['data'] ?? [];
+assertTest("5.9 Ứng viên xem lịch sử ứng tuyển & lọc trạng thái theo thời gian thực trả 200 (FR-06.7)",
+    $respHistory->getStatusCode() === 200 && count($historyItems) >= 1 && ($historyItems[0]['status'] ?? '') === 'accepted');
+
 
 // -------------------------------------------------------------------------
 // 6. MODULE NHẮN TIN REALTIME & THÔNG BÁO IN-APP

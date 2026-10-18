@@ -14,6 +14,7 @@ class ApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // FR-06.5: Vòng đời trạng thái hồ sơ ứng tuyển
         $statusLabels = [
             'applied' => 'Đã ứng tuyển',
             'waiting' => 'Đang xem xét',
@@ -21,6 +22,9 @@ class ApplicationResource extends JsonResource
             'rejected' => 'Từ chối',
             'withdrawn' => 'Đã rút hồ sơ',
         ];
+
+        // Ứng viên chỉ được rút đơn khi chưa được NTD xem (status = applied và reviewed_at null)
+        $canWithdraw = $this->status === 'applied' && $this->reviewed_at === null;
 
         return [
             'id' => $this->id,
@@ -31,8 +35,10 @@ class ApplicationResource extends JsonResource
             'cover_letter' => $this->cover_letter,
             'status' => $this->status,
             'status_label' => $statusLabels[$this->status] ?? $this->status,
+            'can_withdraw' => $canWithdraw,
             'reviewed_at' => $this->reviewed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
             'applied_at_display' => $this->created_at?->format('d/m/Y H:i'),
             'job' => new JobResource($this->whenLoaded('job')),
             'candidate' => $this->whenLoaded('candidateProfile', function () {

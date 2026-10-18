@@ -13,11 +13,30 @@ class ApplyJobRequest extends FormRequest
         return $this->user() && $this->user()->isCandidate();
     }
 
+    protected function failedAuthorization()
+    {
+        throw new HttpResponseException(response()->json([
+            'success' => false,
+            'message' => 'Chỉ tài khoản Ứng viên mới có quyền nộp đơn ứng tuyển',
+        ], 403));
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('cv_source')) {
+            $source = strtolower(trim($this->input('cv_source')));
+            if ($source === 'default') {
+                $this->merge(['cv_source' => 'profile']);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
-            'cv_source' => ['nullable', 'string', 'in:profile,new'],
-            'cv_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'], // 5MB = 5120 KB
+            // FR-06.2: Chọn 1 trong 2: CV sẵn có (profile) hoặc Tải file mới (new)
+            'cv_source' => ['nullable', 'string', 'in:profile,default,new'],
+            'cv_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'], // Định dạng PDF tối đa 5MB
             'cover_letter' => ['nullable', 'string', 'max:3000'],
         ];
     }
@@ -27,9 +46,19 @@ class ApplyJobRequest extends FormRequest
         return [
             'cv_file.mimes' => 'Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB',
             'cv_file.max' => 'Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB',
-            'cv_source.in' => 'Nguồn CV không hợp lệ (chỉ chấp nhận profile hoặc new)',
+            'cv_source.in' => 'Hình thức nộp CV không hợp lệ (chọn profile hoặc new)',
             'cover_letter.max' => 'Thư giới thiệu không được vượt quá 3000 ký tự',
         ];
+    }
+
+    public function withValidator(Validator $validator)
+    {
+        $validator->after(function ($validator) {
+            $cvSource = $this->input('cv_source');
+            if ($cvSource === 'new' && !$this->hasFile('cv_file')) {
+                $validator->errors()->add('cv_file', 'Vui lòng tải lên file CV PDF cho vị trí này');
+            }
+        });
     }
 
     protected function failedValidation(Validator $validator)

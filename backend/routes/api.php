@@ -68,8 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/applications/{id}/withdraw', [ApplicationController::class, 'withdraw']);
     });
     // Candidate Job Actions (Apply & Save)
+    Route::post('/jobs/{id}/apply', [ApplicationController::class, 'apply']);
     Route::middleware('role:candidate')->group(function () {
-        Route::post('/jobs/{id}/apply', [ApplicationController::class, 'apply']);
         Route::post('/jobs/{id}/save', [JobController::class, 'saveJob']);
         Route::delete('/jobs/{id}/save', [JobController::class, 'unsaveJob']);
     });

@@ -596,11 +596,11 @@ erDiagram
 ### 7.5. Module Đơn ứng tuyển & Chấm điểm AI
 | Method | Endpoint | Quyền | Mục đích | Body / Params |
 |---|---|---|---|---|
-| `POST` | `/api/jobs/{id}/apply` | Candidate | Nộp hồ sơ ứng tuyển | `cv_source` (`default` / `new`), `cv_file` (PDF), `cover_letter` |
+| `POST` | `/api/jobs/{id}/apply` | Candidate | Nộp hồ sơ ứng tuyển (FR-06.1, FR-06.2, FR-06.4) | `cv_source` (`profile` / `new`), `cv_file` (PDF <= 5MB khi new), `cover_letter` |
 | `DELETE` | `/api/candidate/applications/{id}/withdraw` | Candidate | Rút đơn ứng tuyển (chỉ khi `applied`) | None |
-| `GET` | `/api/candidate/applications` | Candidate | Xem lịch sử các đơn đã nộp | None |
+| `GET` | `/api/candidate/applications` | Candidate | Xem lịch sử các đơn đã nộp (FR-06.7) | `?status=&page=&per_page=` |
 | `GET` | `/api/employer/jobs/{id}/applications` | Employer | Xem danh sách ứng viên nộp vào job | None |
-| `GET` | `/api/employer/applications/{id}` | Employer | Xem chi tiết 1 đơn (auto chuyển sang `waiting`) | None |
+| `GET` | `/api/employer/applications/{id}` | Employer | Xem chi tiết 1 đơn (auto chuyển sang `waiting` FR-06.5) | None |
 | `PATCH` | `/api/employer/applications/{id}/status` | Employer | Duyệt trạng thái (`accepted`/`rejected`) | `status` |
 | `POST` | `/api/applications/{id}/ai-analyze` | Auth | Kích hoạt AI phân tích lại đơn | None |
 

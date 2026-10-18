@@ -89,8 +89,20 @@ class JobResource extends JsonResource
             }
 
             if ($this->relationLoaded('applications')) {
-                $isApplied = $this->applications->contains('candidate_id', $candidateId);
+                $appliedApp = $this->applications->first(function ($app) use ($candidateId) {
+                    return (int) $app->candidate_id === (int) $candidateId && $app->status !== 'withdrawn';
+                });
+                $isApplied = $appliedApp !== null;
             }
+        }
+
+        // FR-06.4: Ràng buộc nút ứng tuyển trên giao diện
+        $applyButtonDisabled = !$canApply || $isApplied;
+        $applyButtonMessage = null;
+        if ($isApplied) {
+            $applyButtonMessage = 'Bạn đã nộp hồ sơ cho công việc này rồi';
+        } elseif (!$canApply) {
+            $applyButtonMessage = $notice;
         }
 
         return [
@@ -123,6 +135,8 @@ class JobResource extends JsonResource
             'is_reported' => (bool) $this->is_reported,
             'is_saved' => $isSaved,
             'is_applied' => $isApplied,
+            'apply_button_disabled' => $applyButtonDisabled, // FR-06.4
+            'apply_button_message' => $applyButtonMessage, // FR-06.4
             'applications_count' => $this->when(isset($this->applications_count), $this->applications_count),
             'company' => new CompanyResource($this->whenLoaded('company')),
             'category' => $this->whenLoaded('category'),

@@ -58,11 +58,20 @@ class ApplicationController extends Controller
             ], 409);
         }
 
-        // Xác định đường dẫn file CV nộp
+        // FR-06.2: Xác định hình thức nộp CV (sẵn có trong hồ sơ hoặc tải lên file mới)
+        $cvSource = $request->input('cv_source');
         $cvPath = null;
-        if ($request->hasFile('cv_file')) {
+
+        if ($cvSource === 'new' || $request->hasFile('cv_file')) {
+            if (!$request->hasFile('cv_file')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng tải lên file CV PDF cho vị trí này',
+                ], 400);
+            }
             $cvPath = $request->file('cv_file')->store('application_cvs', 'public');
         } else {
+            // Sử dụng file CV sẵn có trong hồ sơ cá nhân
             $cvPath = $candidateProfile->cv_file_path;
             if (!$cvPath) {
                 return response()->json([
@@ -160,10 +169,19 @@ class ApplicationController extends Controller
     {
         $candidateProfile = $request->user()->candidateProfile;
 
-        $applications = Application::where('candidate_id', $candidateProfile->id)
+        $query = Application::where('candidate_id', $candidateProfile->id)
             ->with(['job.company', 'aiAnalysis'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->orderBy('created_at', 'desc');
+
+        // Hỗ trợ lọc theo trạng thái hồ sơ trong lịch sử
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 10;
+
+        $applications = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
