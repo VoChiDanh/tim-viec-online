@@ -612,9 +612,10 @@ erDiagram
 | `GET` | `/api/conversations/{id}/messages` | Thành viên | Lịch sử tin nhắn theo phòng (auto 'Đã xem', FR-08.4, bảo mật FR-08.5) | `?page=&per_page=` |
 | `POST` | `/api/conversations/{id}/messages` | Thành viên | Gửi tin nhắn văn bản (1-1000 chars) / hình ảnh (<= 5MB) & broadcast Reverb (FR-08.2, FR-08.3) | `message` (1 - 1000 ký tự), `image` (file ảnh JPEG, PNG, WEBP <= 5MB) |
 | `PATCH` | `/api/conversations/{id}/read` | Thành viên | Đánh dấu tất cả tin nhắn trong phòng là "Đã xem" (FR-08.4) | None |
-| `GET` | `/api/notifications` | Auth | Danh sách thông báo in-app | None |
-| `PATCH` | `/api/notifications/{id}/read` | Auth | Đánh dấu 1 thông báo đã đọc | None |
-| `PATCH` | `/api/notifications/read-all` | Auth | Đánh dấu tất cả thông báo đã đọc | None |
+| `GET` | `/api/notifications` | Auth | Danh sách thông báo (kèm unread_count, time_ago, background_color, redirect_url FR-10.3) | `?status=unread` / `?status=read`, `?type=`, `?page=&per_page=` |
+| `PATCH` | `/api/notifications/{id}/read` | Auth | Đánh dấu 1 thông báo đã đọc & lấy redirect_url (FR-10.3) | None |
+| `PATCH` | `/api/notifications/read-all` | Auth | Đánh dấu tất cả thông báo là đã đọc (FR-10.3) | None |
+| `DELETE` | `/api/notifications/{id}` | Auth | Xóa 1 thông báo | None |
 
 ### 7.7. Module Quản trị viên (Admin)
 | Method | Endpoint | Quyền | Mục đích | Body / Params |

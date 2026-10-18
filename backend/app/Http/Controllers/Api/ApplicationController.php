@@ -109,7 +109,7 @@ class ApplicationController extends Controller
                 'user_id' => $job->company->user->id,
                 'title' => 'Ứng viên mới nộp hồ sơ',
                 'content' => "Ứng viên {$user->name} vừa nộp hồ sơ vào vị trí '{$job->title}'.",
-                'type' => 'new_applicant',
+                'type' => 'new_application',
                 'data' => [
                     'job_id' => $job->id,
                     'application_id' => $application->id,
@@ -300,20 +300,25 @@ class ApplicationController extends Controller
             'status' => $request->status,
         ]);
 
-        // FR-10.1: Tự động gửi thông báo cho Ứng viên khi NTD đổi trạng thái
+        // FR-10.1: Tự động tạo và gửi thông báo cho Ứng viên khi NTD thay đổi trạng thái hồ sơ
         $candidateUser = $application->candidateProfile?->user;
         if ($candidateUser) {
-            $statusLabels = [
-                'waiting' => 'đang được xem xét',
-                'accepted' => 'đã được chấp nhận (Trúng tuyển)',
-                'rejected' => 'chưa phù hợp (Từ chối)',
-            ];
-            $statusText = $statusLabels[$request->status] ?? $request->status;
+            $notificationTitle = match ($request->status) {
+                'accepted' => 'Chúc mừng! Bạn đã trúng tuyển',
+                'rejected' => 'Thông báo kết quả ứng tuyển',
+                default => 'Hồ sơ đang được xem xét',
+            };
+
+            $notificationContent = match ($request->status) {
+                'accepted' => "Chúc mừng bạn! Hồ sơ ứng tuyển cho vị trí '{$application->job->title}' đã được Nhà tuyển dụng đồng ý tuyển dụng (Trúng tuyển).",
+                'rejected' => "Cảm ơn bạn đã quan tâm. Hồ sơ ứng tuyển cho vị trí '{$application->job->title}' chưa phù hợp với yêu cầu đợt này (Từ chối).",
+                default => "Nhà tuyển dụng đang xem xét hồ sơ ứng tuyển của bạn cho vị trí '{$application->job->title}'.",
+            };
 
             Notification::create([
                 'user_id' => $candidateUser->id,
-                'title' => 'Cập nhật trạng thái ứng tuyển',
-                'content' => "Hồ sơ của bạn cho vị trí '{$application->job->title}' {$statusText}.",
+                'title' => $notificationTitle,
+                'content' => $notificationContent,
                 'type' => 'app_status_changed',
                 'data' => [
                     'job_id' => $application->job_id,

@@ -770,46 +770,148 @@ assertTest("6.9 Duy trì liên lạc khi tin đóng trả 201 & kèm nhãn 'Tin 
 // Mở lại tin để các module sau hoạt động bình thường
 $createdJob->update(['status' => 'active']);
 
-// Test 6.10: Kiểm tra thông báo in-app
+// -------------------------------------------------------------------------
+// 7. MODULE HỆ THỐNG THÔNG BÁO TRÊN WEB (FR-10)
+// -------------------------------------------------------------------------
+echo "\n7. KIỂM THỬ HỆ THỐNG THÔNG BÁO TRÊN WEB (FR-10):\n";
+
+// Test 7.1: Thông báo cho Ứng viên khi NTD thay đổi trạng thái hồ sơ (FR-10.1)
+Auth::forgetGuards();
+$candNotifies = Notification::where('user_id', $tempUser->id)
+    ->where('type', 'app_status_changed')
+    ->latest()
+    ->first();
+assertTest("7.1 Tự động gửi thông báo cho Ứng viên khi NTD đổi trạng thái hồ sơ Trúng tuyển/Từ chối (FR-10.1)",
+    $candNotifies !== null &&
+    str_contains($candNotifies->title, 'trúng tuyển') &&
+    $candNotifies->redirect_url === '/candidate/applications');
+
+// Test 7.2: Thông báo cho Ứng viên khi NTD gửi tin nhắn mới trong phòng chat (FR-10.1)
+$candMsgNotify = Notification::where('user_id', $tempUser->id)
+    ->where('type', 'new_message')
+    ->latest()
+    ->first();
+assertTest("7.2 Tự động gửi thông báo cho Ứng viên khi NTD gửi tin nhắn mới trong phòng chat (FR-10.1)",
+    $candMsgNotify !== null &&
+    str_contains($candMsgNotify->title, 'Tin nhắn mới từ') &&
+    str_starts_with($candMsgNotify->redirect_url, '/messages/'));
+
+// Test 7.3: Thông báo cho Nhà tuyển dụng khi có ứng viên mới nộp hồ sơ (FR-10.2)
+Auth::forgetGuards();
+$empApplyNotify = Notification::where('user_id', $employer->id)
+    ->where('type', 'new_application')
+    ->latest()
+    ->first();
+assertTest("7.3 Tự động gửi thông báo cho Nhà tuyển dụng khi có ứng viên mới nộp hồ sơ (FR-10.2)",
+    $empApplyNotify !== null &&
+    $empApplyNotify->title === 'Ứng viên mới nộp hồ sơ' &&
+    str_contains($empApplyNotify->redirect_url, '/employer/jobs/'));
+
+// Test 7.4: Thông báo cho Nhà tuyển dụng khi Ứng viên gửi tin nhắn mới (FR-10.2)
+$empMsgNotify = Notification::where('user_id', $employer->id)
+    ->where('type', 'new_message')
+    ->latest()
+    ->first();
+assertTest("7.4 Tự động gửi thông báo cho Nhà tuyển dụng khi Ứng viên gửi tin nhắn mới (FR-10.2)",
+    $empMsgNotify !== null &&
+    str_contains($empMsgNotify->title, 'Tin nhắn mới từ') &&
+    str_starts_with($empMsgNotify->redirect_url, '/messages/'));
+
+// Test 7.5: Trải nghiệm thông báo: Unread badge, thời gian tương đối (diffForHumans) & màu nền phân biệt (FR-10.3)
 Auth::forgetGuards();
 $reqNotify = Request::create('/api/notifications', 'GET');
 $reqNotify->headers->set('Accept', 'application/json');
 $reqNotify->headers->set('Authorization', 'Bearer ' . $candToken);
 $respNotify = $app->handle($reqNotify);
 $notifyData = json_decode($respNotify->getContent(), true);
-assertTest("6.10 Nhận thông báo in-app kèm unread badge count (/api/notifications)",
-    $respNotify->getStatusCode() === 200 && ($notifyData['unread_count'] ?? 0) >= 1);
+$unreadBadge = $notifyData['unread_count'] ?? 0;
+$notifyItems = $notifyData['data'] ?? [];
+$firstNotify = $notifyItems[0] ?? [];
+
+assertTest("7.5 Trải nghiệm thông báo: Unread badge, thời gian tương đối & màu nền background (FR-10.3)",
+    $respNotify->getStatusCode() === 200 &&
+    $unreadBadge >= 1 &&
+    !empty($firstNotify['title']) &&
+    !empty($firstNotify['content']) &&
+    !empty($firstNotify['time_ago']) &&
+    $firstNotify['background_color'] === 'blue' &&
+    $firstNotify['is_read'] === false &&
+    !empty($firstNotify['redirect_url']));
+
+// Test 7.6: Đánh dấu đã đọc từng thông báo & chuyển màu background trắng (FR-10.3)
+Auth::forgetGuards();
+$testNotifyId = $firstNotify['id'] ?? 0;
+$reqMarkOne = Request::create('/api/notifications/' . $testNotifyId . '/read', 'PATCH');
+$reqMarkOne->headers->set('Accept', 'application/json');
+$reqMarkOne->headers->set('Authorization', 'Bearer ' . $candToken);
+$respMarkOne = $app->handle($reqMarkOne);
+$markOneJson = json_decode($respMarkOne->getContent(), true);
+
+assertTest("7.6 Đánh dấu đã đọc từng thông báo trả 200 & cập nhật is_read=true (FR-10.3)",
+    $respMarkOne->getStatusCode() === 200 &&
+    ($markOneJson['data']['is_read'] ?? false) === true);
+
+// Test 7.7: Đánh dấu tất cả thông báo là đã đọc (FR-10.3)
+Auth::forgetGuards();
+$reqMarkAll = Request::create('/api/notifications/read-all', 'PATCH');
+$reqMarkAll->headers->set('Accept', 'application/json');
+$reqMarkAll->headers->set('Authorization', 'Bearer ' . $candToken);
+$respMarkAll = $app->handle($reqMarkAll);
+$markAllJson = json_decode($respMarkAll->getContent(), true);
+
+assertTest("7.7 Đánh dấu tất cả là đã đọc trả 200 & unread_count=0 (FR-10.3)",
+    $respMarkAll->getStatusCode() === 200 &&
+    ($markAllJson['unread_count'] ?? -1) === 0);
+
+// Test 7.8: Lọc danh sách thông báo theo trạng thái read/unread (FR-10.3)
+Auth::forgetGuards();
+$reqFilterUnread = Request::create('/api/notifications?status=unread', 'GET');
+$reqFilterUnread->headers->set('Accept', 'application/json');
+$reqFilterUnread->headers->set('Authorization', 'Bearer ' . $candToken);
+$respFilterUnread = $app->handle($reqFilterUnread);
+$unreadJson = json_decode($respFilterUnread->getContent(), true);
+
+$reqFilterRead = Request::create('/api/notifications?status=read', 'GET');
+$reqFilterRead->headers->set('Accept', 'application/json');
+$reqFilterRead->headers->set('Authorization', 'Bearer ' . $candToken);
+$respFilterRead = $app->handle($reqFilterRead);
+$readJson = json_decode($respFilterRead->getContent(), true);
+
+assertTest("7.8 Lọc thông báo theo trạng thái ?status=unread và ?status=read (FR-10.3)",
+    count($unreadJson['data'] ?? []) === 0 &&
+    count($readJson['data'] ?? []) >= 1 &&
+    ($readJson['data'][0]['background_color'] ?? '') === 'white');
 
 // -------------------------------------------------------------------------
-// 7. MODULE QUẢN TRỊ VIÊN ADMIN DASHBOARD
+// 8. MODULE QUẢN TRỊ VIÊN ADMIN DASHBOARD
 // -------------------------------------------------------------------------
-echo "\n7. KIỂM THỬ QUẢN TRỊ ADMIN (STATS & KHÓA USER):\n";
+echo "\n8. KIỂM THỬ QUẢN TRỊ ADMIN (STATS & KHÓA USER):\n";
 Auth::forgetGuards();
 $admin = User::where('role', 'admin')->first();
 $adminToken = $admin->createToken('test_admin_runner')->plainTextToken;
 
-// Test 7.1: Thống kê Dashboard
+// Test 8.1: Thống kê Dashboard
 $reqStats = Request::create('/api/admin/stats', 'GET');
 $reqStats->headers->set('Accept', 'application/json');
 $reqStats->headers->set('Authorization', 'Bearer ' . $adminToken);
 $respStats = $app->handle($reqStats);
 $stats = json_decode($respStats->getContent(), true);
-assertTest("7.1 Lấy số liệu thống kê Dashboard (/api/admin/stats)", $respStats->getStatusCode() === 200 && isset($stats['data']['total_candidates']));
+assertTest("8.1 Lấy số liệu thống kê Dashboard (/api/admin/stats)", $respStats->getStatusCode() === 200 && isset($stats['data']['total_candidates']));
 
-// Test 7.2: Khóa tài khoản
+// Test 8.2: Khóa tài khoản
 Auth::forgetGuards();
 $reqLock = Request::create('/api/admin/users/' . $tempUser->id . '/status', 'PATCH', ['status' => 'locked']);
 $reqLock->headers->set('Accept', 'application/json');
 $reqLock->headers->set('Authorization', 'Bearer ' . $adminToken);
 $respLock = $app->handle($reqLock);
-assertTest("7.2 Khóa tài khoản người dùng & thu hồi token (/api/admin/users/{id}/status)", $respLock->getStatusCode() === 200);
+assertTest("8.2 Khóa tài khoản người dùng & thu hồi token (/api/admin/users/{id}/status)", $respLock->getStatusCode() === 200);
 
-// Test 7.3: User bị khóa đăng nhập -> 403
+// Test 8.3: User bị khóa đăng nhập -> 403
 Auth::forgetGuards();
 $reqLockedLog = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@']);
 $reqLockedLog->headers->set('Accept', 'application/json');
 $respLockedLog = $app->handle($reqLockedLog);
-assertTest("7.3 Đăng nhập tài khoản bị khóa trả 403 'Tài khoản của bạn đã bị khóa bởi quản trị viên'", $respLockedLog->getStatusCode() === 403);
+assertTest("8.3 Đăng nhập tài khoản bị khóa trả 403 'Tài khoản của bạn đã bị khóa bởi quản trị viên'", $respLockedLog->getStatusCode() === 403);
 
 // -------------------------------------------------------------------------
 // DỌN DẸP DỮ LIỆU TEST
