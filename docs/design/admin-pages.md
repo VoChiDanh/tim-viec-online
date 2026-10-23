@@ -1,5 +1,7 @@
 # Thiết kế lại khu vực quản trị
 
+> Bản HTML dưới đây là thiết kế gốc. Phần Next.js đã được tích hợp và đồng bộ trong [kế hoạch admin integration](../plans/admin-integration.md), bao gồm layout chung, giới hạn mock/API và kiểm tra quyền ở từng trang.
+
 ## Phạm vi đã thống nhất
 
 Người dùng xác nhận bắt đầu phương án bộ HTML/CSS/JS trong `design/`, sau khi được thông báo frontend Next.js chưa có trang admin. Hoàn thiện các màn hình tổng quan, kiểm duyệt tin, quản lý tài khoản, ngành nghề và kỹ năng; bổ sung trang chi tiết tin cho quy trình kiểm duyệt.

@@ -186,8 +186,7 @@ export const INITIAL_COMPANIES: AdminCompany[] = [
     city: "Hà Nội",
     company_size: "10–50 nhân viên",
     address: "Quận Cầu Giấy, Hà Nội",
-    description:
-      "Doanh nghiệp cung cấp dịch vụ vận hành và hỗ trợ kinh doanh.",
+    description: "Doanh nghiệp cung cấp dịch vụ vận hành và hỗ trợ kinh doanh.",
   },
   {
     id: 5,
@@ -493,17 +492,18 @@ export function getInitialDatabase(): AdminDatabase {
     applications_count: INITIAL_APPLICATIONS.filter(
       (app) => app.job_id === job.id,
     ).length,
-    address: INITIAL_COMPANIES.find((comp) => comp.id === job.company_id)?.address,
+    address: INITIAL_COMPANIES.find((comp) => comp.id === job.company_id)
+      ?.address,
   }));
 
-  return {
+  return structuredClone({
     categories: [...INITIAL_CATEGORIES],
     skills: [...INITIAL_SKILLS],
     users: [...INITIAL_USERS],
     companies: [...INITIAL_COMPANIES],
     jobs,
     applications: [...INITIAL_APPLICATIONS],
-  };
+  });
 }
 
 export function formatDateVN(dateString: string): string {
@@ -570,4 +570,3 @@ export function calculateTrendPoints(
     };
   });
 }
-

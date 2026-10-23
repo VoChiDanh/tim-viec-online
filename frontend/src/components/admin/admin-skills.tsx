@@ -1,12 +1,14 @@
 "use client";
+import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
-import { useMemo, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useAdminData } from "./admin-provider";
+import { AdminPagination } from "./admin-pagination";
+import { SearchableSelectionField } from "@/components/forms/selection-field";
 import {
   AlertTriangle,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   House,
   Info,
   Pencil,
@@ -16,12 +18,12 @@ import {
 } from "lucide-react";
 import {
   Dialog,
-  DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
-import { formatNumber, getInitialDatabase } from "@/features/admin/mock-data";
-import type { AdminDatabase, AdminSkill } from "@/features/admin/types";
+import { formatNumber } from "@/features/admin/mock-data";
+import type { AdminSkill } from "@/features/admin/types";
 import "./admin.css";
 
 const PAGE_SIZE = 6;
@@ -37,10 +39,15 @@ function normalize(text: string): string {
 }
 
 export function AdminSkills() {
-  const [db, setDb] = useState<AdminDatabase>(() => getInitialDatabase());
+  const { db, setDb, reset } = useAdminData();
+  const prefix = useId();
   const [query, setQuery] = useState("");
-  const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">("all");
-  const [sortFilter, setSortFilter] = useState<"name" | "usage" | "newest">("name");
+  const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">(
+    "all",
+  );
+  const [sortFilter, setSortFilter] = useState<"name" | "usage" | "newest">(
+    "name",
+  );
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Modals state
@@ -51,17 +58,21 @@ export function AdminSkills() {
 
   const [deletingSkill, setDeletingSkill] = useState<AdminSkill | null>(null);
 
-  // Toast notification
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3500);
+    toast.success(message);
   };
+
+  useLayoutEffect(
+    () => () => {
+      setIsEditOpen(false);
+      setDeletingSkill(null);
+    },
+    [],
+  );
 
   // Reset preview data
   const handleResetPreview = () => {
-    setDb(getInitialDatabase());
+    reset();
     setQuery("");
     setUsageFilter("all");
     setSortFilter("name");
@@ -72,20 +83,24 @@ export function AdminSkills() {
   };
 
   // Helper count jobs for a skill
-  const jobsCountFor = (skillId: number): number => {
-    return db.jobs.filter((j) => j.skills.includes(skillId)).length;
-  };
+  const jobsCountFor = useCallback(
+    (skillId: number): number =>
+      db.jobs.filter((j) => j.skills.includes(skillId)).length,
+    [db.jobs],
+  );
 
   // Total usage (jobs + candidate CVs)
-  const totalUsageFor = (skill: AdminSkill): number => {
-    return jobsCountFor(skill.id) + (skill.candidates_count || 0);
-  };
+  const totalUsageFor = useCallback(
+    (skill: AdminSkill): number =>
+      jobsCountFor(skill.id) + (skill.candidates_count || 0),
+    [jobsCountFor],
+  );
 
   // Metrics summary
   const totalSkills = db.skills.length;
   const usedCount = useMemo(
     () => db.skills.filter((s) => totalUsageFor(s) > 0).length,
-    [db.skills, db.jobs],
+    [db.skills, totalUsageFor],
   );
   const unusedCount = totalSkills - usedCount;
 
@@ -113,7 +128,7 @@ export function AdminSkills() {
         // newest
         return b.id - a.id;
       });
-  }, [db.skills, db.jobs, query, usageFilter, sortFilter]);
+  }, [db.skills, totalUsageFor, query, usageFilter, sortFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredSkills.length / PAGE_SIZE));
@@ -165,8 +180,7 @@ export function AdminSkills() {
 
     const isDuplicate = db.skills.some(
       (s) =>
-        s.id !== editingSkill?.id &&
-        normalize(s.name) === normalize(trimmed),
+        s.id !== editingSkill?.id && normalize(s.name) === normalize(trimmed),
     );
 
     if (isDuplicate) {
@@ -186,9 +200,7 @@ export function AdminSkills() {
     } else {
       // Create new
       const nextId =
-        db.skills.length > 0
-          ? Math.max(...db.skills.map((s) => s.id)) + 1
-          : 1;
+        db.skills.length > 0 ? Math.max(...db.skills.map((s) => s.id)) + 1 : 1;
       const newSkill: AdminSkill = {
         id: nextId,
         name: trimmed,
@@ -227,7 +239,9 @@ export function AdminSkills() {
   };
 
   const deletingJobsCount = deletingSkill ? jobsCountFor(deletingSkill.id) : 0;
-  const deletingCandidatesCount = deletingSkill ? deletingSkill.candidates_count || 0 : 0;
+  const deletingCandidatesCount = deletingSkill
+    ? deletingSkill.candidates_count || 0
+    : 0;
 
   return (
     <>
@@ -268,18 +282,19 @@ export function AdminSkills() {
       <div className="ap-notice">
         <Info className="ap-icon" aria-hidden="true" />
         <p>
-          Xóa kỹ năng sẽ gỡ kỹ năng đó khỏi tin tuyển dụng và hồ sơ ứng viên liên quan.
-          Nội dung tin và hồ sơ được giữ lại.
+          Xóa kỹ năng sẽ gỡ kỹ năng đó khỏi tin tuyển dụng và hồ sơ ứng viên
+          liên quan. Nội dung tin và hồ sơ được giữ lại.
         </p>
       </div>
 
       {/* Panel */}
-      <section className="ap-panel" aria-labelledby="listTitle">
+      <section className="ap-panel" aria-labelledby={`${prefix}-listTitle`}>
         <div className="ap-panel-heading">
           <div>
-            <h2 id="listTitle">Danh sách kỹ năng</h2>
+            <h2 id={`${prefix}-listTitle`}>Danh sách kỹ năng</h2>
             <p id="catalogSummary">
-              {totalSkills} mục · {usedCount} đang được sử dụng · {unusedCount} chưa sử dụng
+              {totalSkills} mục · {usedCount} đang được sử dụng · {unusedCount}{" "}
+              chưa sử dụng
             </p>
           </div>
           <span className="ap-badge ap-badge-blue">Danh mục hệ thống</span>
@@ -288,7 +303,7 @@ export function AdminSkills() {
         {/* Toolbar Filters */}
         <form
           className="ap-toolbar"
-          id="listFilters"
+          id={`${prefix}-listFilters`}
           role="search"
           onSubmit={(e) => e.preventDefault()}
         >
@@ -298,7 +313,7 @@ export function AdminSkills() {
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
               <input
-                id="listSearch"
+                id={`${prefix}-listSearch`}
                 type="search"
                 placeholder="Tìm tên kỹ năng…"
                 value={query}
@@ -312,38 +327,42 @@ export function AdminSkills() {
           </label>
 
           {/* Usage Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Tình trạng sử dụng</span>
-            <select
-              id="listUsage"
-              value={usageFilter}
-              onChange={(e) => {
-                setUsageFilter(e.target.value as "all" | "used" | "unused");
+            <SearchableSelectionField
+              name="listUsage"
+              label="Tình trạng sử dụng"
+              placeholder="Tất cả"
+              value={usageFilter === "all" ? "" : usageFilter}
+              onValueChange={(value) => {
+                setUsageFilter((value || "all") as "all" | "used" | "unused");
                 setCurrentPage(1);
               }}
-            >
-              <option value="all">Tất cả</option>
-              <option value="used">Đang được sử dụng</option>
-              <option value="unused">Chưa được sử dụng</option>
-            </select>
-          </label>
+              options={[
+                { value: "used", label: "Đang được sử dụng" },
+                { value: "unused", label: "Chưa được sử dụng" },
+              ]}
+            />
+          </div>
 
           {/* Sort Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Sắp xếp</span>
-            <select
-              id="listSort"
-              value={sortFilter}
-              onChange={(e) => {
-                setSortFilter(e.target.value as "name" | "usage" | "newest");
+            <SearchableSelectionField
+              name="listSort"
+              label="Sắp xếp"
+              placeholder="Tên A → Z"
+              value={sortFilter === "name" ? "" : sortFilter}
+              onValueChange={(value) => {
+                setSortFilter((value || "name") as "name" | "usage" | "newest");
                 setCurrentPage(1);
               }}
-            >
-              <option value="name">Tên A → Z</option>
-              <option value="usage">Được dùng nhiều nhất</option>
-              <option value="newest">Thêm gần đây</option>
-            </select>
-          </label>
+              options={[
+                { value: "usage", label: "Được dùng nhiều nhất" },
+                { value: "newest", label: "Thêm gần đây" },
+              ]}
+            />
+          </div>
 
           <button
             type="button"
@@ -356,7 +375,7 @@ export function AdminSkills() {
 
         {/* Table View */}
         {filteredSkills.length > 0 ? (
-          <div className="ap-table-wrap" id="listTable">
+          <div className="ap-table-wrap" id={`${prefix}-listTable`}>
             <table className="ap-table ap-table-responsive">
               <caption className="ap-sr-only">
                 Danh mục kỹ năng và số liên kết sử dụng
@@ -369,7 +388,7 @@ export function AdminSkills() {
                   <th scope="col">Thao tác</th>
                 </tr>
               </thead>
-              <tbody id="listRows">
+              <tbody id={`${prefix}-listRows`}>
                 {paginatedSkills.map((skill) => {
                   const jobCount = jobsCountFor(skill.id);
                   const candidateCount = skill.candidates_count || 0;
@@ -413,7 +432,7 @@ export function AdminSkills() {
           </div>
         ) : (
           /* Empty State */
-          <div className="ap-empty" id="listEmpty">
+          <div className="ap-empty" id={`${prefix}-listEmpty`}>
             <Search className="ap-icon" aria-hidden="true" />
             <h3>Không tìm thấy kết quả</h3>
             <p>Thử từ khóa khác hoặc xóa bộ lọc để xem toàn bộ danh sách.</p>
@@ -429,7 +448,12 @@ export function AdminSkills() {
 
         {/* Table Footer & Pagination */}
         <div className="ap-table-footer">
-          <span id="listCount" role="status" aria-live="polite" aria-atomic="true">
+          <span
+            id={`${prefix}-listCount`}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {filteredSkills.length > 0
               ? `Hiển thị ${startIndex + 1}–${Math.min(
                   startIndex + PAGE_SIZE,
@@ -438,43 +462,11 @@ export function AdminSkills() {
               : "0 mục phù hợp"}
           </span>
 
-          {totalPages > 1 && (
-            <nav className="ap-pagination" id="listPagination" aria-label="Phân trang">
-              <button
-                type="button"
-                disabled={safePage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                aria-label="Trang trước"
-              >
-                <ChevronLeft className="ap-icon" aria-hidden="true" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, index) => {
-                const pageNum = index + 1;
-                const isCurrent = pageNum === safePage;
-                return (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    aria-current={isCurrent ? "page" : undefined}
-                    aria-label={`Trang ${pageNum}`}
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                disabled={safePage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                aria-label="Trang sau"
-              >
-                <ChevronRight className="ap-icon" aria-hidden="true" />
-              </button>
-            </nav>
-          )}
+          <AdminPagination
+            page={safePage}
+            lastPage={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </section>
 
@@ -482,7 +474,10 @@ export function AdminSkills() {
       {/* Modal 1: Create / Edit Skill                             */}
       {/* ======================================================== */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-[480px] p-6" aria-describedby="edit-skill-desc">
+        <DialogContent
+          className="admin-page ap-modal max-w-[480px] p-6"
+          aria-describedby={`${prefix}-edit-skill-desc`}
+        >
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
               {editingSkill ? "Sửa" : "Thêm"} kỹ năng
@@ -490,16 +485,24 @@ export function AdminSkills() {
           </DialogHeader>
 
           <form onSubmit={handleSaveSkill} className="space-y-4 pt-2">
-            <p id="edit-skill-desc" className="text-xs text-[var(--ap-muted)]">
-              Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác hơn.
-            </p>
+            <DialogDescription
+              id={`${prefix}-edit-skill-desc`}
+              className="text-xs text-[var(--ap-muted)]"
+            >
+              Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác
+              hơn.
+            </DialogDescription>
 
-            <label className="ap-field block" htmlFor="catalogName">
+            <label className="ap-field block" htmlFor={`${prefix}-catalogName`}>
               <span className="text-xs font-semibold text-[var(--ap-navy)] block mb-1">
                 Tên kỹ năng
               </span>
               <input
-                id="catalogName"
+                id={`${prefix}-catalogName`}
+                aria-invalid={!!formError}
+                aria-describedby={
+                  formError ? `${prefix}-catalog-error` : undefined
+                }
                 name="name"
                 type="text"
                 value={formName}
@@ -519,7 +522,11 @@ export function AdminSkills() {
             </label>
 
             {formError && (
-              <p className="ap-field-error text-xs text-red-600" role="alert">
+              <p
+                id={`${prefix}-catalog-error`}
+                className="ap-field-error text-xs text-red-600"
+                role="alert"
+              >
                 {formError}
               </p>
             )}
@@ -547,7 +554,10 @@ export function AdminSkills() {
         open={!!deletingSkill}
         onOpenChange={(open) => !open && setDeletingSkill(null)}
       >
-        <DialogContent className="max-w-[480px] p-6" aria-describedby="delete-skill-desc">
+        <DialogContent
+          className="admin-page ap-modal max-w-[480px] p-6"
+          aria-describedby={`${prefix}-delete-skill-desc`}
+        >
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
               Xóa kỹ năng?
@@ -555,18 +565,23 @@ export function AdminSkills() {
           </DialogHeader>
 
           {deletingSkill && (
-            <div className="space-y-4 pt-2" id="delete-skill-desc">
+            <div className="space-y-4 pt-2" id={`${prefix}-delete-skill-desc`}>
               <p className="text-xs text-[var(--ap-text)]">
-                Bạn muốn xóa <strong>{deletingSkill.name}</strong> khỏi danh mục?
+                Bạn muốn xóa <strong>{deletingSkill.name}</strong> khỏi danh
+                mục?
               </p>
 
               {(deletingJobsCount > 0 || deletingCandidatesCount > 0) && (
                 <div className="ap-notice ap-notice-amber">
-                  <AlertTriangle className="ap-icon shrink-0 text-amber-600" aria-hidden="true" />
+                  <AlertTriangle
+                    className="ap-icon shrink-0 text-amber-600"
+                    aria-hidden="true"
+                  />
                   <p className="text-xs leading-relaxed">
-                    Kỹ năng sẽ được gỡ khỏi <strong>{deletingJobsCount} tin tuyển dụng</strong> và{" "}
-                    <strong>{deletingCandidatesCount} hồ sơ ứng viên</strong>. Tin và hồ sơ vẫn được
-                    giữ lại.
+                    Kỹ năng sẽ được gỡ khỏi{" "}
+                    <strong>{deletingJobsCount} tin tuyển dụng</strong> và{" "}
+                    <strong>{deletingCandidatesCount} hồ sơ ứng viên</strong>.
+                    Tin và hồ sơ vẫn được giữ lại.
                   </p>
                 </div>
               )}
@@ -595,19 +610,6 @@ export function AdminSkills() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Toast Notification Banner */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 bg-[var(--ap-navy)] text-white text-xs px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200"
-        >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
     </>
   );
 }
-

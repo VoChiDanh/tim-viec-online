@@ -1,31 +1,11 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { requireUser } from "@/services/auth-session";
-import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminSkills } from "@/components/admin/admin-skills";
-import { AdminLoading } from "@/components/admin/admin-loading";
+import { AdminContent } from "../_components/admin-content";
 
 export const metadata: Metadata = {
-  title: "Danh mục kỹ năng | Quản trị TimViecOnline",
-  description: "Chuẩn hóa kỹ năng cho hồ sơ ứng viên và yêu cầu tuyển dụng.",
+  title: "Kỹ năng | Quản trị TimViecOnline",
   robots: { index: false },
 };
 
-export default function AdminSkillsPage() {
-  return (
-    <Suspense fallback={<AdminLoading />}>
-      <AdminSkillsContent />
-    </Suspense>
-  );
+export default function Page() {
+  return <AdminContent section="skills" />;
 }
-
-async function AdminSkillsContent() {
-  await requireUser("admin", "/admin/skills");
-
-  return (
-    <AdminShell reportedCount={3}>
-      <AdminSkills />
-    </AdminShell>
-  );
-}
-

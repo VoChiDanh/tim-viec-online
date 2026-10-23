@@ -261,6 +261,46 @@ test("admin login follows the backend role", async ({ page }) => {
   await expect(page).toHaveURL(/\/admin$/);
 });
 
+test("API admin routes never substitute mock fixtures or enable preview mutations", async ({
+  page,
+}) => {
+  await login(page, "admin@example.test", "/admin/jobs/1");
+  await expect(page).toHaveURL(/\/admin\/jobs\/1$/);
+  for (const path of [
+    "/admin",
+    "/admin/users",
+    "/admin/categories",
+    "/admin/skills",
+    "/admin/jobs",
+    "/admin/jobs/1?preview=true",
+    "/admin/jobs/1?preview=1",
+    "/admin/preview",
+    "/admin/users/preview",
+    "/admin/categories/preview",
+    "/admin/skills/preview",
+    "/admin/jobs/preview",
+    "/admin/jobs/1/preview",
+  ]) {
+    const response = await page.goto(path);
+    await expect(
+      page.getByRole("heading", {
+        name: "Dữ liệu quản trị chưa được kết nối",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".admin-page, .ap-table, .ap-preview"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /Khóa|Xóa|Thêm|Khôi phục/ }),
+    ).toHaveCount(0);
+    const html = await response!.text();
+    expect(html).not.toContain("admin@timviec.vn");
+    expect(html).not.toContain("employer@timviec.vn");
+    expect(html).not.toContain("candidate@timviec.vn");
+  }
+});
+
 test("unknown API roles and invalid sessions never authorize a protected page", async ({
   page,
   context,

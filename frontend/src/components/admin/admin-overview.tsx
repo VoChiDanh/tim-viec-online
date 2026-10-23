@@ -1,6 +1,7 @@
 "use client";
+import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -15,17 +16,8 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
-import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/modules/cores/shadcn/components/ui/select";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -37,24 +29,19 @@ import {
   getInitialDatabase,
 } from "@/features/admin/mock-data";
 import { formatDate, vietnamToday } from "@/features/jobs/formatters";
-import type {
-  AdminCompany,
-  AdminDatabase,
-  AdminJob,
-  AdminUser,
-} from "@/features/admin/types";
-import "./admin.css";
+import type { AdminCompany, AdminJob, AdminUser } from "@/features/admin/types";
+import { useAdminData } from "./admin-provider";
 
 export function AdminOverview() {
-  const [db, setDb] = useState<AdminDatabase>(() => getInitialDatabase());
+  const { db, setDb } = useAdminData();
   const [trendDays, setTrendDays] = useState<number>(7);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  useLayoutEffect(() => () => setSelectedUser(null), []);
   const [chartTooltip, setChartTooltip] = useState<{
     x: number;
     y: number;
     text: string;
   } | null>(null);
-  const periodId = useId();
 
   // Reset preview data
   const handleResetPreview = () => {
@@ -79,10 +66,7 @@ export function AdminOverview() {
 
   const totalApplications = useMemo(
     () =>
-      db.jobs.reduce(
-        (total, job) => total + (job.applications_count || 0),
-        0,
-      ),
+      db.jobs.reduce((total, job) => total + (job.applications_count || 0), 0),
     [db.jobs],
   );
 
@@ -99,10 +83,7 @@ export function AdminOverview() {
   const recentUsers = useMemo(
     () =>
       [...db.users]
-        .sort(
-          (a, b) =>
-            b.created_at.localeCompare(a.created_at) || b.id - a.id,
-        )
+        .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id)
         .slice(0, 4),
     [db.users],
   );
@@ -191,15 +172,12 @@ export function AdminOverview() {
 
   const selectedUserJobsCount = useMemo(() => {
     if (!selectedUserCompany) return 0;
-    return db.jobs.filter((j) => j.company_id === selectedUserCompany.id).length;
+    return db.jobs.filter((j) => j.company_id === selectedUserCompany.id)
+      .length;
   }, [selectedUserCompany, db.jobs]);
 
-  const [todayIso, setTodayIso] = useState(() => vietnamToday());
+  const todayIso = vietnamToday();
   const todayFormatted = useMemo(() => formatDate(todayIso), [todayIso]);
-
-  useEffect(() => {
-    setTodayIso(vietnamToday());
-  }, []);
 
   return (
     <>
@@ -235,7 +213,11 @@ export function AdminOverview() {
       </div>
 
       {/* Metrics Cards */}
-      <section className="ap-metrics" id="overviewMetrics" aria-label="Số liệu tổng quan">
+      <section
+        className="ap-metrics"
+        id="overviewMetrics"
+        aria-label="Số liệu tổng quan"
+      >
         {/* Metric 1: Tổng tài khoản */}
         <article className="ap-metric">
           <div className="ap-metric-top">
@@ -288,22 +270,23 @@ export function AdminOverview() {
               <h2 id="trendTitle">Hoạt động tuyển dụng</h2>
               <p>Tin đăng mới và lượt ứng tuyển theo ngày.</p>
             </div>
-            <label className="ap-sr-only" htmlFor={periodId}>
-              Khoảng thời gian thống kê
-            </label>
-            <div className="w-[160px]">
-              <Select
-                value={String(trendDays)}
-                onValueChange={(val) => setTrendDays(Number(val))}
-              >
-                <SelectTrigger id={periodId} size="sm" className="h-9 text-xs">
-                  <SelectValue placeholder="Chọn khoảng thời gian" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 ngày gần nhất</SelectItem>
-                  <SelectItem value="14">14 ngày gần nhất</SelectItem>
-                </SelectContent>
-              </Select>
+            <div
+              className="flex shrink-0 gap-1"
+              role="group"
+              aria-label="Khoảng thời gian thống kê"
+            >
+              {[7, 14].map((days) => (
+                <Button
+                  key={days}
+                  type="button"
+                  size="sm"
+                  variant={trendDays === days ? "default" : "outline"}
+                  aria-pressed={trendDays === days}
+                  onClick={() => setTrendDays(days)}
+                >
+                  {days} ngày
+                </Button>
+              ))}
             </div>
           </div>
 
@@ -314,7 +297,10 @@ export function AdminOverview() {
                 Tin đăng mới
               </span>
               <span>
-                <i className="ap-chart-dot ap-chart-dot-green" aria-hidden="true" />
+                <i
+                  className="ap-chart-dot ap-chart-dot-green"
+                  aria-hidden="true"
+                />
                 Lượt ứng tuyển
               </span>
             </div>
@@ -352,8 +338,7 @@ export function AdminOverview() {
 
                 {/* Bars for jobs */}
                 {trendPoints.map((point, index) => {
-                  const x =
-                    chartConfig.getX(index) - chartConfig.barWidth / 2;
+                  const x = chartConfig.getX(index) - chartConfig.barWidth / 2;
                   const y = chartConfig.getY(point.jobs);
                   const barHeight =
                     (chartConfig.plotHeight * point.jobs) / chartConfig.ceiling;
@@ -367,7 +352,7 @@ export function AdminOverview() {
                       width={chartConfig.barWidth}
                       height={barHeight}
                       rx={3}
-                      aria-label={label}
+                      aria-hidden="true"
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const parent = e.currentTarget
@@ -404,7 +389,7 @@ export function AdminOverview() {
                       cx={cx}
                       cy={cy}
                       r={3}
-                      aria-label={label}
+                      aria-hidden="true"
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const parent = e.currentTarget
@@ -457,7 +442,9 @@ export function AdminOverview() {
               )}
             </div>
 
-            <p className="ap-chart-footnote">Số liệu minh họa đến ngày 16/10/2026.</p>
+            <p className="ap-chart-footnote">
+              Số liệu minh họa đến ngày 16/10/2026.
+            </p>
 
             {/* Table Fallback Details */}
             <details className="mt-3">
@@ -509,7 +496,10 @@ export function AdminOverview() {
                 const company = getCompany(job);
                 return (
                   <article key={job.id} className="ap-summary-item">
-                    <Flag className="ap-icon text-amber-600" aria-hidden="true" />
+                    <Flag
+                      className="ap-icon text-amber-600"
+                      aria-hidden="true"
+                    />
                     <div>
                       <Link
                         className="ap-cell-title font-medium hover:text-blue-600"
@@ -542,10 +532,7 @@ export function AdminOverview() {
           </div>
 
           <div className="ap-panel-bottom">
-            <Link
-              className="ap-text-link"
-              href="/admin/jobs?report=reported"
-            >
+            <Link className="ap-text-link" href="/admin/jobs?report=reported">
               Đi đến kiểm duyệt{" "}
               <ArrowRight className="ap-icon" aria-hidden="true" />
             </Link>
@@ -610,9 +597,7 @@ export function AdminOverview() {
                         </span>
                       )}
                       {user.role === "candidate" && (
-                        <span className="ap-badge ap-badge-blue">
-                          Ứng viên
-                        </span>
+                        <span className="ap-badge ap-badge-blue">Ứng viên</span>
                       )}
                     </td>
                     <td className="ap-number" data-label="Ngày tham gia">
@@ -683,7 +668,10 @@ export function AdminOverview() {
         open={!!selectedUser}
         onOpenChange={(open) => !open && setSelectedUser(null)}
       >
-        <DialogContent className="max-w-[480px] p-6">
+        <DialogContent
+          className="admin-page ap-modal max-w-[480px] p-6"
+          aria-describedby={undefined}
+        >
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
               Chi tiết tài khoản
@@ -721,9 +709,7 @@ export function AdminOverview() {
                       </span>
                     )}
                     {selectedUser.role === "candidate" && (
-                      <span className="ap-badge ap-badge-blue">
-                        Ứng viên
-                      </span>
+                      <span className="ap-badge ap-badge-blue">Ứng viên</span>
                     )}
                   </dd>
                 </div>
@@ -737,7 +723,9 @@ export function AdminOverview() {
                           : "ap-badge-green"
                       }`}
                     >
-                      {selectedUser.status === "locked" ? "Bị khóa" : "Hoạt động"}
+                      {selectedUser.status === "locked"
+                        ? "Bị khóa"
+                        : "Hoạt động"}
                     </span>
                   </dd>
                 </div>
@@ -779,4 +767,3 @@ export function AdminOverview() {
     </>
   );
 }
-

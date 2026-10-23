@@ -25,11 +25,48 @@ test("auth handoff only permits known internal job and account routes", () => {
     "/jobs#example",
     "/account/profile/../../admin",
     "/account/unknown",
-    "/admin",
     "/account/profile\n",
     "/jobs?" + "a".repeat(1000),
   ])
     assert.equal(safeJobReturnPath(value), "/jobs");
+});
+
+test("admin handoff preserves only implemented admin routes for the verified role", () => {
+  for (const path of [
+    "/admin",
+    "/admin/jobs",
+    "/admin/jobs/12",
+    "/admin/jobs/12?filter=reported",
+    "/admin/users",
+    "/admin/categories",
+    "/admin/skills",
+  ]) {
+    assert.equal(safeJobReturnPath(path), path);
+    assert.equal(safeJobReturnPath(path, "admin"), path);
+    assert.equal(safeJobReturnPath(path, "candidate"), "/jobs");
+    assert.equal(safeJobReturnPath(path, "employer"), "/employer");
+  }
+  for (const path of [
+    "/admin/preview",
+    "/admin/users/preview",
+    "/admin/jobs/1/preview",
+    "/admin/jobs/0",
+    "/admin/jobs/01",
+    "/admin/jobs/-1",
+    "/admin/jobs/1e0",
+    "/admin/jobs/9007199254740992",
+    "/admin/jobs/1/delete",
+    "/admin/../jobs",
+    "/admin/%2e%2e/jobs",
+    "/admin\\@evil.example",
+    "//evil.example/admin",
+    "/admin#fragment",
+  ]) {
+    assert.equal(safeJobReturnPath(path), "/jobs");
+    assert.equal(safeJobReturnPath(path, "admin"), "/admin");
+  }
+  assert.equal(safeJobReturnPath("/jobs/1", "admin"), "/admin");
+  assert.equal(safeJobReturnPath("/account/profile", "admin"), "/admin");
 });
 
 test("employer handoff only permits implemented employer destinations", () => {

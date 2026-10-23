@@ -29,6 +29,15 @@ test("admin mock database initial data integrity", () => {
   }
 });
 
+test("admin workspace fixtures do not share mutable records between sessions", () => {
+  const first = getInitialDatabase();
+  first.users[0].name = "Changed";
+  first.jobs[0].skills.length = 0;
+  const second = getInitialDatabase();
+  assert.notEqual(second.users[0].name, "Changed");
+  assert.ok(second.jobs[0].skills.length > 0);
+});
+
 test("admin helper functions format correctly", () => {
   assert.equal(formatDateVN("2026-10-16"), "16/10/2026");
   assert.equal(formatNumber(1250000), "1.250.000");
@@ -53,7 +62,9 @@ test("formatSalary formats negotiable, ranges, and minimums correctly", () => {
   assert.ok(negotiableJob);
   assert.equal(formatSalary(negotiableJob), "Thỏa thuận");
 
-  const rangeJob = db.jobs.find((j) => !j.is_negotiable && j.salary_min && j.salary_max);
+  const rangeJob = db.jobs.find(
+    (j) => !j.is_negotiable && j.salary_min && j.salary_max,
+  );
   assert.ok(rangeJob);
   assert.match(formatSalary(rangeJob), /VNĐ$/);
 
@@ -87,7 +98,9 @@ test("admin categories usage and deletion guard", () => {
   assert.ok(cat1Jobs.length > 0);
 
   // Used categories count
-  const usedCount = db.categories.filter((c) => jobsForCategory(c.id).length > 0).length;
+  const usedCount = db.categories.filter(
+    (c) => jobsForCategory(c.id).length > 0,
+  ).length;
   assert.ok(usedCount > 0);
   assert.ok(usedCount <= db.categories.length);
 
@@ -96,7 +109,9 @@ test("admin categories usage and deletion guard", () => {
   assert.equal(canDeleteCat1, false);
 
   // Can delete unused category
-  const unusedCat = db.categories.find((c) => jobsForCategory(c.id).length === 0);
+  const unusedCat = db.categories.find(
+    (c) => jobsForCategory(c.id).length === 0,
+  );
   if (unusedCat) {
     const remaining = db.categories.filter((c) => c.id !== unusedCat.id);
     assert.equal(remaining.length, db.categories.length - 1);
@@ -120,9 +135,5 @@ test("admin skills usage and cascade unlinking on deletion", () => {
   }));
 
   assert.equal(updatedSkills.length, 13);
-  assert.equal(
-    updatedJobs.filter((j) => j.skills.includes(skillId)).length,
-    0,
-  );
+  assert.equal(updatedJobs.filter((j) => j.skills.includes(skillId)).length, 0);
 });
-

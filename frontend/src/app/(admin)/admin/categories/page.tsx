@@ -1,31 +1,11 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { requireUser } from "@/services/auth-session";
-import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminCategories } from "@/components/admin/admin-categories";
-import { AdminLoading } from "@/components/admin/admin-loading";
+import { AdminContent } from "../_components/admin-content";
 
 export const metadata: Metadata = {
-  title: "Danh mục ngành nghề | Quản trị TimViecOnline",
-  description: "Tổ chức ngành nghề để ứng viên tìm được công việc phù hợp.",
+  title: "Ngành nghề | Quản trị TimViecOnline",
   robots: { index: false },
 };
 
-export default function AdminCategoriesPage() {
-  return (
-    <Suspense fallback={<AdminLoading />}>
-      <AdminCategoriesContent />
-    </Suspense>
-  );
+export default function Page() {
+  return <AdminContent section="categories" />;
 }
-
-async function AdminCategoriesContent() {
-  await requireUser("admin", "/admin/categories");
-
-  return (
-    <AdminShell reportedCount={3}>
-      <AdminCategories />
-    </AdminShell>
-  );
-}
-

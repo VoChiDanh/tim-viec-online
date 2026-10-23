@@ -1,21 +1,5 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminJobs } from "@/components/admin/admin-jobs";
-import { AdminLoading } from "@/components/admin/admin-loading";
+import { AdminContent } from "../../_components/admin-content";
 
-export const metadata: Metadata = {
-  title: "Xem trước kiểm duyệt tin tuyển dụng | Quản trị TimViecOnline",
-  robots: { index: false },
-};
-
-export default function AdminJobsPreviewPage() {
-  return (
-    <Suspense fallback={<AdminLoading />}>
-      <AdminShell reportedCount={3}>
-        <AdminJobs />
-      </AdminShell>
-    </Suspense>
-  );
+export default function LegacyPreviewPage() {
+  return <AdminContent section="jobs" legacyPreview />;
 }
-

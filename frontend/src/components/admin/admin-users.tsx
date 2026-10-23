@@ -1,11 +1,14 @@
 "use client";
+import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
-import { useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useAdminData } from "./admin-provider";
+import { AdminPagination } from "./admin-pagination";
+import { SearchableSelectionField } from "@/components/forms/selection-field";
 import {
   Building2,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   House,
   Info,
@@ -17,10 +20,9 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
-import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
 import {
   Dialog,
-  DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -28,12 +30,9 @@ import {
   formatDateVN,
   formatNumber,
   getInitials,
-  getInitialDatabase,
 } from "@/features/admin/mock-data";
 import type {
   AdminCompany,
-  AdminDatabase,
-  AdminRole,
   AdminUser,
   AdminUserStatus,
 } from "@/features/admin/types";
@@ -51,7 +50,8 @@ function normalize(text: string): string {
 }
 
 export function AdminUsers() {
-  const [db, setDb] = useState<AdminDatabase>(() => getInitialDatabase());
+  const { db, setDb, reset } = useAdminData();
+  const prefix = useId();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -60,18 +60,23 @@ export function AdminUsers() {
   // Modals state
   const [viewingUser, setViewingUser] = useState<AdminUser | null>(null);
   const [togglingUser, setTogglingUser] = useState<AdminUser | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  useLayoutEffect(
+    () => () => {
+      setViewingUser(null);
+      setTogglingUser(null);
+    },
+    [],
+  );
 
   // Reset preview data
   const handleResetPreview = () => {
-    setDb(getInitialDatabase());
+    reset();
     setQuery("");
     setRoleFilter("all");
     setStatusFilter("all");
     setCurrentPage(1);
-    setToastMessage("Đã khôi phục dữ liệu mẫu ban đầu.");
-    setTimeout(() => setToastMessage(null), 3500);
+    toast.success("Đã khôi phục dữ liệu mẫu ban đầu.");
   };
 
   // Metrics calculations
@@ -98,8 +103,7 @@ export function AdminUsers() {
           !q ||
           normalize(user.name).includes(q) ||
           normalize(user.email).includes(q);
-        const matchesRole =
-          roleFilter === "all" || user.role === roleFilter;
+        const matchesRole = roleFilter === "all" || user.role === roleFilter;
         const matchesStatus =
           statusFilter === "all" || user.status === statusFilter;
         return matchesQuery && matchesRole && matchesStatus;
@@ -138,9 +142,10 @@ export function AdminUsers() {
     }));
 
     const actionText = isLocking ? "khóa" : "mở khóa";
-    setToastMessage(`Đã ${actionText} tài khoản ${togglingUser.name} trong dữ liệu mẫu.`);
+    toast.success(
+      `Đã ${actionText} tài khoản ${togglingUser.name} trong dữ liệu mẫu.`,
+    );
     setTogglingUser(null);
-    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Helper get company of user
@@ -182,7 +187,11 @@ export function AdminUsers() {
       </div>
 
       {/* Metrics Section */}
-      <section className="ap-metrics" id="userMetrics" aria-label="Thống kê tài khoản">
+      <section
+        className="ap-metrics"
+        id="userMetrics"
+        aria-label="Thống kê tài khoản"
+      >
         {/* Metric 1: Tổng tài khoản */}
         <article className="ap-metric">
           <div className="ap-metric-top">
@@ -225,10 +234,10 @@ export function AdminUsers() {
       </section>
 
       {/* Main Table Panel */}
-      <section className="ap-panel" aria-labelledby="listTitle">
+      <section className="ap-panel" aria-labelledby={`${prefix}-listTitle`}>
         <div className="ap-panel-heading">
           <div>
-            <h2 id="listTitle">Danh sách tài khoản</h2>
+            <h2 id={`${prefix}-listTitle`}>Danh sách tài khoản</h2>
             <p>Tìm theo tên, email và lọc theo vai trò hoặc trạng thái.</p>
           </div>
           <span className="ap-badge ap-badge-blue">Quản lý truy cập</span>
@@ -237,7 +246,7 @@ export function AdminUsers() {
         {/* Toolbar Filters */}
         <form
           className="ap-toolbar"
-          id="listFilters"
+          id={`${prefix}-listFilters`}
           role="search"
           onSubmit={(e) => e.preventDefault()}
         >
@@ -247,7 +256,7 @@ export function AdminUsers() {
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
               <input
-                id="listSearch"
+                id={`${prefix}-listSearch`}
                 data-list-search
                 type="search"
                 value={query}
@@ -262,39 +271,43 @@ export function AdminUsers() {
           </label>
 
           {/* Role Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Vai trò</span>
-            <select
-              id="listRole"
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
+            <SearchableSelectionField
+              name="listRole"
+              label="Vai trò"
+              placeholder="Tất cả vai trò"
+              value={roleFilter === "all" ? "" : roleFilter}
+              onValueChange={(value) => {
+                setRoleFilter(value || "all");
                 setCurrentPage(1);
               }}
-            >
-              <option value="all">Tất cả vai trò</option>
-              <option value="candidate">Ứng viên</option>
-              <option value="employer">Nhà tuyển dụng</option>
-              <option value="admin">Quản trị viên</option>
-            </select>
-          </label>
+              options={[
+                { value: "candidate", label: "Ứng viên" },
+                { value: "employer", label: "Nhà tuyển dụng" },
+                { value: "admin", label: "Quản trị viên" },
+              ]}
+            />
+          </div>
 
           {/* Status Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Trạng thái</span>
-            <select
-              id="listStatus"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+            <SearchableSelectionField
+              name="listStatus"
+              label="Trạng thái"
+              placeholder="Tất cả trạng thái"
+              value={statusFilter === "all" ? "" : statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value || "all");
                 setCurrentPage(1);
               }}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="locked">Bị khóa</option>
-            </select>
-          </label>
+              options={[
+                { value: "active", label: "Hoạt động" },
+                { value: "locked", label: "Bị khóa" },
+              ]}
+            />
+          </div>
 
           {/* Clear Button */}
           <button
@@ -309,7 +322,7 @@ export function AdminUsers() {
 
         {/* Table of Users */}
         {filteredUsers.length > 0 ? (
-          <div className="ap-table-wrap" id="listTable">
+          <div className="ap-table-wrap" id={`${prefix}-listTable`}>
             <table className="ap-table ap-table-responsive">
               <caption className="ap-sr-only">
                 Tài khoản người dùng phù hợp với bộ lọc
@@ -323,7 +336,7 @@ export function AdminUsers() {
                   <th scope="col">Thao tác</th>
                 </tr>
               </thead>
-              <tbody id="listRows">
+              <tbody id={`${prefix}-listRows`}>
                 {paginatedUsers.map((user) => {
                   const isLocked = user.status === "locked";
                   const isAdmin = user.role === "admin";
@@ -341,7 +354,9 @@ export function AdminUsers() {
                             {getInitials(user.name)}
                           </span>
                           <div>
-                            <strong className="ap-cell-title">{user.name}</strong>
+                            <strong className="ap-cell-title">
+                              {user.name}
+                            </strong>
                             <span className="ap-cell-sub">{user.email}</span>
                           </div>
                         </div>
@@ -445,7 +460,7 @@ export function AdminUsers() {
             </table>
           </div>
         ) : (
-          <div className="ap-empty" id="listEmpty">
+          <div className="ap-empty" id={`${prefix}-listEmpty`}>
             <Search className="ap-icon" aria-hidden="true" />
             <h3>Không tìm thấy kết quả</h3>
             <p>Thử từ khóa khác hoặc xóa bộ lọc để xem toàn bộ danh sách.</p>
@@ -461,7 +476,7 @@ export function AdminUsers() {
 
         {/* Table Footer & Pagination */}
         <div className="ap-table-footer">
-          <span id="listCount" role="status" aria-live="polite">
+          <span id={`${prefix}-listCount`} role="status" aria-live="polite">
             {filteredUsers.length > 0
               ? `Hiển thị ${startIndex + 1}–${Math.min(
                   startIndex + PAGE_SIZE,
@@ -470,43 +485,11 @@ export function AdminUsers() {
               : "0 tài khoản phù hợp"}
           </span>
 
-          {totalPages > 1 && (
-            <nav className="ap-pagination" aria-label="Phân trang">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={safePage === 1}
-                aria-label="Trang trước"
-              >
-                <ChevronLeft className="ap-icon" aria-hidden="true" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, idx) => {
-                const pageNum = idx + 1;
-                const isCurrent = pageNum === safePage;
-                return (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setCurrentPage(pageNum)}
-                    aria-current={isCurrent ? "page" : undefined}
-                    aria-label={`Trang ${pageNum}`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage === totalPages}
-                aria-label="Trang sau"
-              >
-                <ChevronRight className="ap-icon" aria-hidden="true" />
-              </button>
-            </nav>
-          )}
+          <AdminPagination
+            page={safePage}
+            lastPage={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </section>
 
@@ -514,9 +497,12 @@ export function AdminUsers() {
       <div className="ap-notice mt-6">
         <ShieldCheck className="ap-icon text-blue-700" aria-hidden="true" />
         <div>
-          <strong>Khóa tài khoản là quyết định ảnh hưởng đến quyền truy cập.</strong>
+          <strong>
+            Khóa tài khoản là quyết định ảnh hưởng đến quyền truy cập.
+          </strong>
           <p>
-            Trong hệ thống thực tế, tài khoản bị khóa phải bị thu hồi phiên đăng nhập ngay theo chính sách của nền tảng.
+            Trong hệ thống thực tế, tài khoản bị khóa phải bị thu hồi phiên đăng
+            nhập ngay theo chính sách của nền tảng.
           </p>
         </div>
       </div>
@@ -526,11 +512,14 @@ export function AdminUsers() {
         open={!!viewingUser}
         onOpenChange={(open) => !open && setViewingUser(null)}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="admin-page ap-modal sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
               Chi tiết tài khoản
             </DialogTitle>
+            <DialogDescription>
+              Thông tin đăng ký, vai trò và trạng thái truy cập của tài khoản.
+            </DialogDescription>
           </DialogHeader>
 
           {viewingUser && (
@@ -564,9 +553,7 @@ export function AdminUsers() {
                       </span>
                     )}
                     {viewingUser.role === "candidate" && (
-                      <span className="ap-badge ap-badge-blue">
-                        Ứng viên
-                      </span>
+                      <span className="ap-badge ap-badge-blue">Ứng viên</span>
                     )}
                   </dd>
                 </div>
@@ -580,7 +567,9 @@ export function AdminUsers() {
                           : "ap-badge-green"
                       }`}
                     >
-                      {viewingUser.status === "locked" ? "Bị khóa" : "Hoạt động"}
+                      {viewingUser.status === "locked"
+                        ? "Bị khóa"
+                        : "Hoạt động"}
                     </span>
                   </dd>
                 </div>
@@ -626,21 +615,24 @@ export function AdminUsers() {
         open={!!togglingUser}
         onOpenChange={(open) => !open && setTogglingUser(null)}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="admin-page ap-modal sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
               {togglingUser?.status === "locked"
                 ? "Mở khóa tài khoản?"
                 : "Khóa tài khoản?"}
             </DialogTitle>
+            <DialogDescription>
+              Kiểm tra tài khoản và ảnh hưởng của thay đổi trước khi xác nhận.
+            </DialogDescription>
           </DialogHeader>
 
           {togglingUser && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Bạn đang{" "}
-                {togglingUser.status === "locked" ? "mở khóa" : "khóa"} tài khoản{" "}
-                <strong>{togglingUser.name}</strong> ({togglingUser.email}).
+                Bạn đang {togglingUser.status === "locked" ? "mở khóa" : "khóa"}{" "}
+                tài khoản <strong>{togglingUser.name}</strong> (
+                {togglingUser.email}).
               </p>
 
               <div
@@ -649,9 +641,15 @@ export function AdminUsers() {
                 }`}
               >
                 {togglingUser.status === "locked" ? (
-                  <LockKeyholeOpen className="ap-icon text-emerald-700" aria-hidden="true" />
+                  <LockKeyholeOpen
+                    className="ap-icon text-emerald-700"
+                    aria-hidden="true"
+                  />
                 ) : (
-                  <ShieldCheck className="ap-icon text-amber-700" aria-hidden="true" />
+                  <ShieldCheck
+                    className="ap-icon text-amber-700"
+                    aria-hidden="true"
+                  />
                 )}
                 <div>
                   <p>
@@ -677,9 +675,7 @@ export function AdminUsers() {
                 <Button
                   type="button"
                   variant={
-                    togglingUser.status === "locked"
-                      ? "default"
-                      : "destructive"
+                    togglingUser.status === "locked" ? "default" : "destructive"
                   }
                   onClick={handleConfirmToggle}
                   className={
@@ -697,25 +693,6 @@ export function AdminUsers() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div
-          className="fixed right-6 bottom-6 z-50 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-3 shadow-lg text-xs font-medium text-emerald-900 animate-in fade-in slide-in-from-bottom-2"
-          role="status"
-        >
-          <ShieldCheck className="size-4 text-emerald-600" aria-hidden="true" />
-          <span>{toastMessage}</span>
-          <button
-            type="button"
-            className="ml-auto text-muted-foreground hover:text-foreground text-xs"
-            onClick={() => setToastMessage(null)}
-          >
-            ✕
-          </button>
-        </div>
-      )}
     </>
   );
 }
-

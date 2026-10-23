@@ -1,6 +1,7 @@
 "use client";
+import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
-import { useState } from "react";
+import { useId, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
 } from "lucide-react";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -29,26 +29,26 @@ import {
   JOB_STATUS_LABELS,
   JOB_TYPE_LABELS,
 } from "@/features/admin/mock-data";
-import type {
-  AdminCategory,
-  AdminCompany,
-  AdminDatabase,
-  AdminJob,
-  AdminUser,
-} from "@/features/admin/types";
-import "./admin.css";
+import { useAdminData } from "./admin-provider";
+import { Checkbox } from "@/modules/cores/shadcn/components/ui/checkbox";
 
 interface AdminJobDetailProps {
   jobId: number | string;
   preview?: boolean;
 }
 
-export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) {
-  const [db, setDb] = useState<AdminDatabase>(() => getInitialDatabase());
+export function AdminJobDetail({
+  jobId,
+  preview = false,
+}: AdminJobDetailProps) {
+  const prefix = useId();
+  const { db, setDb } = useAdminData();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
-  const [deleteReasonError, setDeleteReasonError] = useState<string | null>(null);
+  const [deleteReasonError, setDeleteReasonError] = useState<string | null>(
+    null,
+  );
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
   // Deleted state after deletion action
@@ -59,13 +59,26 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
 
   // Owner detail modal
   const [showOwnerModal, setShowOwnerModal] = useState(false);
+  useLayoutEffect(
+    () => () => {
+      setShowDeleteModal(false);
+      setShowOwnerModal(false);
+    },
+    [],
+  );
 
   const numericId = typeof jobId === "string" ? Number(jobId) : jobId;
   const job = db.jobs.find((j) => j.id === numericId);
 
-  const company = job ? db.companies.find((c) => c.id === job.company_id) : undefined;
-  const category = job ? db.categories.find((c) => c.id === job.category_id) : undefined;
-  const owner = company ? db.users.find((u) => u.id === company.user_id) : undefined;
+  const company = job
+    ? db.companies.find((c) => c.id === job.company_id)
+    : undefined;
+  const category = job
+    ? db.categories.find((c) => c.id === job.category_id)
+    : undefined;
+  const owner = company
+    ? db.users.find((u) => u.id === company.user_id)
+    : undefined;
 
   const backUrl = preview ? "/admin/jobs/preview" : "/admin/jobs";
 
@@ -150,11 +163,14 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
       {deletedInfo ? (
         <section className="ap-panel">
           <div className="ap-empty">
-            <CheckCircle2 className="ap-icon text-emerald-600" aria-hidden="true" />
+            <CheckCircle2
+              className="ap-icon text-emerald-600"
+              aria-hidden="true"
+            />
             <h2>Đã xóa tin trong bản xem trước</h2>
             <p>
-              Tài khoản nhà tuyển dụng được giữ nguyên. Chưa có dữ liệu thực tế bị xóa hoặc thông
-              báo được gửi đi.
+              Tài khoản nhà tuyển dụng được giữ nguyên. Chưa có dữ liệu thực tế
+              bị xóa hoặc thông báo được gửi đi.
             </p>
             <Link className="ap-button ap-button-primary" href={backUrl}>
               Về danh sách kiểm duyệt
@@ -163,8 +179,8 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
           <section className="ap-detail-section">
             <h3>Nội dung thông báo dự kiến</h3>
             <p>
-              Tin tuyển dụng “{deletedInfo.title}” vi phạm chính sách tuyển dụng. Lý do:{" "}
-              {deletedInfo.reason}
+              Tin tuyển dụng “{deletedInfo.title}” vi phạm chính sách tuyển
+              dụng. Lý do: {deletedInfo.reason}
             </p>
           </section>
         </section>
@@ -183,11 +199,15 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
         <div id="jobDetail" aria-live="polite">
           {job.is_reported && (
             <div className="ap-notice ap-notice-amber">
-              <Flag className="ap-icon text-amber-600 shrink-0" aria-hidden="true" />
+              <Flag
+                className="ap-icon text-amber-600 shrink-0"
+                aria-hidden="true"
+              />
               <div>
                 <strong>Tin tuyển dụng này đã bị báo cáo.</strong>
                 <p>
-                  Đối chiếu nội dung với chính sách tuyển dụng trước khi đưa ra quyết định xử lý.
+                  Đối chiếu nội dung với chính sách tuyển dụng trước khi đưa ra
+                  quyết định xử lý.
                 </p>
               </div>
             </div>
@@ -256,7 +276,10 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
             </article>
 
             {/* Right Column: Facts, Company Card & Actions */}
-            <aside className="ap-stack" aria-label="Thông tin và quyết định kiểm duyệt">
+            <aside
+              className="ap-stack"
+              aria-label="Thông tin và quyết định kiểm duyệt"
+            >
               {/* Facts Section */}
               <section className="ap-panel">
                 <div className="ap-panel-heading">
@@ -303,7 +326,9 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
                     </span>
                     <div>
                       <strong className="ap-cell-title">{company.name}</strong>
-                      <span className="ap-cell-sub">{company.company_size}</span>
+                      <span className="ap-cell-sub">
+                        {company.company_size}
+                      </span>
                     </div>
                   </div>
                   <p>{company.description}</p>
@@ -311,7 +336,9 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
                     <div style={{ marginTop: "16px" }}>
                       <span
                         className={`ap-badge ${
-                          owner.status === "locked" ? "ap-badge-red" : "ap-badge-green"
+                          owner.status === "locked"
+                            ? "ap-badge-red"
+                            : "ap-badge-green"
                         }`}
                       >
                         {owner.status === "locked" ? "Bị khóa" : "Hoạt động"}
@@ -336,8 +363,9 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
               <section className="ap-panel ap-danger-section">
                 <h3>Xử lý tin vi phạm</h3>
                 <p>
-                  Xóa tin sẽ xóa các hồ sơ ứng tuyển, hội thoại và dữ liệu liên quan. Thao tác này
-                  không tự động khóa tài khoản nhà tuyển dụng.
+                  Xóa tin sẽ xóa các hồ sơ ứng tuyển, hội thoại và dữ liệu liên
+                  quan. Thao tác này không tự động khóa tài khoản nhà tuyển
+                  dụng.
                 </p>
                 <button
                   type="button"
@@ -363,7 +391,10 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
       {/* Delete Job Confirmation Dialog                           */}
       {/* ======================================================== */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="max-w-md p-6" aria-describedby="delete-job-dialog-desc">
+        <DialogContent
+          className="admin-page ap-modal max-w-md p-6"
+          aria-describedby={`${prefix}-delete-job-dialog-desc`}
+        >
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-red-600">
               Xóa tin tuyển dụng vi phạm?
@@ -373,29 +404,48 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
           {job && (
             <form onSubmit={handleConfirmDelete} className="space-y-4 pt-1">
               <div>
-                <p className="font-semibold text-sm text-[var(--ap-navy)]">{job.title}</p>
-                <p className="text-xs text-[var(--ap-muted)]">{company?.name}</p>
-              </div>
-
-              <div className="ap-notice ap-notice-red" id="delete-job-dialog-desc">
-                <AlertTriangle className="ap-icon shrink-0 text-red-600" aria-hidden="true" />
-                <p className="text-xs leading-relaxed">
-                  Quyết định xóa sẽ ảnh hưởng đến{" "}
-                  <strong>{job.applications_count} hồ sơ ứng tuyển</strong>, hội thoại, tin nhắn,
-                  kết quả phân tích CV và lượt lưu liên quan.
+                <p className="font-semibold text-sm text-[var(--ap-navy)]">
+                  {job.title}
+                </p>
+                <p className="text-xs text-[var(--ap-muted)]">
+                  {company?.name}
                 </p>
               </div>
 
-              <label className="ap-field block" htmlFor="deleteReason">
+              <div
+                className="ap-notice ap-notice-red"
+                id={`${prefix}-delete-job-dialog-desc`}
+              >
+                <AlertTriangle
+                  className="ap-icon shrink-0 text-red-600"
+                  aria-hidden="true"
+                />
+                <p className="text-xs leading-relaxed">
+                  Quyết định xóa sẽ ảnh hưởng đến{" "}
+                  <strong>{job.applications_count} hồ sơ ứng tuyển</strong>, hội
+                  thoại, tin nhắn, kết quả phân tích CV và lượt lưu liên quan.
+                </p>
+              </div>
+
+              <label
+                className="ap-field block"
+                htmlFor={`${prefix}-deleteReason`}
+              >
                 <span className="text-xs font-semibold text-[var(--ap-navy)] block mb-1">
                   Lý do vi phạm
                 </span>
                 <textarea
-                  id="deleteReason"
+                  id={`${prefix}-deleteReason`}
                   name="reason"
                   maxLength={255}
                   required
                   rows={3}
+                  aria-invalid={!!deleteReasonError}
+                  aria-describedby={
+                    deleteReasonError
+                      ? `${prefix}-delete-reason-error`
+                      : undefined
+                  }
                   value={deleteReason}
                   onChange={(e) => {
                     setDeleteReason(e.target.value);
@@ -408,25 +458,29 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
                   Bắt buộc · Tối đa 255 ký tự.
                 </small>
                 {deleteReasonError && (
-                  <p className="ap-field-error text-xs text-red-600 mt-1" role="alert">
+                  <p
+                    id={`${prefix}-delete-reason-error`}
+                    className="ap-field-error text-xs text-red-600 mt-1"
+                    role="alert"
+                  >
                     {deleteReasonError}
                   </p>
                 )}
               </label>
 
               <label className="ap-confirm-check flex items-start gap-2 cursor-pointer mt-2">
-                <input
-                  type="checkbox"
-                  id="confirmDelete"
+                <Checkbox
+                  id={`${prefix}-confirmDelete`}
                   checked={deleteConfirmed}
-                  onChange={(e) => {
-                    setDeleteConfirmed(e.target.checked);
+                  onCheckedChange={(checked) => {
+                    setDeleteConfirmed(checked === true);
                     if (confirmError) setConfirmError(null);
                   }}
                   className="mt-1"
                 />
                 <span className="text-xs text-[var(--ap-text)] leading-snug">
-                  Tôi đã kiểm tra nội dung và hiểu ảnh hưởng của quyết định xóa tin.
+                  Tôi đã kiểm tra nội dung và hiểu ảnh hưởng của quyết định xóa
+                  tin.
                 </span>
               </label>
               {confirmError && (
@@ -436,8 +490,8 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
               )}
 
               <p className="text-[11px] text-[var(--ap-muted)] mt-2">
-                Bản xem trước chỉ xóa tin mẫu. Thông báo cho nhà tuyển dụng và xóa dữ liệu thực tế
-                cần được hệ thống xử lý.
+                Bản xem trước chỉ xóa tin mẫu. Thông báo cho nhà tuyển dụng và
+                xóa dữ liệu thực tế cần được hệ thống xử lý.
               </p>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-[var(--ap-line)]">
@@ -461,7 +515,10 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
       {/* Employer Account Detail Modal                            */}
       {/* ======================================================== */}
       <Dialog open={showOwnerModal} onOpenChange={setShowOwnerModal}>
-        <DialogContent className="max-w-md p-6" aria-describedby="owner-account-desc">
+        <DialogContent
+          className="admin-page ap-modal max-w-md p-6"
+          aria-describedby={`${prefix}-owner-account-desc`}
+        >
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">
               Chi tiết tài khoản chủ tin
@@ -469,7 +526,7 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
           </DialogHeader>
 
           {owner && (
-            <div className="pt-2" id="owner-account-desc">
+            <div className="pt-2" id={`${prefix}-owner-account-desc`}>
               <div className="ap-account-heading">
                 <span className="ap-avatar ap-avatar-company">
                   {getInitials(owner.name)}
@@ -484,7 +541,9 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
                 <div>
                   <dt>Vai trò</dt>
                   <dd>
-                    <span className="ap-badge ap-badge-green">Nhà tuyển dụng</span>
+                    <span className="ap-badge ap-badge-green">
+                      Nhà tuyển dụng
+                    </span>
                   </dd>
                 </div>
                 <div>
@@ -518,7 +577,11 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
                     <div>
                       <dt>Tin đã đăng</dt>
                       <dd>
-                        {db.jobs.filter((j) => j.company_id === company.id).length} tin
+                        {
+                          db.jobs.filter((j) => j.company_id === company.id)
+                            .length
+                        }{" "}
+                        tin
                       </dd>
                     </div>
                   </>
@@ -541,4 +604,3 @@ export function AdminJobDetail({ jobId, preview = false }: AdminJobDetailProps) 
     </>
   );
 }
-

@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useAdminData } from "./admin-provider";
+import { AdminPagination } from "./admin-pagination";
+import { SearchableSelectionField } from "@/components/forms/selection-field";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   BriefcaseBusiness,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Eye,
   Flag,
@@ -18,15 +20,9 @@ import {
 import {
   formatDateVN,
   formatNumber,
-  getInitialDatabase,
   JOB_STATUS_LABELS,
 } from "@/features/admin/mock-data";
-import type {
-  AdminCategory,
-  AdminCompany,
-  AdminDatabase,
-  AdminJob,
-} from "@/features/admin/types";
+import type { AdminCompany, AdminJob } from "@/features/admin/types";
 import "./admin.css";
 
 const PAGE_SIZE = 6;
@@ -47,7 +43,8 @@ export function AdminJobs() {
   const isPreview =
     pathname.includes("/preview") || searchParams.get("preview") === "true";
 
-  const [db, setDb] = useState<AdminDatabase>(() => getInitialDatabase());
+  const { db, reset } = useAdminData();
+  const prefix = useId();
   const [query, setQuery] = useState("");
   const [reportFilter, setReportFilter] = useState<"reported" | "all">(
     initialReportParam === "all" ? "all" : "reported",
@@ -56,25 +53,23 @@ export function AdminJobs() {
   const [sortFilter, setSortFilter] = useState<string>("newest");
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Toast message
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   // Reset preview data
   const handleResetPreview = () => {
-    const freshDb = getInitialDatabase();
-    setDb(freshDb);
+    reset();
     setQuery("");
     setReportFilter("reported");
     setStatusFilter("all");
     setSortFilter("newest");
     setCurrentPage(1);
-    setToastMessage("Đã khôi phục dữ liệu mẫu ban đầu.");
-    setTimeout(() => setToastMessage(null), 3500);
+    toast.success("Đã khôi phục dữ liệu mẫu ban đầu.");
   };
 
   // Helper mappings
-  const companyFor = (job: AdminJob): AdminCompany | undefined =>
-    db.companies.find((c) => c.id === job.company_id);
+  const companyFor = useCallback(
+    (job: AdminJob): AdminCompany | undefined =>
+      db.companies.find((c) => c.id === job.company_id),
+    [db.companies],
+  );
 
   // Metrics calculations
   const totalJobsCount = db.jobs.length;
@@ -115,7 +110,7 @@ export function AdminJobs() {
         const compared = dateA.localeCompare(dateB) || a.id - b.id;
         return sortFilter === "oldest" ? compared : -compared;
       });
-  }, [db.jobs, db.companies, query, reportFilter, statusFilter, sortFilter]);
+  }, [db.jobs, companyFor, query, reportFilter, statusFilter, sortFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
@@ -163,7 +158,11 @@ export function AdminJobs() {
       </div>
 
       {/* Metrics Section */}
-      <section className="ap-metrics" id="jobMetrics" aria-label="Thống kê tin tuyển dụng">
+      <section
+        className="ap-metrics"
+        id="jobMetrics"
+        aria-label="Thống kê tin tuyển dụng"
+      >
         {/* Metric 1: Tổng tin tuyển dụng */}
         <article className="ap-metric">
           <div className="ap-metric-top">
@@ -206,17 +205,21 @@ export function AdminJobs() {
       </section>
 
       {/* Main Panel */}
-      <section className="ap-panel" aria-labelledby="listTitle">
+      <section className="ap-panel" aria-labelledby={`${prefix}-listTitle`}>
         <div className="ap-panel-heading">
           <div>
-            <h2 id="listTitle">Danh sách tin tuyển dụng</h2>
+            <h2 id={`${prefix}-listTitle`}>Danh sách tin tuyển dụng</h2>
             <p>Tin bị báo cáo được đánh dấu riêng để ưu tiên kiểm tra.</p>
           </div>
           <span className="ap-badge ap-badge-blue">Kiểm duyệt nội dung</span>
         </div>
 
         {/* Segments Filter */}
-        <nav className="ap-segments" id="jobSegments" aria-label="Lọc theo báo cáo">
+        <nav
+          className="ap-segments"
+          id="jobSegments"
+          aria-label="Lọc theo báo cáo"
+        >
           <button
             type="button"
             data-report="reported"
@@ -244,7 +247,7 @@ export function AdminJobs() {
         {/* Toolbar Filters */}
         <form
           className="ap-toolbar"
-          id="listFilters"
+          id={`${prefix}-listFilters`}
           role="search"
           onSubmit={(e) => e.preventDefault()}
         >
@@ -254,7 +257,7 @@ export function AdminJobs() {
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
               <input
-                id="listSearch"
+                id={`${prefix}-listSearch`}
                 type="search"
                 placeholder="Tiêu đề công việc hoặc tên công ty…"
                 value={query}
@@ -268,39 +271,43 @@ export function AdminJobs() {
           </label>
 
           {/* Status Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Trạng thái tin</span>
-            <select
-              id="listStatus"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+            <SearchableSelectionField
+              name="listStatus"
+              label="Trạng thái tin"
+              placeholder="Tất cả trạng thái"
+              value={statusFilter === "all" ? "" : statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value || "all");
                 setCurrentPage(1);
               }}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang tuyển</option>
-              <option value="closed">Đã đóng</option>
-              <option value="expired">Hết hạn</option>
-            </select>
-          </label>
+              options={[
+                { value: "active", label: "Đang tuyển" },
+                { value: "closed", label: "Đã đóng" },
+                { value: "expired", label: "Hết hạn" },
+              ]}
+            />
+          </div>
 
           {/* Sort Filter */}
-          <label className="ap-filter">
+          <div className="ap-filter">
             <span>Sắp xếp</span>
-            <select
-              id="listSort"
-              value={sortFilter}
-              onChange={(e) => {
-                setSortFilter(e.target.value);
+            <SearchableSelectionField
+              name="listSort"
+              label="Sắp xếp"
+              placeholder="Mới nhất"
+              value={sortFilter === "newest" ? "" : sortFilter}
+              onValueChange={(value) => {
+                setSortFilter(value || "newest");
                 setCurrentPage(1);
               }}
-            >
-              <option value="newest">Mới nhất</option>
-              <option value="oldest">Cũ nhất</option>
-              <option value="name">Tên A → Z</option>
-            </select>
-          </label>
+              options={[
+                { value: "oldest", label: "Cũ nhất" },
+                { value: "name", label: "Tên A → Z" },
+              ]}
+            />
+          </div>
 
           <button
             type="button"
@@ -313,9 +320,11 @@ export function AdminJobs() {
 
         {/* Table View */}
         {filteredJobs.length > 0 ? (
-          <div className="ap-table-wrap" id="listTable">
+          <div className="ap-table-wrap" id={`${prefix}-listTable`}>
             <table className="ap-table ap-table-responsive">
-              <caption className="ap-sr-only">Tin tuyển dụng phù hợp với bộ lọc</caption>
+              <caption className="ap-sr-only">
+                Tin tuyển dụng phù hợp với bộ lọc
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">Vị trí tuyển dụng</th>
@@ -325,7 +334,7 @@ export function AdminJobs() {
                   <th scope="col">Thao tác</th>
                 </tr>
               </thead>
-              <tbody id="listRows">
+              <tbody id={`${prefix}-listRows`}>
                 {paginatedJobs.map((job) => {
                   const company = companyFor(job);
                   const detailUrl = isPreview
@@ -338,7 +347,9 @@ export function AdminJobs() {
                         <Link href={detailUrl} className="ap-cell-title">
                           {job.title}
                         </Link>
-                        <span className="ap-cell-sub">{company?.name || "Chưa cập nhật"}</span>
+                        <span className="ap-cell-sub">
+                          {company?.name || "Chưa cập nhật"}
+                        </span>
                       </td>
                       <td data-label="Địa điểm">{job.city}</td>
                       <td data-label="Trạng thái">
@@ -351,7 +362,9 @@ export function AdminJobs() {
                             {JOB_STATUS_LABELS[job.status] || job.status}
                           </span>
                           {job.is_reported && (
-                            <span className="ap-badge ap-badge-amber">Bị báo cáo</span>
+                            <span className="ap-badge ap-badge-amber">
+                              Bị báo cáo
+                            </span>
                           )}
                         </div>
                       </td>
@@ -378,7 +391,7 @@ export function AdminJobs() {
           </div>
         ) : (
           /* Empty State */
-          <div className="ap-empty" id="listEmpty">
+          <div className="ap-empty" id={`${prefix}-listEmpty`}>
             <Search className="ap-icon" aria-hidden="true" />
             <h3>Không tìm thấy kết quả</h3>
             <p>Thử từ khóa khác hoặc xóa bộ lọc để xem toàn bộ danh sách.</p>
@@ -394,7 +407,12 @@ export function AdminJobs() {
 
         {/* Table Footer & Pagination */}
         <div className="ap-table-footer">
-          <span id="listCount" role="status" aria-live="polite" aria-atomic="true">
+          <span
+            id={`${prefix}-listCount`}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {filteredJobs.length > 0
               ? `Hiển thị ${startIndex + 1}–${Math.min(
                   startIndex + PAGE_SIZE,
@@ -403,57 +421,13 @@ export function AdminJobs() {
               : "0 tin phù hợp"}
           </span>
 
-          {totalPages > 1 && (
-            <nav className="ap-pagination" id="listPagination" aria-label="Phân trang">
-              <button
-                type="button"
-                disabled={safePage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                aria-label="Trang trước"
-              >
-                <ChevronLeft className="ap-icon" aria-hidden="true" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, index) => {
-                const pageNum = index + 1;
-                const isCurrent = pageNum === safePage;
-                return (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    aria-current={isCurrent ? "page" : undefined}
-                    aria-label={`Trang ${pageNum}`}
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                disabled={safePage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                aria-label="Trang sau"
-              >
-                <ChevronRight className="ap-icon" aria-hidden="true" />
-              </button>
-            </nav>
-          )}
+          <AdminPagination
+            page={safePage}
+            lastPage={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </section>
-
-      {/* Toast Banner */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 bg-[var(--ap-navy)] text-white text-xs px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200"
-        >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
     </>
   );
 }
