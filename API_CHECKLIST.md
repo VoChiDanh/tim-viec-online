@@ -27,7 +27,7 @@ Contract kiểm tra lấy từ [backend/routes/api.php](backend/routes/api.php),
 | `GET /api/user` | Sanctum | none | 200 current user + role profile/company data. |
 | `PUT /api/user/change-password` | Sanctum | `current_password`, `new_password`/`password`, confirmation | Update password, revoke token khác, giữ token hiện tại; current sai/new reuse 400. |
 | `POST /api/forgot-password`, `/api/password/forgot` | Public, 3/15 phút | JSON `email` | Cùng thông điệp 200 dù email không tồn tại; token reset chỉ email, DB hash; API không trả raw token/reset_url. |
-| `GET|POST /api/verify-reset-token` | Public, 20/phút | query/body `email`,`token` | 200 valid; invalid/expired 400. |
+| `GET/POST /api/verify-reset-token` | Public, 20/phút | query/body `email`,`token` | 200 valid; invalid/expired 400. |
 | `POST /api/reset-password`, `/api/password/reset` | Public, 10/phút | `email`,`token`,`password`/`new_password`, confirmation | Reset thành công, xóa reset token và revoke Sanctum tokens; sai/expired 400. |
 
 ## 2. Public catalog, company, jobs
@@ -113,9 +113,9 @@ Salary type values and required fields are enforced by `JobRequest`; use exact i
 | `PATCH /api/admin/users/{id}/status`, `/toggle-lock` | Admin | status/action | Lock/unlock/status; verify token revocation and self-lock policy. |
 | `GET /api/admin/jobs`, `/api/admin/jobs/{id}` | Admin | query/ID | Job list/detail. |
 | `DELETE /api/admin/jobs/{id}` | Admin | ID | Delete with configured cascades/notification. |
-| `GET|POST /api/admin/categories`, `PUT|DELETE /api/admin/categories/{id}` | Admin | category data/ID | Taxonomy CRUD; FK restrict behavior. |
-| `GET|POST /api/admin/skills`, `PUT|DELETE /api/admin/skills/{id}` | Admin | skill data/ID | Taxonomy CRUD; pivot behavior. |
-| `GET|POST /api/broadcasting/auth` | Sanctum | channel auth payload | Authorize private chat membership; test wrong user denial. |
+| `GET/POST /api/admin/categories`, `PUT|DELETE /api/admin/categories/{id}` | Admin | category data/ID | Taxonomy CRUD; FK restrict behavior. |
+| `GET/POST /api/admin/skills`, `PUT|DELETE /api/admin/skills/{id}` | Admin | skill data/ID | Taxonomy CRUD; pivot behavior. |
+| `GET/POST /api/broadcasting/auth` | Sanctum | channel auth payload | Authorize private chat membership; test wrong user denial. |
 
 ## 7. Further checks
 
