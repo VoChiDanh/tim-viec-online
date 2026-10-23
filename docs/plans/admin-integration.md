@@ -21,6 +21,8 @@ Trong `AUTH_MODE=mock`, đăng nhập `admin@example.test` / `Admin@123`, sau đ
 
 `admin/layout.tsx` là điểm cấp dữ liệu và shell; `_components/admin-content.tsx` là kiểm tra quyền tại từng trang. `AdminProvider` giữ trạng thái theo phiên điều hướng và user ID, không ghi localStorage. Hiện chưa có API admin trong hợp đồng backend; API mode hiển thị “Dữ liệu quản trị chưa được kết nối”. Khi bổ sung API, thay factory ở server bằng service có token/phân quyền và chuyển thao tác dữ liệu sang các mutation được backend kiểm tra. Không coi mock `setDb` là lớp bảo mật.
 
+Sau đợt rà soát khả năng thay mock/backend, component không còn nhận `setDb`: đọc qua `services/admin.ts`, ghi qua `AdminCommand`/adapter bất đồng bộ, fixture chuyển sang `mocks/admin.ts`. Chi tiết trách nhiệm SRS/SQL và các bước nối API thật trong [admin backend handoff](admin-backend-handoff.md). Các đoạn `getInitialDatabase`/mock `setDb` phía trên mô tả thiết kế ban đầu, không phải điểm tích hợp hiện tại.
+
 Hộp thoại dùng wrapper `AdminDialogContent` để cuộn nội dung ở màn hình thấp, khôi phục focus về nút mở hoặc tiêu đề nếu bản ghi bị xóa; các trang đóng portal khi Next Activity ẩn trang. ID form có prefix để không trùng giữa các route được giữ trong bộ nhớ.
 
 ## Bản vá framework

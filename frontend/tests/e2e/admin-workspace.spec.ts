@@ -9,6 +9,29 @@ async function loginAdmin(page: Page, path = "/admin") {
   await expect(page).toHaveURL(new RegExp(`${path}$`));
 }
 
+test("rejected catalog writes keep the dialog and entered name", async ({
+  page,
+}) => {
+  await loginAdmin(page, "/admin/categories");
+  await page
+    .getByRole("button", { name: "Thêm ngành nghề", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const name = dialog.getByLabel(/^Tên ngành nghề/);
+  await name.fill("Công nghệ thông tin / Phần mềm");
+  await dialog
+    .getByRole("button", { name: "Lưu vào bản xem trước", exact: true })
+    .click();
+  await expect(dialog).toBeVisible();
+  await expect(name).toHaveValue("Công nghệ thông tin / Phần mềm");
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByRole("alert")).toContainText("Tên đã tồn tại");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Thêm ngành nghề", exact: true }),
+  ).toBeFocused();
+});
+
 test("catalog edits survive navigation and respect category dependencies", async ({
   page,
 }) => {

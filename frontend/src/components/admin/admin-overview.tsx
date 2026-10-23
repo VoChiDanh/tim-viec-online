@@ -27,14 +27,13 @@ import {
   formatDateVN,
   formatNumber,
   getInitials,
-  getInitialDatabase,
-} from "@/features/admin/mock-data";
+} from "@/features/admin/formatters";
 import { formatDate, vietnamToday } from "@/features/jobs/formatters";
 import type { AdminCompany, AdminJob, AdminUser } from "@/features/admin/types";
 import { useAdminData } from "./admin-provider";
 
 export function AdminOverview() {
-  const { db, setDb } = useAdminData();
+  const { db, pending, reset } = useAdminData();
   const [trendDays, setTrendDays] = useState<number>(7);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   useLayoutEffect(() => () => setSelectedUser(null), []);
@@ -46,7 +45,7 @@ export function AdminOverview() {
 
   // Reset preview data
   const handleResetPreview = () => {
-    setDb(getInitialDatabase());
+    reset();
   };
 
   // Metrics calculations
@@ -208,7 +207,7 @@ export function AdminOverview() {
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>

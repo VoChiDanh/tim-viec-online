@@ -1,3 +1,4 @@
+import { getInitialDatabase } from "../src/mocks/admin";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -6,10 +7,9 @@ import {
   formatNumber,
   formatSalary,
   getInitials,
-  getInitialDatabase,
   JOB_STATUS_LABELS,
   JOB_TYPE_LABELS,
-} from "../src/features/admin/mock-data";
+} from "../src/features/admin/formatters";
 
 test("admin mock database initial data integrity", () => {
   const db = getInitialDatabase();

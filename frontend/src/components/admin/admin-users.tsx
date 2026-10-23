@@ -32,7 +32,7 @@ import {
   formatDateVN,
   formatNumber,
   getInitials,
-} from "@/features/admin/mock-data";
+} from "@/features/admin/formatters";
 import type {
   AdminCompany,
   AdminUser,
@@ -52,7 +52,7 @@ function normalize(text: string): string {
 }
 
 export function AdminUsers() {
-  const { db, setDb, reset } = useAdminData();
+  const { db, execute, pending, reset } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -131,17 +131,20 @@ export function AdminUsers() {
   };
 
   // Toggle user status (lock / unlock)
-  const handleConfirmToggle = () => {
+  const handleConfirmToggle = async () => {
     if (!togglingUser || togglingUser.role === "admin") return;
     const isLocking = togglingUser.status === "active";
     const nextStatus: AdminUserStatus = isLocking ? "locked" : "active";
 
-    setDb((prev) => ({
-      ...prev,
-      users: prev.users.map((u) =>
-        u.id === togglingUser.id ? { ...u, status: nextStatus } : u,
-      ),
-    }));
+    const result = await execute({
+      type: "set-user-status",
+      id: togglingUser.id,
+      status: nextStatus,
+    });
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
 
     const actionText = isLocking ? "khóa" : "mở khóa";
     toast.success(
@@ -183,7 +186,7 @@ export function AdminUsers() {
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>
@@ -676,6 +679,7 @@ export function AdminUsers() {
                     togglingUser.status === "locked" ? "default" : "destructive"
                   }
                   onClick={handleConfirmToggle}
+                  disabled={pending}
                   className="min-h-11"
                 >
                   {togglingUser.status === "locked"

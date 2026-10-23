@@ -22,7 +22,7 @@ import {
   formatDateVN,
   formatNumber,
   JOB_STATUS_LABELS,
-} from "@/features/admin/mock-data";
+} from "@/features/admin/formatters";
 import type { AdminCompany, AdminJob } from "@/features/admin/types";
 import "./admin.css";
 
@@ -44,7 +44,7 @@ export function AdminJobs() {
   const isPreview =
     pathname.includes("/preview") || searchParams.get("preview") === "true";
 
-  const { db, reset } = useAdminData();
+  const { db, pending, reset } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [reportFilter, setReportFilter] = useState<"reported" | "all">(
@@ -153,7 +153,7 @@ export function AdminJobs() {
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>

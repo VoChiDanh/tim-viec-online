@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/services/auth-session";
-import { authMockEnabled } from "@/services/auth-mode";
-import { getInitialDatabase } from "@/features/admin/mock-data";
+import { getAdminData, getAdminJob } from "@/services/admin";
 import { AdminPageEntrance } from "@/components/admin/admin-page-entrance";
 import { AdminLoading } from "@/components/admin/admin-loading";
 import { AdminOverview } from "@/components/admin/admin-overview";
@@ -55,10 +54,10 @@ async function Content({ section, params, legacyPreview }: AdminContentProps) {
   if (id !== undefined && !validId) notFound();
   if (legacyPreview) redirect(returnTo);
   // API outages/configuration must never expose fixtures or fake mutations.
-  if (!authMockEnabled()) return <AdminUnavailable />;
+  const data = await getAdminData();
+  if (!data) return <AdminUnavailable />;
   if (id !== undefined) {
-    if (!getInitialDatabase().jobs.some((job) => job.id === Number(id)))
-      notFound();
+    if (!(await getAdminJob(Number(id)))) notFound();
     return (
       <AdminPageEntrance>
         <AdminJobDetail jobId={Number(id)} />

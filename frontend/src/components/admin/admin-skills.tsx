@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
-import { formatNumber } from "@/features/admin/mock-data";
+import { formatNumber } from "@/features/admin/formatters";
 import type { AdminSkill } from "@/features/admin/types";
 import "./admin.css";
 
@@ -42,7 +42,7 @@ function normalize(text: string): string {
 }
 
 export function AdminSkills() {
-  const { db, setDb, reset } = useAdminData();
+  const { db, execute, pending, reset } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">(
@@ -167,53 +167,22 @@ export function AdminSkills() {
   };
 
   // Save (Create or Update) Skill
-  const handleSaveSkill = (e: React.FormEvent) => {
+  const handleSaveSkill = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = formName.trim().replace(/\s+/g, " ");
 
-    if (!trimmed) {
-      setFormError("Vui lòng nhập tên kỹ năng.");
+    const result = await execute({
+      type: "save-skill",
+      id: editingSkill?.id,
+      name: trimmed,
+    });
+    if (!result.success) {
+      setFormError(result.message);
       return;
     }
-
-    if (trimmed.length > MAX_SKILL_LENGTH) {
-      setFormError(`Tên không được vượt quá ${MAX_SKILL_LENGTH} ký tự.`);
-      return;
-    }
-
-    const isDuplicate = db.skills.some(
-      (s) =>
-        s.id !== editingSkill?.id && normalize(s.name) === normalize(trimmed),
-    );
-
-    if (isDuplicate) {
-      setFormError("Tên kỹ năng đã tồn tại. Vui lòng chọn tên khác.");
-      return;
-    }
-
     if (editingSkill) {
-      // Update
-      setDb((prev) => ({
-        ...prev,
-        skills: prev.skills.map((s) =>
-          s.id === editingSkill.id ? { ...s, name: trimmed } : s,
-        ),
-      }));
       showToast("Đã cập nhật kỹ năng trong dữ liệu mẫu.");
     } else {
-      // Create new
-      const nextId =
-        db.skills.length > 0 ? Math.max(...db.skills.map((s) => s.id)) + 1 : 1;
-      const newSkill: AdminSkill = {
-        id: nextId,
-        name: trimmed,
-        candidates_count: 0,
-      };
-      setDb((prev) => ({
-        ...prev,
-        skills: [...prev.skills, newSkill],
-      }));
-      // Reveal the new item
       setQuery(trimmed);
       setUsageFilter("all");
       setCurrentPage(1);
@@ -224,18 +193,17 @@ export function AdminSkills() {
   };
 
   // Confirm delete skill (cascades unlinking from jobs)
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingSkill) return;
-    const skill = deletingSkill;
 
-    setDb((prev) => ({
-      ...prev,
-      skills: prev.skills.filter((s) => s.id !== skill.id),
-      jobs: prev.jobs.map((job) => ({
-        ...job,
-        skills: job.skills.filter((id) => id !== skill.id),
-      })),
-    }));
+    const result = await execute({
+      type: "delete-skill",
+      id: deletingSkill.id,
+    });
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
 
     setDeletingSkill(null);
     showToast("Đã xóa kỹ năng trong dữ liệu mẫu.");
@@ -276,7 +244,7 @@ export function AdminSkills() {
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>
@@ -485,7 +453,11 @@ export function AdminSkills() {
             <DialogTitle>{editingSkill ? "Sửa" : "Thêm"} kỹ năng</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSaveSkill} className="space-y-4 pt-2">
+          <form
+            onSubmit={handleSaveSkill}
+            aria-busy={pending}
+            className="space-y-4 pt-2"
+          >
             <DialogDescription id={`${prefix}-edit-skill-desc`}>
               Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác
               hơn.
@@ -538,7 +510,12 @@ export function AdminSkills() {
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" className="min-h-11">
+              <Button
+                type="submit"
+                disabled={pending}
+                variant="default"
+                className="min-h-11"
+              >
                 Lưu vào bản xem trước
               </Button>
             </DialogFooter>
@@ -601,6 +578,7 @@ export function AdminSkills() {
                   variant="destructive"
                   className="min-h-11"
                   onClick={handleConfirmDelete}
+                  disabled={pending}
                 >
                   Xóa khỏi danh mục
                 </Button>

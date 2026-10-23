@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
-import { formatNumber } from "@/features/admin/mock-data";
+import { formatNumber } from "@/features/admin/formatters";
 import type { AdminCategory } from "@/features/admin/types";
 import "./admin.css";
 
@@ -42,7 +42,7 @@ function normalize(text: string): string {
 }
 
 export function AdminCategories() {
-  const { db, setDb, reset } = useAdminData();
+  const { db, execute, pending, reset } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">(
@@ -166,52 +166,22 @@ export function AdminCategories() {
   };
 
   // Save (Create or Update) Category
-  const handleSaveCategory = (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = formName.trim().replace(/\s+/g, " ");
 
-    if (!trimmed) {
-      setFormError("Vui lòng nhập tên ngành nghề.");
+    const result = await execute({
+      type: "save-category",
+      id: editingCategory?.id,
+      name: trimmed,
+    });
+    if (!result.success) {
+      setFormError(result.message);
       return;
     }
-
-    if (trimmed.length > MAX_CATEGORY_LENGTH) {
-      setFormError(`Tên không được vượt quá ${MAX_CATEGORY_LENGTH} ký tự.`);
-      return;
-    }
-
-    const isDuplicate = db.categories.some(
-      (c) =>
-        c.id !== editingCategory?.id &&
-        normalize(c.name) === normalize(trimmed),
-    );
-
-    if (isDuplicate) {
-      setFormError("Tên ngành nghề đã tồn tại. Vui lòng chọn tên khác.");
-      return;
-    }
-
     if (editingCategory) {
-      // Update
-      setDb((prev) => ({
-        ...prev,
-        categories: prev.categories.map((c) =>
-          c.id === editingCategory.id ? { ...c, name: trimmed } : c,
-        ),
-      }));
       showToast("Đã cập nhật ngành nghề trong dữ liệu mẫu.");
     } else {
-      // Create new
-      const nextId =
-        db.categories.length > 0
-          ? Math.max(...db.categories.map((c) => c.id)) + 1
-          : 1;
-      const newCat: AdminCategory = { id: nextId, name: trimmed };
-      setDb((prev) => ({
-        ...prev,
-        categories: [...prev.categories, newCat],
-      }));
-      // Reveal the new item
       setQuery(trimmed);
       setUsageFilter("all");
       setCurrentPage(1);
@@ -222,17 +192,21 @@ export function AdminCategories() {
   };
 
   // Confirm delete category
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingCategory) return;
     const cat = deletingCategory;
     const count = jobsCountFor(cat.id);
 
     if (count > 0) return; // Prevent deleting used category
 
-    setDb((prev) => ({
-      ...prev,
-      categories: prev.categories.filter((c) => c.id !== cat.id),
-    }));
+    const result = await execute({
+      type: "delete-category",
+      id: deletingCategory.id,
+    });
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
 
     setDeletingCategory(null);
     showToast("Đã xóa ngành nghề trong dữ liệu mẫu.");
@@ -272,7 +246,7 @@ export function AdminCategories() {
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>
@@ -489,7 +463,11 @@ export function AdminCategories() {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSaveCategory} className="space-y-4 pt-2">
+          <form
+            onSubmit={handleSaveCategory}
+            aria-busy={pending}
+            className="space-y-4 pt-2"
+          >
             <DialogDescription id={`${prefix}-edit-cat-desc`}>
               Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác
               hơn.
@@ -542,7 +520,12 @@ export function AdminCategories() {
               >
                 Hủy
               </Button>
-              <Button type="submit" variant="default" className="min-h-11">
+              <Button
+                type="submit"
+                disabled={pending}
+                variant="default"
+                className="min-h-11"
+              >
                 Lưu vào bản xem trước
               </Button>
             </DialogFooter>
@@ -623,6 +606,7 @@ export function AdminCategories() {
                       variant="destructive"
                       className="min-h-11"
                       onClick={handleConfirmDelete}
+                      disabled={pending}
                     >
                       Xóa khỏi danh mục
                     </Button>

@@ -28,10 +28,9 @@ import {
   formatDateVN,
   formatSalary,
   getInitials,
-  getInitialDatabase,
   JOB_STATUS_LABELS,
   JOB_TYPE_LABELS,
-} from "@/features/admin/mock-data";
+} from "@/features/admin/formatters";
 import { useAdminData } from "./admin-provider";
 import { Checkbox } from "@/modules/cores/shadcn/components/ui/checkbox";
 
@@ -45,7 +44,7 @@ export function AdminJobDetail({
   preview = false,
 }: AdminJobDetailProps) {
   const prefix = useId();
-  const { db, setDb } = useAdminData();
+  const { db, execute, pending, reset } = useAdminData();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -86,13 +85,13 @@ export function AdminJobDetail({
   const backUrl = preview ? "/admin/jobs/preview" : "/admin/jobs";
 
   const handleResetPreview = () => {
-    setDb(getInitialDatabase());
+    reset();
     setDeletedInfo(null);
     setShowDeleteModal(false);
     setShowOwnerModal(false);
   };
 
-  const handleConfirmDelete = (e: React.FormEvent) => {
+  const handleConfirmDelete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!job) return;
 
@@ -109,12 +108,17 @@ export function AdminJobDetail({
       return;
     }
 
-    // Perform mock cascade deletion
-    setDb((prev) => ({
-      ...prev,
-      jobs: prev.jobs.filter((j) => j.id !== job.id),
-      applications: prev.applications.filter((a) => a.job_id !== job.id),
-    }));
+    const result = await execute({
+      type: "delete-job",
+      id: job.id,
+      reason: trimmedReason,
+      confirmed: deleteConfirmed,
+    });
+    if (!result.success) {
+      if (result.field === "confirmed") setConfirmError(result.message);
+      else setDeleteReasonError(result.message);
+      return;
+    }
 
     setDeletedInfo({
       title: job.title,
@@ -157,7 +161,7 @@ export function AdminJobDetail({
       <div className="ap-preview">
         <Info className="ap-icon" aria-hidden="true" />
         <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview}>
+        <button type="button" onClick={handleResetPreview} disabled={pending}>
           Khôi phục mẫu
         </button>
       </div>
@@ -405,7 +409,11 @@ export function AdminJobDetail({
           </DialogHeader>
 
           {job && (
-            <form onSubmit={handleConfirmDelete} className="space-y-4 pt-1">
+            <form
+              onSubmit={handleConfirmDelete}
+              aria-busy={pending}
+              className="space-y-4 pt-1"
+            >
               <div>
                 <p className="font-semibold text-sm text-[var(--ap-navy)]">
                   {job.title}
@@ -508,6 +516,7 @@ export function AdminJobDetail({
                 </Button>
                 <Button
                   type="submit"
+                  disabled={pending}
                   variant="destructive"
                   className="min-h-11"
                 >
