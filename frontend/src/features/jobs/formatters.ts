@@ -37,7 +37,7 @@ export function formatDate(value: string): string {
     return "—";
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
-
+// NgocBinh đã ở đây: 18h55-23/10/2026
 export function vietnamToday(date: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
