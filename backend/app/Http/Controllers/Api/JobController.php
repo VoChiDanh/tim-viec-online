@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\JobRequest;
+use App\Http\Requests\SearchJobRequest;
 use App\Http\Resources\JobResource;
 use App\Models\Job;
 use App\Models\SavedJob;
@@ -12,10 +13,27 @@ use Illuminate\Http\Request;
 
 class JobController extends Controller
 {
+    /** Public city filter options based on currently searchable listings. */
+    public function cities(): JsonResponse
+    {
+        $cities = Job::active()
+            ->whereNotNull('city')
+            ->where('city', '!=', '')
+            ->select('city')
+            ->distinct()
+            ->orderBy('city')
+            ->pluck('city');
+
+        return response()->json([
+            'success' => true,
+            'data' => $cities,
+        ]);
+    }
+
     /**
      * Danh sách việc làm & Tìm kiếm, Lọc đa tiêu chí (FR-05)
      */
-    public function index(Request $request): JsonResponse
+    public function index(SearchJobRequest $request): JsonResponse
     {
         $query = Job::query()
             ->active()
@@ -79,7 +97,12 @@ class JobController extends Controller
                       });
             } elseif ($range === '10_20' || $range === '10m_20m') {
                 $query->where('is_negotiable', 0)
-                      ->where('salary_max', '>=', 10000000)
+                      ->where(function ($q) {
+                          $q->where('salary_max', '>=', 10000000)
+                            ->orWhere(function ($from) {
+                                $from->whereNull('salary_max')->whereNotNull('salary_min');
+                            });
+                      })
                       ->where('salary_min', '<=', 20000000);
             } elseif ($range === 'over_20' || $range === 'above_20m' || $range === 'above_20') {
                 $query->where('is_negotiable', 0)
@@ -309,6 +332,16 @@ class JobController extends Controller
             'status' => ['required', 'in:active,closed'],
             'deadline' => ['nullable', 'date', 'after:today'],
         ]);
+
+        if ($request->status === 'active'
+            && !$request->filled('deadline')
+            && $job->deadline
+            && $job->deadline->toDateString() < now()->toDateString()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tin đã hết hạn; cần chọn hạn nộp mới trong tương lai để mở lại',
+            ], 400);
+        }
 
         $updateData = ['status' => $request->status];
         if ($request->status === 'active' && $request->filled('deadline')) {

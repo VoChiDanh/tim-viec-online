@@ -14,6 +14,13 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'status' => ['nullable', 'in:read,unread'],
+            'type' => ['nullable', 'string', 'max:50'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $userId = $request->user()->id;
 
         $unreadCount = Notification::where('user_id', $userId)

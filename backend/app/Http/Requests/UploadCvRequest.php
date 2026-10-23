@@ -42,6 +42,6 @@ class UploadCvRequest extends FormRequest
             'success' => false,
             'message' => $validator->errors()->first(),
             'errors' => $validator->errors(),
-        ], 422));
+        ], $validator->errors()->has('cv_file') ? 400 : 422));
     }
 }

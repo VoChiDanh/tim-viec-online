@@ -41,8 +41,7 @@ class CandidateProfileController extends Controller
                     'avatar_url' => $profile->avatar ? asset('storage/' . $profile->avatar) : null,
                     'address' => $profile->address,
                     'city' => $profile->city,
-                    'cv_file_path' => $profile->cv_file_path,
-                    'cv_url' => $profile->cv_file_path ? asset('storage/' . $profile->cv_file_path) : null,
+                    'cv_url' => $profile->cv_file_path ? url('/api/candidate/cv/file') : null,
                     'social_links' => $profile->social_links,
                     'skills' => $profile->skills,
                 ],
@@ -66,16 +65,23 @@ class CandidateProfileController extends Controller
         if ($request->has('phone')) {
             $userData['phone'] = $request->phone;
         }
+        if ($request->filled('email')) {
+            $userData['email'] = mb_strtolower(trim($request->email));
+        }
+        if ($request->has('dob')) {
+            $userData['dob'] = $request->dob;
+        }
         if (!empty($userData)) {
             $user->update($userData);
         }
 
         // Xử lý upload file CV PDF (FR-03.3 - FR-03.5)
         if ($request->hasFile('cv_file')) {
-            if ($profile->cv_file_path && Storage::disk('public')->exists($profile->cv_file_path)) {
+            if ($profile->cv_file_path) {
+                Storage::disk('private')->delete($profile->cv_file_path);
                 Storage::disk('public')->delete($profile->cv_file_path);
             }
-            $profile->cv_file_path = $request->file('cv_file')->store('cvs', 'public');
+            $profile->cv_file_path = $request->file('cv_file')->store('cvs', 'private');
         }
 
         // Xử lý upload ảnh đại diện (Avatar)
@@ -126,8 +132,7 @@ class CandidateProfileController extends Controller
                     'avatar_url' => $profile->avatar ? asset('storage/' . $profile->avatar) : null,
                     'address' => $profile->address,
                     'city' => $profile->city,
-                    'cv_file_path' => $profile->cv_file_path,
-                    'cv_url' => $profile->cv_file_path ? asset('storage/' . $profile->cv_file_path) : null,
+                    'cv_url' => $profile->cv_file_path ? url('/api/candidate/cv/file') : null,
                     'social_links' => $profile->social_links,
                     'skills' => $profile->skills,
                 ],
@@ -143,11 +148,12 @@ class CandidateProfileController extends Controller
         $user = $request->user();
         $profile = CandidateProfile::firstOrCreate(['user_id' => $user->id]);
 
-        if ($profile->cv_file_path && Storage::disk('public')->exists($profile->cv_file_path)) {
+        if ($profile->cv_file_path) {
+            Storage::disk('private')->delete($profile->cv_file_path);
             Storage::disk('public')->delete($profile->cv_file_path);
         }
 
-        $path = $request->file('cv_file')->store('cvs', 'public');
+        $path = $request->file('cv_file')->store('cvs', 'private');
         $profile->cv_file_path = $path;
         $profile->save();
 
@@ -155,8 +161,7 @@ class CandidateProfileController extends Controller
             'success' => true,
             'message' => 'Tải lên CV thành công.',
             'data' => [
-                'cv_url' => asset('storage/' . $path),
-                'cv_path' => $path,
+                'cv_url' => url('/api/candidate/cv/file'),
             ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
@@ -179,8 +184,7 @@ class CandidateProfileController extends Controller
             'success' => true,
             'message' => 'Lấy đường dẫn CV thành công.',
             'data' => [
-                'cv_url' => asset('storage/' . $profile->cv_file_path),
-                'cv_path' => $profile->cv_file_path,
+                'cv_url' => url('/api/candidate/cv/file'),
             ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
@@ -193,9 +197,8 @@ class CandidateProfileController extends Controller
         $user = $request->user();
         $profile = CandidateProfile::where('user_id', $user->id)->first();
         if ($profile && $profile->cv_file_path) {
-            if (Storage::disk('public')->exists($profile->cv_file_path)) {
-                Storage::disk('public')->delete($profile->cv_file_path);
-            }
+            Storage::disk('private')->delete($profile->cv_file_path);
+            Storage::disk('public')->delete($profile->cv_file_path);
             $profile->cv_file_path = null;
             $profile->save();
         }
@@ -204,6 +207,26 @@ class CandidateProfileController extends Controller
             'success' => true,
             'message' => 'Xóa CV thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Stream the current candidate's CV after Sanctum authorization. */
+    public function downloadCv(Request $request)
+    {
+        $path = $request->user()->candidateProfile?->cv_file_path;
+        if (!$path) {
+            return response()->json(['success' => false, 'message' => 'Chưa có file CV nào được tải lên.'], 404);
+        }
+
+        $disk = Storage::disk('private')->exists($path) ? 'private' : 'public';
+        if (!Storage::disk($disk)->exists($path)) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy file CV'], 404);
+        }
+
+        return response()->file(Storage::disk($disk)->path($path), [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /**

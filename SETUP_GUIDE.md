@@ -1,5 +1,7 @@
 # TÀI LIỆU HƯỚNG DẪN SETUP DỰ ÁN & PHÂN CÔNG THÀNH VIÊN
 
+> **Lưu ý trạng thái:** Đây là tài liệu kế hoạch/phân công ban đầu, một số đoạn mô tả tính năng chưa triển khai hoặc contract cũ. Không dùng nó làm nguồn sự thật về API hay storage. Trạng thái implementation và lệnh setup an toàn nằm trong [Backend README](backend/README.md), [Backend Guide](BACKEND_GUIDE.md), [Testing Guide](BACKEND_TESTING_GUIDE.md) và [API Checklist](API_CHECKLIST.md). Frontend hiện vẫn là Next.js starter.
+
 ## MỤC LỤC
 1. [Yêu cầu Môi trường & Công cụ Cài đặt](#1-yêu-cầu-môi-trường--công-cụ-cài-đặt)
 2. [Quy tắc Phân nhánh Git & Quy trình Làm việc](#2-quy-tắc-phân-nhánh-git--quy-trình-làm-việc)
@@ -287,9 +289,9 @@ Trước khi bắt đầu, mọi thành viên trong nhóm bắt buộc phải c�
     - `GET /api/user`: Lấy thông tin user đăng nhập.
 * **Tuần 2 (Profile & Gemini AI Service):**
   - Viết API cập nhật hồ sơ cá nhân:
-    - `PUT /api/candidate/profile`: Upload CV PDF (<= 5MB, validate mime `application/pdf`), lưu vào `storage/app/public/resumes/`.
+    - `PUT /api/candidate/profile`: Upload CV PDF (<= 5MB, validate mime `application/pdf`), lưu vào private storage; chỉ tải qua endpoint có authorization.
     - `PUT /api/employer/company`: Cập nhật thông tin công ty, logo, website, quy mô.
-  - Tích hợp **Google Gemini 1.5 Flash API**:
+  - Tích hợp Google Gemini API qua model cấu hình `GEMINI_MODEL` (model mặc định trong `.env.example` hiện tại):
     - Tạo `app/Services/GeminiService.php`.
     - Truyền nội dung CV PDF và JD công việc vào Gemini Prompt với định dạng trả về **Structured JSON Output** (khớp 100% với các cột trong bảng `ai_cv_analyses`):
       ```json

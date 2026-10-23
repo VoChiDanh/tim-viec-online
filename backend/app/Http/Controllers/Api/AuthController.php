@@ -29,7 +29,7 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        return DB::transaction(function () use ($request) {
+        $user = DB::transaction(function () use ($request) {
             $user = User::create([
                 'name' => $request->name,
                 'email' => strtolower($request->email),
@@ -55,18 +55,26 @@ class AuthController extends Controller
                 $user->load('company');
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Đăng ký tài khoản thành công',
-                'data' => [
-                    'token' => $token,
-                    'token_type' => 'Bearer',
-                    'user' => $user,
-                ],
-            ], 201);
+            return $user;
         });
+
+        try {
+            Mail::raw(
+                "Xin chào {$user->name},\n\nTài khoản TimViecOnline của bạn đã được tạo thành công. Email này không chứa mật khẩu.\n\nĐăng nhập tại: " . rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/') . '/login',
+                fn ($message) => $message->to($user->email)->subject('Tài khoản TimViecOnline đã được tạo')
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Registration confirmation email could not be sent', ['user_id' => $user->id]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đăng ký tài khoản thành công',
+            'data' => [
+                'user' => $user,
+                'redirect_url' => '/login',
+            ],
+        ], 201);
     }
 
     /**
@@ -172,11 +180,12 @@ class AuthController extends Controller
     {
         $user = User::where('email', strtolower($request->email))->first();
 
+        // Keep the response identical for known and unknown addresses to prevent enumeration.
         if (!$user) {
             return response()->json([
-                'success' => false,
-                'message' => 'Email không tồn tại trong hệ thống',
-            ], 404);
+                'success' => true,
+                'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
+            ], 200);
         }
 
         // Tạo mã token ngẫu nhiên bảo mật
@@ -186,7 +195,7 @@ class AuthController extends Controller
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $user->email],
             [
-                'token' => $token,
+                'token' => hash('sha256', $token),
                 'created_at' => now(),
             ]
         );
@@ -203,13 +212,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Liên kết đặt lại mật khẩu đã được gửi đến email của bạn',
-            'data' => [
-                'email' => $user->email,
-                'token' => $token,
-                'reset_url' => $resetUrl,
-                'expires_in_minutes' => 15,
-            ],
+            'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
         ], 200);
     }
 
@@ -232,7 +235,7 @@ class AuthController extends Controller
             ->where('email', strtolower($email))
             ->first();
 
-        if (!$record || $record->token !== $token) {
+        if (!$record || !hash_equals($record->token, hash('sha256', $token))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
@@ -255,7 +258,6 @@ class AuthController extends Controller
             'message' => 'Liên kết xác thực hợp lệ',
             'data' => [
                 'email' => $record->email,
-                'token' => $record->token,
             ],
         ], 200);
     }
@@ -266,56 +268,60 @@ class AuthController extends Controller
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
         $email = strtolower($request->email);
+        $newPassword = $request->password ?? $request->new_password;
 
-        $record = DB::table('password_reset_tokens')
-            ->where('email', $email)
-            ->first();
+        $user = DB::transaction(function () use ($email, $request, $newPassword) {
+            $record = DB::table('password_reset_tokens')
+                ->where('email', $email)
+                ->lockForUpdate()
+                ->first();
 
-        // Kiểm tra token và hạn 15 phút
-        if (!$record || $record->token !== $request->token) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
-            ], 400);
-        }
+            if (!$record || !hash_equals($record->token, hash('sha256', $request->token))) {
+                return null;
+            }
 
-        $createdAt = Carbon::parse($record->created_at);
-        if ($createdAt->addMinutes(15)->isPast()) {
+            if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+                DB::table('password_reset_tokens')->where('email', $email)->delete();
+                return null;
+            }
+
+            $user = User::where('email', $email)->lockForUpdate()->first();
+            if (!$user) {
+                DB::table('password_reset_tokens')->where('email', $email)->delete();
+                return null;
+            }
+
+            $user->update([
+                'password' => Hash::make($newPassword),
+                'failed_attempts' => 0,
+                'locked_until' => null,
+            ]);
+            $user->tokens()->delete();
             DB::table('password_reset_tokens')->where('email', $email)->delete();
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
-            ], 400);
-        }
+            return $user;
+        });
 
-        $user = User::where('email', $email)->first();
         if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'Email không tồn tại trong hệ thống',
-            ], 404);
+                'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
+            ], 400);
         }
 
-        $newPassword = $request->password ?? $request->new_password;
-
-        // Cập nhật mật khẩu mới và mở khóa tài khoản (reset số lần sai)
-        $user->update([
-            'password' => Hash::make($newPassword),
-            'failed_attempts' => 0,
-            'locked_until' => null,
-        ]);
-
-        // Xóa token đã sử dụng
-        DB::table('password_reset_tokens')->where('email', $email)->delete();
-
-        // Tạo thông báo bảo mật
-        Notification::create([
-            'user_id' => $user->id,
-            'title' => 'Đặt lại mật khẩu thành công',
-            'content' => 'Mật khẩu tài khoản của bạn đã được đặt lại thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
-            'type' => 'security',
-        ]);
+        try {
+            Notification::create([
+                'user_id' => $user->id,
+                'title' => 'Đặt lại mật khẩu thành công',
+                'content' => 'Mật khẩu tài khoản của bạn đã được đặt lại thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
+                'type' => 'security',
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Password reset notification could not be created', [
+                'user_id' => $user->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
@@ -350,7 +356,10 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         return response()->json([
             'success' => true,
@@ -389,12 +398,26 @@ class AuthController extends Controller
             'locked_until' => null,
         ]);
 
-        Notification::create([
-            'user_id' => $user->id,
-            'title' => 'Đổi mật khẩu thành công',
-            'content' => 'Mật khẩu của bạn đã được cập nhật thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
-            'type' => 'security',
-        ]);
+        $currentToken = $user->currentAccessToken();
+        if ($currentToken && method_exists($currentToken, 'getKey')) {
+            $user->tokens()->where('id', '!=', $currentToken->getKey())->delete();
+        } else {
+            $user->tokens()->delete();
+        }
+
+        try {
+            Notification::create([
+                'user_id' => $user->id,
+                'title' => 'Đổi mật khẩu thành công',
+                'content' => 'Mật khẩu của bạn đã được cập nhật thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
+                'type' => 'security',
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Password change notification could not be created', [
+                'user_id' => $user->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,

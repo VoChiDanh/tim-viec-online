@@ -17,6 +17,13 @@ class CompanyController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'keyword' => ['nullable', 'string', 'max:150'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $query = Company::query()
             ->with('user')
             ->withCount(['jobs' => function ($q) {

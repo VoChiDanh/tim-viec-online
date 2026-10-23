@@ -13,12 +13,16 @@ class Application extends Model
 
     protected $table = 'applications';
 
+    protected $hidden = ['cv_path'];
+
     protected $fillable = [
         'job_id',
         'candidate_id',
         'cv_path',
         'cover_letter',
         'status',
+        'ai_analysis_status',
+        'ai_analysis_error',
         'reviewed_at',
     ];
 

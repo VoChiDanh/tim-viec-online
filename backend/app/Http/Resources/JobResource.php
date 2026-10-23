@@ -57,7 +57,7 @@ class JobResource extends JsonResource
         }
 
         // FR-04.6: Kiểm tra điều kiện nộp đơn (còn hạn và trạng thái active)
-        $isExpired = $this->deadline ? $this->deadline->isPast() : false;
+        $isExpired = $this->deadline ? $this->deadline->toDateString() < now()->toDateString() : false;
         $isClosed = $this->status === 'closed';
         $canApply = ($this->status === 'active') && !$isExpired;
 
@@ -90,7 +90,7 @@ class JobResource extends JsonResource
 
             if ($this->relationLoaded('applications')) {
                 $appliedApp = $this->applications->first(function ($app) use ($candidateId) {
-                    return (int) $app->candidate_id === (int) $candidateId && $app->status !== 'withdrawn';
+                    return (int) $app->candidate_id === (int) $candidateId;
                 });
                 $isApplied = $appliedApp !== null;
             }
@@ -133,6 +133,15 @@ class JobResource extends JsonResource
             'requirements' => $this->requirements,
             'benefits' => $this->benefits,
             'is_reported' => (bool) $this->is_reported,
+            'reports' => $this->whenLoaded('reports', fn () => $this->reports->map(fn ($report) => [
+                'id' => $report->id,
+                'reporter_id' => $report->reporter_id,
+                'reporter_name' => $report->reporter?->name,
+                'reason' => $report->reason,
+                'details' => $report->details,
+                'status' => $report->status,
+                'created_at' => $report->created_at?->toIso8601String(),
+            ])),
             'is_saved' => $isSaved,
             'is_applied' => $isApplied,
             'apply_button_disabled' => $applyButtonDisabled, // FR-06.4

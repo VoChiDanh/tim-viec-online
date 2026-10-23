@@ -44,8 +44,12 @@ Trả về kết quả ĐÚNG định dạng JSON thuần túy theo cấu trúc 
 EOT;
 
         try {
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
-            $response = \Illuminate\Support\Facades\Http::timeout(30)->post($url, [
+            $model = config('services.gemini.model', 'gemini-3.8-flash');
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+            $response = \Illuminate\Support\Facades\Http::withHeaders(['x-goog-api-key' => $apiKey])
+                ->connectTimeout(5)
+                ->timeout(25)
+                ->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -54,7 +58,7 @@ EOT;
                     ],
                 ],
                 'generationConfig' => [
-                    'response_mime_type' => 'application/json',
+                    'responseMimeType' => 'application/json',
                 ],
             ]);
 

@@ -46,7 +46,7 @@ class RegisterRequest extends FormRequest
                 'regex:/^(03|05|07|08|09)\d{8}$/',
             ],
             'dob' => [
-                'nullable',
+                'required',
                 'date',
                 'before_or_equal:' . $minDob,
             ],
@@ -75,6 +75,7 @@ class RegisterRequest extends FormRequest
             'password.confirmed' => 'Xác nhận mật khẩu phải trùng khớp với mật khẩu đã nhập',
             'phone.regex' => 'Số điện thoại không hợp lệ',
             'dob.before_or_equal' => 'Người dùng đăng ký phải từ 15 tuổi trở lên',
+            'dob.required' => 'Ngày sinh là bắt buộc để xác minh độ tuổi tối thiểu 15 tuổi',
             'role.required' => 'Vui lòng chọn vai trò (Ứng viên hoặc Nhà tuyển dụng)',
             'role.in' => 'Vai trò không hợp lệ, chỉ chấp nhận candidate hoặc employer',
         ];

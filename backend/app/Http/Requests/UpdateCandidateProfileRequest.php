@@ -34,7 +34,8 @@ class UpdateCandidateProfileRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($user?->id),
             ],
             'dob' => [
-                'nullable',
+                'sometimes',
+                'required',
                 'date',
                 function ($attribute, $value, $fail) {
                     if ($value) {

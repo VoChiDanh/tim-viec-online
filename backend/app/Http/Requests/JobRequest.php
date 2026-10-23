@@ -69,10 +69,10 @@ class JobRequest extends FormRequest
             'benefits' => ['nullable', 'string'],
             'is_negotiable' => ['nullable', 'boolean'],
             'salary_type' => ['nullable', 'string', 'in:specific,range,from,starting,negotiable'],
-            'salary_min' => ['nullable', 'integer'],
-            'salary_max' => ['nullable', 'integer'],
+            'salary_min' => ['nullable', 'integer', 'min:1'],
+            'salary_max' => ['nullable', 'integer', 'min:1'],
             'skills' => ['required', 'array', 'min:1'],
-            'skills.*' => ['integer', 'exists:skills,id'],
+            'skills.*' => ['integer', 'distinct', 'exists:skills,id'],
         ];
     }
 
@@ -121,6 +121,16 @@ class JobRequest extends FormRequest
                     if ($salaryMin <= 0) {
                         $validator->errors()->add('salary_min', 'Mức lương khởi điểm phải lớn hơn 0');
                     }
+                } else {
+                    $validator->errors()->add('salary_min', 'Vui lòng nhập mức lương hoặc chọn lương thỏa thuận');
+                }
+
+                if ($salaryMax !== null && $salaryMin === null) {
+                    $validator->errors()->add('salary_min', 'Lương tối đa cần đi cùng lương tối thiểu');
+                }
+
+                if (in_array($this->input('salary_type'), ['specific', 'range'], true) && ($salaryMin === null || $salaryMax === null)) {
+                    $validator->errors()->add('salary_max', 'Khoảng lương cần có cả mức tối thiểu và tối đa');
                 }
             }
         });

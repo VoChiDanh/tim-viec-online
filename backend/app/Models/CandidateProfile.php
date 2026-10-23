@@ -14,6 +14,8 @@ class CandidateProfile extends Model
 
     protected $table = 'candidate_profiles';
 
+    protected $hidden = ['cv_file_path'];
+
     protected $fillable = [
         'user_id',
         'title',

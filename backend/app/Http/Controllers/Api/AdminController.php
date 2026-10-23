@@ -7,12 +7,14 @@ use App\Http\Resources\JobResource;
 use App\Models\Application;
 use App\Models\Category;
 use App\Models\Job;
+use App\Models\JobReport;
 use App\Models\Notification;
 use App\Models\Skill;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -21,6 +23,7 @@ class AdminController extends Controller
      */
     public function stats(Request $request): JsonResponse
     {
+        $request->validate(['days' => ['sometimes', 'integer', 'min:1', 'max:365']]);
         $days = (int) $request->query('days', 7);
 
         $totalUsers = User::count();
@@ -88,6 +91,14 @@ class AdminController extends Controller
      */
     public function users(Request $request): JsonResponse
     {
+        $request->validate([
+            'keyword' => ['nullable', 'string', 'max:150'],
+            'role' => ['nullable', 'in:candidate,employer,admin'],
+            'status' => ['nullable', 'in:active,locked'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $query = User::query()->with(['candidateProfile', 'company']);
 
         if ($request->filled('keyword')) {
@@ -107,7 +118,7 @@ class AdminController extends Controller
             $query->where('status', $request->status);
         }
 
-        $users = $query->orderBy('id', 'desc')->paginate(15);
+        $users = $query->orderBy('id', 'desc')->paginate((int) $request->query('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -252,6 +263,14 @@ class AdminController extends Controller
      */
     public function jobs(Request $request): JsonResponse
     {
+        $request->validate([
+            'reported' => ['nullable', 'boolean'],
+            'status' => ['nullable', 'in:active,closed,expired'],
+            'keyword' => ['nullable', 'string', 'max:150'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $query = Job::query()->with(['company.user', 'category', 'skills']);
 
         if ($request->boolean('reported')) {
@@ -267,7 +286,7 @@ class AdminController extends Controller
             $query->where('title', 'like', "%{$keyword}%");
         }
 
-        $jobs = $query->orderBy('id', 'desc')->paginate(15);
+        $jobs = $query->orderBy('id', 'desc')->paginate((int) $request->query('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -309,10 +328,12 @@ class AdminController extends Controller
     public function getReportedJobs(Request $request): JsonResponse
     {
         $query = Job::with(['company.user', 'category', 'skills'])
+            ->with(['reports.reporter'])
             ->where('is_reported', 1)
             ->latest();
 
         $perPage = (int) $request->query('per_page', 15);
+        $perPage = ($perPage >= 1 && $perPage <= 100) ? $perPage : 15;
         $jobs = $query->paginate($perPage);
 
         return response()->json([
@@ -328,11 +349,47 @@ class AdminController extends Controller
         ], 200);
     }
 
+    /** Resolve all pending user reports for a job. */
+    public function resolveJobReports(Request $request, $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:resolved,dismissed'],
+        ]);
+
+        $job = Job::find($id);
+        if (!$job) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy tin tuyển dụng'], 404);
+        }
+
+        DB::transaction(function () use ($job, $validated, $request) {
+            JobReport::where('job_id', $job->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => $validated['status'],
+                    'reviewed_by' => $request->user()->id,
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            $job->forceFill([
+                'is_reported' => JobReport::where('job_id', $job->id)->where('status', 'pending')->exists(),
+            ])->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật kết quả xử lý báo cáo',
+            'data' => ['job_id' => $job->id, 'is_reported' => (bool) $job->fresh()->is_reported],
+        ], 200);
+    }
+
     /**
      * Admin Xóa tin tuyển dụng vi phạm chính sách (FR-09.2)
      */
     public function deleteJob(Request $request, $id): JsonResponse
     {
+        $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+
         $job = Job::with('company.user')->find($id);
 
         if (!$job) {

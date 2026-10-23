@@ -1,53 +1,50 @@
-# TIMVIECONLINE - BACKEND API SERVICE (LARAVEL 11)
+﻿# TimViecOnline Backend API
 
-> Tài liệu hướng dẫn đầy đủ từ A - Z dành cho lập trình viên Backend (được hợp nhất trực tiếp từ **SRS** và **README**):
-> 👉 **[BẤM ĐỂ XEM TOÀN BỘ CẨM NANG BACKEND A-Z (BACKEND_GUIDE.md)](../BACKEND_GUIDE.md)**
+Laravel 11 API for the job-search coursework project. This repository contains backend routes and business logic; see the root [SRS](../docs/SRS.md), [Backend Guide](../BACKEND_GUIDE.md), [Testing Guide](../BACKEND_TESTING_GUIDE.md), and [API Checklist](../API_CHECKLIST.md).
 
----
+## Current implementation status
 
-## 1. Khởi chạy nhanh (Quick Start)
+Backend has auth, profiles/files, company/job CRUD/search, applications, queued AI analysis, chat, notifications, admin moderation, job reports, migrations, and API validation. The frontend in this checkout is still the default Next.js starter page, so the complete user-facing product is not implemented. External mail, Gemini, Reverb, production CV migration, performance, and uptime have not been verified here.
 
-```bash
-# 1. Cài đặt dependencies
+## Local setup
+
+Requires PHP 8.2+, Composer, MySQL/MariaDB with PDO MySQL, and fileinfo.
+
+```powershell
 composer install
-
-# 2. Cấu hình .env
-cp .env.example .env
+Copy-Item .env.example .env
 php artisan key:generate
+```
 
-# 3. Tạo link storage cho file upload (Avatar, Logo, CV PDF)
+Set local `DB_*` values and create a fresh development database. Then:
+
+```powershell
+php artisan migrate --seed
 php artisan storage:link
+php artisan serve --host=127.0.0.1 --port=8000
+```
 
-# 4. Migrate database và seed dữ liệu mẫu
-php artisan migrate:fresh --seed
+`migrate:fresh` drops all tables; only use it on a disposable dev/test database. `DatabaseSeeder` seeds categories and skills. To create a local admin, set `ADMIN_EMAIL` and a password of at least 12 characters in `.env` before seeding; the seeder will not promote an existing non-admin account. Do not depend on SQL dump demo credentials in production.
 
-# 5. Khởi chạy API Server (Port 8000)
-php artisan serve --port=8000
+For background AI and realtime features, run separate processes:
 
-# 6. Khởi chạy WebSocket Reverb Server (Terminal riêng)
+```powershell
+php artisan queue:work --tries=2 --timeout=60
 php artisan reverb:start
+php artisan schedule:work
 ```
 
----
+Configure `GEMINI_API_KEY`, `GEMINI_MODEL`, SMTP/mail and Reverb in `.env` only when those integrations are required. Queue worker is required for database queue processing; scheduler marks expired job listings.
 
-## 2. Kiểm thử tự động toàn bộ API Backend
-Dự án đã có sẵn script kiểm thử tự động 100% kịch bản theo yêu cầu SRS:
+## Safe verification
 
-```bash
-php test_all_backend.php
+```powershell
+php artisan route:list --path=api
+php artisan migrate:status
+php artisan test
+composer validate --no-check-publish
 ```
 
----
+The current PHPUnit suite is only Laravel example tests, not FR acceptance coverage. Do not run `test_all_backend.php`: it can mutate/delete accounts, jobs, and tokens and is not isolated. Do not run migrations against a database with data that must be preserved.
 
-## 3. Tài khoản kiểm thử có sẵn (Seed Data)
-Mật khẩu mặc định cho tất cả tài khoản: **`Password@123`**
-
-* **Admin:** `admin@timvieconline.vn`
-* **Employer:** `hr@fptsoftware.vn`, `hr@vng.vn`, `hr@viettel.vn`
-* **Candidate:** `nguyen.van.a@gmail.com`, `tran.thi.b@gmail.com`, `le.van.c@gmail.com`
-
----
-
-## 4. Chi tiết Nghiệp vụ & API Specification
-Xem chi tiết toàn bộ nghiệp vụ FR-01 -> FR-10, bảng mã lỗi HTTP chuẩn, ERD 15 bảng database và danh sách đầy đủ API tại:
-**[BACKEND_GUIDE.md](../BACKEND_GUIDE.md)**.
+The SQL file `../db/tim_viec_online.sql` is a standalone demo import and includes demo accounts; rotate/remove them before any shared deployment. New CVs and chat images are private. Before retiring legacy public uploads, back up the database/storage and run `php artisan storage:secure-legacy-cvs` to copy and verify; use `--delete-source` only after reviewing results.

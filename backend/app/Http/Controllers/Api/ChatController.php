@@ -13,6 +13,9 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
 {
@@ -58,7 +61,7 @@ class ChatController extends Controller
 
             // FR-04.6 & FR-08.6: Duy trì liên lạc khi tin đóng kèm nhãn thông báo phụ
             $isClosed = $conv->job?->status === 'closed';
-            $isExpired = $conv->job?->deadline && $conv->job->deadline->isPast();
+            $isExpired = $conv->job?->deadline && $conv->job->deadline->toDateString() < now()->toDateString();
             $jobNotice = null;
             if ($isClosed) {
                 $jobNotice = 'Tin tuyển dụng đã đóng';
@@ -284,7 +287,7 @@ class ChatController extends Controller
         });
 
         $isClosed = $conversation->job?->status === 'closed';
-        $isExpired = $conversation->job?->deadline && $conversation->job->deadline->isPast();
+        $isExpired = $conversation->job?->deadline && $conversation->job->deadline->toDateString() < now()->toDateString();
         $jobNotice = null;
         if ($isClosed) {
             $jobNotice = 'Tin tuyển dụng đã đóng';
@@ -337,6 +340,11 @@ class ChatController extends Controller
             ], 403);
         }
 
+        $request->validate([
+            'message' => ['nullable', 'string', 'max:1000'],
+            'image' => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
+        ]);
+
         // FR-08.2: Hỗ trợ gửi tin nhắn văn bản (1 đến 1.000 ký tự) và gửi hình ảnh
         $imagePath = null;
         if ($request->hasFile('image')) {
@@ -348,7 +356,7 @@ class ChatController extends Controller
                     'message' => 'Hình ảnh đính kèm phải có định dạng JPEG, PNG, GIF hoặc WEBP và dung lượng không quá 5MB',
                 ], 400);
             }
-            $imagePath = $file->store('chat_images', 'public');
+            $imagePath = $file->store('chat_images', 'private');
         }
 
         $rawMessage = $request->input('message');
@@ -371,19 +379,28 @@ class ChatController extends Controller
 
         $messageContent = mb_strlen($trimmed) > 0 ? $trimmed : null;
 
-        $message = Message::create([
-            'conversation_id' => $conversation->id,
-            'sender_id' => $user->id,
-            'message' => $messageContent,
-            'image_path' => $imagePath,
-            'is_read' => 0,
-            'read_at' => null,
-        ]);
+        try {
+            $message = DB::transaction(function () use ($conversation, $user, $messageContent, $imagePath) {
+                $message = Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => $user->id,
+                    'message' => $messageContent,
+                    'image_path' => $imagePath,
+                    'is_read' => 0,
+                    'read_at' => null,
+                ]);
 
-        // Cập nhật last_message_at cho phòng chat (FR-08.6: duy trì phòng chat hoạt động bình thường kể cả khi tin đóng)
-        $conversation->update([
-            'last_message_at' => now(),
-        ]);
+                // Keep the message and conversation ordering timestamp consistent.
+                $conversation->update(['last_message_at' => now()]);
+
+                return $message;
+            });
+        } catch (\Throwable $exception) {
+            if ($imagePath) {
+                Storage::disk('private')->delete($imagePath);
+            }
+            throw $exception;
+        }
 
         // Kích hoạt Broadcast WebSocket Reverb trong thời gian thực < 1s (FR-08.3)
         try {
@@ -398,16 +415,23 @@ class ChatController extends Controller
             : $conversation->candidate_id;
 
         $previewText = $messageContent ?: '[Hình ảnh đính kèm]';
-        Notification::create([
-            'user_id' => $receiverId,
-            'title' => 'Tin nhắn mới từ ' . $user->name,
-            'content' => mb_substr($previewText, 0, 100),
-            'type' => 'new_message',
-            'data' => [
-                'conversation_id' => $conversation->id,
+        try {
+            Notification::create([
+                'user_id' => $receiverId,
+                'title' => 'Tin nhắn mới từ ' . $user->name,
+                'content' => mb_substr($previewText, 0, 100),
+                'type' => 'new_message',
+                'data' => [
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $message->id,
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Chat notification could not be created', [
                 'message_id' => $message->id,
-            ],
-        ]);
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
@@ -474,5 +498,35 @@ class ChatController extends Controller
                 'updated_count' => $updated,
             ],
         ], 200);
+    }
+
+    /** Stream a chat image only to members of its conversation. */
+    public function downloadMessageImage(Request $request, $conversationId, $messageId)
+    {
+        $conversation = Conversation::find($conversationId);
+        if (!$conversation) {
+            return response()->json(['success' => false, 'message' => 'Cuộc trò chuyện không tồn tại'], 404);
+        }
+
+        $userId = (int) $request->user()->id;
+        if ($userId !== (int) $conversation->candidate_id && $userId !== (int) $conversation->employer_id) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem hình ảnh này'], 403);
+        }
+
+        $message = Message::where('conversation_id', $conversation->id)->find($messageId);
+        if (!$message || !$message->image_path) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy hình ảnh'], 404);
+        }
+
+        $disk = Storage::disk('private')->exists($message->image_path) ? 'private' : 'public';
+        if (!Storage::disk($disk)->exists($message->image_path)) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy hình ảnh'], 404);
+        }
+
+        return response()->file(Storage::disk($disk)->path($message->image_path), [
+            'Content-Type' => Storage::disk($disk)->mimeType($message->image_path) ?: 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 }

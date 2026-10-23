@@ -88,4 +88,9 @@ class Job extends Model
     {
         return $this->hasMany(Conversation::class, 'job_id');
     }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(JobReport::class, 'job_id');
+    }
 }

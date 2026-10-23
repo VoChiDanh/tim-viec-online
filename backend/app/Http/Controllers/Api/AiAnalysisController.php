@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AiCvAnalysis;
+use App\Jobs\AnalyzeApplicationCv;
 use App\Models\Application;
-use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AiAnalysisController extends Controller
 {
     /**
      * Kích hoạt AI phân tích CV ứng viên so với JD công việc (FR-07)
      */
-    public function analyzeAndStore(Request $request, $applicationId, GeminiService $geminiService): JsonResponse
+    public function analyzeAndStore(Request $request, $applicationId): JsonResponse
     {
         $user = $request->user();
 
@@ -47,23 +47,38 @@ class AiAnalysisController extends Controller
             ], 400);
         }
 
+        if ($application->aiAnalysis) {
+            return response()->json(['success' => true, 'message' => 'Kết quả phân tích đã có sẵn', 'data' => $application->aiAnalysis], 200);
+        }
+
+        if ($application->ai_analysis_status === 'pending') {
+            return response()->json(['success' => true, 'message' => 'Phân tích CV đang được xử lý', 'data' => ['status' => 'pending']], 202);
+        }
+
+        $application->update(['ai_analysis_status' => 'pending', 'ai_analysis_error' => null]);
         try {
-            // 4. Gọi GeminiService phân tích (đã tích hợp trích xuất PDF và thuật toán dự phòng)
-            $analysis = $geminiService->analyze($application);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'AI phân tích CV và lưu kết quả thành công!',
-                'data' => $analysis
-            ], 200, [], JSON_UNESCAPED_UNICODE);
-
-        } catch (\Throwable $e) {
+            AnalyzeApplicationCv::dispatch($application->id);
+        } catch (\Throwable $exception) {
+            $application->update([
+                'ai_analysis_status' => 'failed',
+                'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
+            ]);
+            Log::error('Application CV analysis retry could not be queued', [
+                'application_id' => $application->id,
+                'exception' => $exception->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Quá trình phân tích AI gặp sự cố.',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'Không thể đưa CV vào hàng đợi phân tích',
+                'data' => ['status' => 'failed'],
+            ], 503);
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã đưa CV vào hàng đợi phân tích',
+            'data' => ['status' => 'pending'],
+        ], 202);
     }
 
     /**
@@ -98,6 +113,12 @@ class AiAnalysisController extends Controller
         $analysis = $application->aiAnalysis;
 
         if (!$analysis) {
+            if ($application->ai_analysis_status === 'pending') {
+                return response()->json(['success' => true, 'message' => 'Phân tích CV đang được xử lý', 'data' => ['status' => 'pending']], 202);
+            }
+            if ($application->ai_analysis_status === 'failed') {
+                return response()->json(['success' => false, 'message' => 'Không thể phân tích CV', 'data' => ['status' => 'failed', 'error' => $application->ai_analysis_error]], 422);
+            }
             return response()->json([
                 'success' => false,
                 'message' => 'Hồ sơ này chưa được AI phân tích hoặc đang trong quá trình xử lý.'

@@ -35,14 +35,6 @@ class CompanyResource extends JsonResource
             'jobs' => JobResource::collection($this->whenLoaded('jobs')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'employer' => $this->whenLoaded('user', function () {
-                return [
-                    'id' => $this->user->id,
-                    'name' => $this->user->name,
-                    'email' => $this->user->email,
-                    'phone' => $this->user->phone,
-                ];
-            }),
         ];
     }
 }

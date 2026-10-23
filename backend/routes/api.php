@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\JobController;
+use App\Http\Controllers\Api\JobReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SkillController;
 use Illuminate\Support\Facades\Route;
@@ -20,13 +21,16 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Authentication (Public)
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/password/forgot', [AuthController::class, 'forgotPassword']);
-Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-Route::post('/password/reset', [AuthController::class, 'resetPassword']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,15');
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,15');
+Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken'])->middleware('throttle:20,1');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
+Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
+
+// Reports require an authenticated account to discourage anonymous spam.
+Route::middleware('auth:sanctum')->post('/jobs/{id}/report', [JobReportController::class, 'store']);
 
 // Master Data: Categories & Skills (Public)
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -39,6 +43,7 @@ Route::get('/companies', [CompanyController::class, 'index']);
 Route::get('/companies/{id}', [CompanyController::class, 'show']);
 
 // Jobs (Public Search & Filter)
+Route::get('/locations/cities', [JobController::class, 'cities']);
 Route::get('/jobs', [JobController::class, 'index']);
 Route::get('/jobs/{id}', [JobController::class, 'show']);
 
@@ -54,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations', [ChatController::class, 'startConversation']);
     Route::get('/conversations/{id}/messages', [ChatController::class, 'messages']);
     Route::post('/conversations/{id}/messages', [ChatController::class, 'sendMessage']);
+    Route::get('/conversations/{conversationId}/messages/{messageId}/image', [ChatController::class, 'downloadMessageImage']);
     Route::patch('/conversations/{id}/read', [ChatController::class, 'markAsRead']);
 
     // Web Notifications (FR-10)
@@ -66,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('applications')->group(function () {
         Route::post('/{applicationId}/ai-analyze', [AiAnalysisController::class, 'analyzeAndStore']);
         Route::get('/{applicationId}/ai-analysis', [AiAnalysisController::class, 'show']);
+        Route::get('/{applicationId}/cv', [ApplicationController::class, 'downloadCv']);
     });
 
     // Candidate Routes (FR-03, FR-05.6, FR-06)
@@ -76,6 +83,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cv', [CandidateProfileController::class, 'uploadCv']);
         Route::get('/cv', [CandidateProfileController::class, 'getCv']);
         Route::delete('/cv', [CandidateProfileController::class, 'deleteCv']);
+        Route::get('/cv/file', [CandidateProfileController::class, 'downloadCv']);
         Route::post('/avatar', [CandidateProfileController::class, 'uploadAvatar']);
         Route::delete('/avatar', [CandidateProfileController::class, 'deleteAvatar']);
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
@@ -121,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Jobs Moderation (FR-09.1, FR-09.2)
         Route::get('/jobs', [AdminController::class, 'jobs']);
         Route::get('/jobs/reported', [AdminController::class, 'getReportedJobs']);
+        Route::patch('/jobs/{id}/report', [AdminController::class, 'resolveJobReports']);
         Route::get('/jobs/{id}', [AdminController::class, 'jobDetail']);
         Route::delete('/jobs/{id}', [AdminController::class, 'deleteJob']);
 

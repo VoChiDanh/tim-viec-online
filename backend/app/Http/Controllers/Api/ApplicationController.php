@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Jobs\AnalyzeApplicationCv;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ApplyJobRequest;
 use App\Http\Resources\ApplicationResource;
 use App\Models\Application;
 use App\Models\Job;
 use App\Models\Notification;
-use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ApplicationController extends Controller
 {
     /**
      * Ứng viên nộp hồ sơ vào tin tuyển dụng (FR-06.1 - FR-06.4 & FR-07)
      */
-    public function apply(ApplyJobRequest $request, $jobId, GeminiService $geminiService): JsonResponse
+    public function apply(ApplyJobRequest $request, $jobId): JsonResponse
     {
         $job = Job::with('company.user')->find($jobId);
 
@@ -29,7 +33,7 @@ class ApplicationController extends Controller
         }
 
         // Kiểm tra tin tuyển dụng đã đóng hoặc hết hạn (Phụ lục B SRS)
-        if ($job->status !== 'active' || ($job->deadline && $job->deadline->isPast())) {
+        if ($job->status !== 'active' || ($job->deadline && $job->deadline->toDateString() < now()->toDateString())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tin tuyển dụng này đã đóng hoặc đã hết hạn nộp hồ sơ',
@@ -51,7 +55,7 @@ class ApplicationController extends Controller
             ->where('candidate_id', $candidateProfile->id)
             ->first();
 
-        if ($existingApp && $existingApp->status !== 'withdrawn') {
+        if ($existingApp) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bạn đã nộp hồ sơ cho công việc này rồi',
@@ -61,6 +65,7 @@ class ApplicationController extends Controller
         // FR-06.2: Xác định hình thức nộp CV (sẵn có trong hồ sơ hoặc tải lên file mới)
         $cvSource = $request->input('cv_source');
         $cvPath = null;
+        $uploadedCv = false;
 
         if ($cvSource === 'new' || $request->hasFile('cv_file')) {
             if (!$request->hasFile('cv_file')) {
@@ -69,7 +74,8 @@ class ApplicationController extends Controller
                     'message' => 'Vui lòng tải lên file CV PDF cho vị trí này',
                 ], 400);
             }
-            $cvPath = $request->file('cv_file')->store('application_cvs', 'public');
+            $cvPath = $request->file('cv_file')->store('application_cvs', 'private');
+            $uploadedCv = true;
         } else {
             // Sử dụng file CV sẵn có trong hồ sơ cá nhân
             $cvPath = $candidateProfile->cv_file_path;
@@ -81,44 +87,83 @@ class ApplicationController extends Controller
             }
         }
 
-        // Tạo hoặc kích hoạt lại đơn nếu trước đó đã rút đơn
-        if ($existingApp && $existingApp->status === 'withdrawn') {
-            $existingApp->update([
-                'cv_path' => $cvPath,
-                'cover_letter' => $request->cover_letter,
-                'status' => 'applied',
-                'reviewed_at' => null,
-            ]);
-            $application = $existingApp;
-        } else {
-            $application = Application::create([
-                'job_id' => $job->id,
-                'candidate_id' => $candidateProfile->id,
-                'cv_path' => $cvPath,
-                'cover_letter' => $request->cover_letter,
-                'status' => 'applied',
-            ]);
-        }
+        try {
+            $application = DB::transaction(function () use ($job, $jobId, $candidateProfile, $cvPath, $request) {
+                // Prevent a concurrent close/expiry from accepting an application after the job stops accepting.
+                $currentJob = Job::whereKey($jobId)->sharedLock()->first();
+                if (!$currentJob
+                    || $currentJob->status !== 'active'
+                    || ($currentJob->deadline && $currentJob->deadline->toDateString() < now()->toDateString())) {
+                    return null;
+                }
 
-        // FR-05.4: Cơ chế Bump tin tự động - Cập nhật updated_at của Job để đẩy lên đầu trang tìm kiếm
-        $job->touch();
+                $application = Application::create([
+                    'job_id' => $currentJob->id,
+                    'candidate_id' => $candidateProfile->id,
+                    'cv_path' => $cvPath,
+                    'cover_letter' => $request->cover_letter,
+                    'status' => 'applied',
+                    'ai_analysis_status' => 'pending',
+                ]);
+                $currentJob->touch();
+
+                return $application;
+            });
+            if (!$application) {
+                if ($uploadedCv && $cvPath) {
+                    Storage::disk('private')->delete($cvPath);
+                }
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tin tuyển dụng này đã đóng hoặc đã hết hạn nộp hồ sơ',
+                ], 422);
+            }
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($uploadedCv) {
+                Storage::disk('private')->delete($cvPath);
+            }
+            return response()->json(['success' => false, 'message' => 'Bạn đã nộp hồ sơ cho công việc này rồi'], 409);
+        } catch (\Throwable $exception) {
+            if ($uploadedCv && $cvPath) {
+                Storage::disk('private')->delete($cvPath);
+            }
+            throw $exception;
+        }
 
         // FR-10.2: Tự động gửi thông báo cho Nhà tuyển dụng
         if ($job->company && $job->company->user) {
-            Notification::create([
-                'user_id' => $job->company->user->id,
-                'title' => 'Ứng viên mới nộp hồ sơ',
-                'content' => "Ứng viên {$user->name} vừa nộp hồ sơ vào vị trí '{$job->title}'.",
-                'type' => 'new_application',
-                'data' => [
-                    'job_id' => $job->id,
+            try {
+                Notification::create([
+                    'user_id' => $job->company->user->id,
+                    'title' => 'Ứng viên mới nộp hồ sơ',
+                    'content' => "Ứng viên {$user->name} vừa nộp hồ sơ vào vị trí '{$job->title}'.",
+                    'type' => 'new_application',
+                    'data' => [
+                        'job_id' => $job->id,
+                        'application_id' => $application->id,
+                    ],
+                ]);
+            } catch (\Throwable $exception) {
+                Log::error('Application notification could not be created', [
                     'application_id' => $application->id,
-                ],
-            ]);
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
         }
 
-        // FR-07: Gọi Gemini AI phân tích CV và lưu điểm
-        $geminiService->analyze($application);
+        // Keep application submission fast; analysis runs in the configured queue.
+        try {
+            AnalyzeApplicationCv::dispatch($application->id);
+        } catch (\Throwable $exception) {
+            $application->update([
+                'ai_analysis_status' => 'failed',
+                'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
+            ]);
+            Log::error('Application CV analysis could not be queued', [
+                'application_id' => $application->id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
         $application->load(['job.company', 'candidateProfile.skills', 'aiAnalysis']);
 
@@ -162,11 +207,47 @@ class ApplicationController extends Controller
         ], 200);
     }
 
+    /** Stream an application CV only to its candidate, the owning employer, or an admin. */
+    public function downloadCv(Request $request, $applicationId)
+    {
+        $application = Application::with('job.company')->find($applicationId);
+        if (!$application) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy hồ sơ ứng tuyển'], 404);
+        }
+
+        $user = $request->user();
+        $isCandidate = $user->isCandidate()
+            && (int) $application->candidateProfile?->user_id === (int) $user->id;
+        $isEmployer = $user->isEmployer()
+            && (int) $application->job?->company?->user_id === (int) $user->id;
+        if (!$isCandidate && !$isEmployer && !$user->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem CV này'], 403);
+        }
+
+        $path = $application->cv_path;
+        $disk = Storage::disk('private')->exists($path) ? 'private' : 'public';
+        if (!Storage::disk($disk)->exists($path)) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy file CV'], 404);
+        }
+
+        return response()->file(Storage::disk($disk)->path($path), [
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     /**
      * [Candidate] Lịch sử nộp hồ sơ ứng tuyển (FR-06.7)
      */
     public function candidateHistory(Request $request): JsonResponse
     {
+        $request->validate([
+            'status' => ['nullable', 'in:applied,waiting,accepted,rejected,withdrawn'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $candidateProfile = $request->user()->candidateProfile;
 
         $query = Application::where('candidate_id', $candidateProfile->id)
@@ -201,6 +282,11 @@ class ApplicationController extends Controller
      */
     public function jobApplicants(Request $request, $jobId): JsonResponse
     {
+        $request->validate([
+            'status' => ['nullable', 'in:applied,waiting,accepted,rejected'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $company = $request->user()->company;
         $job = Job::where('company_id', $company->id)->find($jobId);
 
@@ -238,7 +324,7 @@ class ApplicationController extends Controller
     /**
      * [Employer] Xem chi tiết hồ sơ ứng viên (Tự động chuyển sang 'waiting' khi xem lần đầu theo FR-06.5)
      */
-    public function showEmployerApplication(Request $request, $id, GeminiService $geminiService): JsonResponse
+    public function showEmployerApplication(Request $request, $id): JsonResponse
     {
         $company = $request->user()->company;
 
@@ -262,10 +348,23 @@ class ApplicationController extends Controller
         }
 
         // Đảm bảo AI analysis tồn tại
-        if (!$application->aiAnalysis) {
-            $geminiService->analyze($application);
-            $application->load('aiAnalysis');
+        if (!$application->aiAnalysis && $application->ai_analysis_status !== 'pending') {
+            $application->update(['ai_analysis_status' => 'pending', 'ai_analysis_error' => null]);
+            try {
+                AnalyzeApplicationCv::dispatch($application->id);
+            } catch (\Throwable $exception) {
+                $application->update([
+                    'ai_analysis_status' => 'failed',
+                    'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
+                ]);
+                Log::error('Application CV analysis could not be queued when opening applicant', [
+                    'application_id' => $application->id,
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
+            $application->refresh();
         }
+        $application->load('aiAnalysis');
 
         return response()->json([
             'success' => true,
@@ -296,13 +395,14 @@ class ApplicationController extends Controller
             'status' => ['required', 'in:waiting,accepted,rejected'],
         ]);
 
+        $previousStatus = $application->status;
         $application->update([
             'status' => $request->status,
         ]);
 
         // FR-10.1: Tự động tạo và gửi thông báo cho Ứng viên khi NTD thay đổi trạng thái hồ sơ
         $candidateUser = $application->candidateProfile?->user;
-        if ($candidateUser) {
+        if ($candidateUser && $previousStatus !== $request->status) {
             $notificationTitle = match ($request->status) {
                 'accepted' => 'Chúc mừng! Bạn đã trúng tuyển',
                 'rejected' => 'Thông báo kết quả ứng tuyển',
@@ -315,17 +415,24 @@ class ApplicationController extends Controller
                 default => "Nhà tuyển dụng đang xem xét hồ sơ ứng tuyển của bạn cho vị trí '{$application->job->title}'.",
             };
 
-            Notification::create([
-                'user_id' => $candidateUser->id,
-                'title' => $notificationTitle,
-                'content' => $notificationContent,
-                'type' => 'app_status_changed',
-                'data' => [
-                    'job_id' => $application->job_id,
+            try {
+                Notification::create([
+                    'user_id' => $candidateUser->id,
+                    'title' => $notificationTitle,
+                    'content' => $notificationContent,
+                    'type' => 'app_status_changed',
+                    'data' => [
+                        'job_id' => $application->job_id,
+                        'application_id' => $application->id,
+                        'status' => $request->status,
+                    ],
+                ]);
+            } catch (\Throwable $exception) {
+                Log::error('Application status notification could not be created', [
                     'application_id' => $application->id,
-                    'status' => $request->status,
-                ],
-            ]);
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
         }
 
         return response()->json([

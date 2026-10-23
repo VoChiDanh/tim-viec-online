@@ -1,142 +1,124 @@
-# Danh Sách API (API Checklist).
+﻿# API Checklist — TimViecOnline
 
----
+Contract kiểm tra lấy từ [backend/routes/api.php](backend/routes/api.php), FormRequest, controller và resource. `?` là tùy chọn; kiểm tra response thật trước khi phát hành OpenAPI chính thức. Auth dùng `Authorization: Bearer <Sanctum token>` và `Accept: application/json`.
 
-## 1. Xác thực (Authentication)
+## Quy ước chung
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `POST /api/register` | Không | Body (JSON):<br>• `name`: string, 2–100 ký tự<br>• `email`: string, định dạng email, unique<br>• `password`: string, 8–32 ký tự, chứa chữ hoa, chữ thường, số, ký tự đặc biệt<br>• `password_confirmation`: trùng khớp với password<br>• `role`: enum (`candidate`, `employer`)<br>• `phone?`: string, regex SĐT VN<br>• `dob?`: date, >= 15 tuổi | HTTP 201 Created:<br>`success: true`<br>`message: "Đăng ký tài khoản thành công"`<br>`data:`<br>• `token`: string (Sanctum plain text token)<br>• `token_type: "Bearer"`<br>• `user:` thông tin người dùng (`id, name, email, phone, dob, role, status`) kèm hồ sơ (`candidate_profile` hoặc `company`) | Tự động tạo bản ghi hồ sơ rỗng (`CandidateProfile` hoặc `Company`) tương ứng với vai trò.<br>Lỗi trùng email: 422. |
-| `POST /api/login` | Không | Body (JSON):<br>• `email`: string, email, bắt buộc<br>• `password`: string, bắt buộc | HTTP 200 OK:<br>`success: true`<br>`message: "Đăng nhập thành công"`<br>`data:`<br>• `token`: string<br>• `token_type: "Bearer"`<br>• `user:` thông tin người dùng kèm profile/company<br>• `redirect_url`: URL điều hướng theo vai trò (`/jobs`, `/employer/my-jobs`, `/admin/dashboard`) | Sai thông tin: 401.<br>Tài khoản bị Admin khóa: 403.<br>Nhập sai 5 lần liên tiếp: Tạm khóa 15 phút (403). |
-| `GET /api/user` | `Bearer Token` | Không | HTTP 200 OK:<br>`success: true`<br>`data:` thông tin `user` hiện tại kèm quan hệ profile (`candidateProfile.skills` hoặc `company`) | Dùng để khôi phục phiên làm việc và kiểm tra quyền đăng nhập. |
-| `POST /api/logout` | `Bearer Token` | Không | HTTP 200 OK:<br>`success: true`<br>`message: "Đăng xuất thành công"` | Hủy token truy cập hiện tại (`currentAccessToken()->delete()`). |
-| `POST /api/forgot-password`<br>*(Alias: `POST /api/password/forgot`)* | Không | Body (JSON):<br>• `email`: string, email, bắt buộc | HTTP 200 OK:<br>`success: true`<br>`message: "Liên kết đặt lại mật khẩu đã được gửi đến email của bạn"`<br>`data:`<br>• `email`: string<br>• `token`: string (mã reset 64 ký tự)<br>• `reset_url`: URL đặt lại mật khẩu trên frontend<br>• `expires_in_minutes: 15` | Tạo token reset trong bảng `password_reset_tokens` (hiệu lực 15 phút), gửi mail qua Mailtrap/SMTP.<br>Không tìm thấy email: 404. |
-| `GET /api/verify-reset-token`<br>*(Hỗ trợ cả POST)* | Không | Query / Body:<br>• `email`: string, email<br>• `token`: string, mã xác thực reset | HTTP 200 OK:<br>`success: true`<br>`message: "Liên kết xác thực hợp lệ"`<br>`data: { email, token }` | Kiểm tra token trước khi cho phép vào trang đặt mật khẩu mới. Token hết hạn (> 15 phút) hoặc sai: 400. |
-| `POST /api/reset-password`<br>*(Alias: `POST /api/password/reset`)* | Không | Body (JSON):<br>• `token`: string, mã xác thực<br>• `email`: string, email<br>• `password` (hoặc `new_password`): string, 8–32 ký tự, đủ ký tự hoa/thường/số/ký tự đặc biệt<br>• `password_confirmation` (hoặc `new_password_confirmation`): trùng khớp mật khẩu mới | HTTP 200 OK:<br>`success: true`<br>`message: "Đặt lại mật khẩu thành công"`<br>`data: { redirect_url: "/login" }` | Đặt lại mật khẩu, mở khóa tài khoản, xóa token đã dùng, tạo thông báo bảo mật `security`.<br>Token sai/hết hạn: 400. |
-| `PUT /api/user/change-password` | `Bearer Token` | Body (JSON):<br>• `current_password`: string, mật khẩu hiện tại<br>• `new_password` (hoặc `password`): string, mật khẩu mới (8–32 ký tự, đủ chữ hoa/thường/số/ký tự đặc biệt)<br>• `new_password_confirmation` (hoặc `password_confirmation`): trùng khớp mật khẩu mới | HTTP 200 OK:<br>`success: true`<br>`message: "Đổi mật khẩu thành công"` | Mật khẩu hiện tại sai: 400.<br>Mật khẩu mới trùng mật khẩu cũ: 400.<br>Đổi mật khẩu thành công sẽ gửi thông báo in-app `security`. |
+- Thành công thường `{success,message?,data?,meta?}`; một số endpoint dùng `pagination`, `unread_count`, `conversation`. Validation thường 422; auth 401; role/ownership 403 hoặc 404 theo endpoint; duplicate application/report 409; pending AI 202.
+- JSON dùng `application/json`; upload dùng multipart. Không gửi secret, CV thật hay reset token vào logs.
+- Filesystem: CV/chat image private, avatar/logo public. Queue AI cần worker. Broadcast auth: `POST|GET /api/broadcasting/auth` theo channel auth.
 
----
+## Trạng thái hệ thống đã kiểm tra
 
-## 2. Công khai (Public)
+- [x] Laravel routes bootstrap, `api/broadcasting/auth`, lệnh `storage:secure-legacy-cvs`.
+- [x] PHP syntax cho nhóm file backend đã sửa.
+- [x] Migration + SQL dump cập nhật schema nghiệp vụ, queue `queue_jobs`, reports và chat/AI columns.
+- [ ] Migration MySQL sạch và seed đã thực thi trong lượt này (DB mặc định chưa migrate; không destructive).
+- [ ] Mail SMTP, Gemini thật, Reverb realtime, CV cũ production và NFR load/uptime: cần môi trường tích hợp.
+- [ ] FR feature suite: PHPUnit hiện chỉ có ví dụ; không dùng script `test_all_backend.php` legacy có side effects.
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú |
-| --- | --- | --- | --- | --- |
-| `GET /api/categories` | Không | Không | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách toàn bộ ngành nghề `[{ id, name, jobs_count, created_at, updated_at }]` | `jobs_count` tự động đếm số lượng việc làm đang mở (`active`). Không phân trang. |
-| `GET /api/categories/{id}` | Không | Path:<br>• `id`: ID ngành nghề | HTTP 200 OK:<br>`success: true`<br>`data: { id, name, jobs_count, created_at, updated_at }` | Không tìm thấy: 404. |
-| `GET /api/skills` | Không | Query:<br>• `keyword?`: string, từ khóa tìm kiếm tên kỹ năng | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách kỹ năng `[{ id, name, created_at, updated_at }]` sắp xếp theo A-Z | Phục vụ dropdown chọn kỹ năng. Không phân trang. |
-| `GET /api/skills/{id}` | Không | Path:<br>• `id`: ID kỹ năng | HTTP 200 OK:<br>`success: true`<br>`data: { id, name, created_at, updated_at }` | Không tìm thấy: 404. |
-| `GET /api/jobs` | Tùy chọn `Bearer Token` | Query:<br>• `keyword?`: tìm kiếm theo tiêu đề, tên công ty, kỹ năng<br>• `category_id?`: ID hoặc chuỗi phân tách dấu phẩy (`1` hoặc `1,2`)<br>• `city?`: tỉnh/thành phố<br>• `job_type?`: `full_time`, `part_time`, `remote`, `internship`<br>• `salary_range?`: `under_10`, `10_20`, `over_20`, `negotiable`<br>• `page?`: số trang (mặc định 1)<br>• `per_page?`: số lượng/trang (mặc định 10, tối đa 100) | HTTP 200 OK:<br>`success: true`<br>`data: [ JobResource ]`<br>`meta: { current_page, last_page, per_page, total }` | Chỉ lấy tin `status = 'active'`. Sắp xếp `updated_at` giảm dần.<br>Nếu đã đăng nhập vai trò Candidate, tự động trả về `is_saved`, `is_applied`, `apply_button_disabled`, `apply_button_message`. |
-| `GET /api/jobs/{id}` | Tùy chọn `Bearer Token` | Path:<br>• `id`: ID tin tuyển dụng | HTTP 200 OK:<br>`success: true`<br>`data: JobResource` | Tự động tăng `views_count`.<br>Bao gồm đầy đủ chi tiết JD, yêu cầu, quyền lợi, thông tin công ty, kỹ năng, hạn nộp, cờ ứng tuyển.<br>Không tìm thấy hoặc tin đã ngừng: 404. |
-| `GET /api/companies` | Không | Query:<br>• `keyword?`: tìm theo tên, giới thiệu, địa chỉ<br>• `city?`: tỉnh/thành phố<br>• `page?`: số trang (mặc định 1)<br>• `per_page?`: số lượng/trang (mặc định 10, tối đa 100) | HTTP 200 OK:<br>`success: true`<br>`data: [ CompanyResource ]`<br>`meta: { current_page, last_page, per_page, total }` | Mỗi công ty có: `id, name, logo, website, company_size, size, address, city, description, active_jobs_count`. |
-| `GET /api/companies/{id}` | Không | Path:<br>• `id`: ID công ty | HTTP 200 OK:<br>`success: true`<br>`data: CompanyResource` | Kèm theo danh sách tin đang tuyển dụng trong trường `jobs` (danh sách `JobResource`). Không tìm thấy: 404. |
-| `GET https://www.tinhthanhpho.com/api/v1/new-provinces` | Không | Query:<br>• `page?`<br>• `limit?` | HTTP 200 OK:<br>`data: [{ code, name }]`<br>`metadata: { total, page, limit }` | *(API bên thứ ba)* Phục vụ danh mục Tỉnh/Thành phố toàn quốc cho frontend lọc địa điểm. |
+## 1. Auth/account
 
----
+| Method / path | Quyền | Request | Expected contract / kiểm tra |
+|---|---|---|---|
+| `POST /api/register` | Public, 5/phút | JSON `name`, `email`, `dob` (bắt buộc, >=15 tuổi), `password`, `password_confirmation`, `role=candidate|employer`, `phone?` | 201 user, tạo candidate profile hoặc company trong transaction; không trả token/password. Mail thông báo best-effort; client chuyển login. Invalid/duplicate 422. |
+| `POST /api/login` | Public, 10/phút | JSON `email`, `password` | 200 token + user; sai thông tin 401, khóa 403; 5 lỗi khóa 15 phút. |
+| `POST /api/logout` | Sanctum | none | 200, revoke token hiện tại. |
+| `GET /api/user` | Sanctum | none | 200 current user + role profile/company data. |
+| `PUT /api/user/change-password` | Sanctum | `current_password`, `new_password`/`password`, confirmation | Update password, revoke token khác, giữ token hiện tại; current sai/new reuse 400. |
+| `POST /api/forgot-password`, `/api/password/forgot` | Public, 3/15 phút | JSON `email` | Cùng thông điệp 200 dù email không tồn tại; token reset chỉ email, DB hash; API không trả raw token/reset_url. |
+| `GET|POST /api/verify-reset-token` | Public, 20/phút | query/body `email`,`token` | 200 valid; invalid/expired 400. |
+| `POST /api/reset-password`, `/api/password/reset` | Public, 10/phút | `email`,`token`,`password`/`new_password`, confirmation | Reset thành công, xóa reset token và revoke Sanctum tokens; sai/expired 400. |
 
-## 3. Ứng viên — Hồ sơ & CV (Candidate — Profile & CV)
+## 2. Public catalog, company, jobs
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/candidate/profile` | `Bearer Token` *(Role: candidate)* | Không | HTTP 200 OK:<br>`success: true`<br>`data:`<br>• `user: { id, name, email, phone, dob }`<br>• `profile: { id, title, experience_years, bio, avatar, avatar_url, address, city, cv_file_path, cv_url, social_links, skills: [{id, name}] }` | Lấy hồ sơ cá nhân của ứng viên. Nếu chưa có profile trong DB, hệ thống tự khởi tạo bản ghi rỗng. |
-| `POST /api/candidate/profile` | `Bearer Token` *(Role: candidate)* | Body (`multipart/form-data`):<br>• `name?`: string, 2–100 ký tự<br>• `phone?`: string, regex SĐT VN<br>• `title?`: string, chức danh nghề nghiệp (tối đa 100 ký tự)<br>• `experience_years?`: integer (0–50)<br>• `bio?`: string (tối đa 2000 ký tự)<br>• `address?`: string (tối đa 255 ký tự)<br>• `city?`: string (tối đa 100 ký tự)<br>• `social_links?`: array (các liên kết mạng xã hội/portfolio)<br>• `skills?`: array of ID kỹ năng (tối đa 10 kỹ năng: `skills[]`)<br>• `cv_file?`: file PDF (tối đa 5.120 KB = 5MB)<br>• `avatar?`: file ảnh JPEG, PNG, JPG, WebP (tối đa 2.048 KB = 2MB) | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật hồ sơ ứng viên thành công"`<br>`data:` cấu trúc hồ sơ sau cập nhật tương tự `GET /api/candidate/profile` | Cập nhật đồng thời thông tin cá nhân, danh sách kỹ năng, upload ảnh đại diện và upload file CV PDF mặc định.<br>Lỗi file CV sai định dạng/dung lượng: 400.<br>Lỗi chọn > 10 kỹ năng: 422. |
+| Method / path | Quyền | Inputs | Contract / checklist |
+|---|---|---|---|
+| `GET /api/categories` | Public | none | Danh sách category/count active jobs. |
+| `GET /api/categories/{id}` | Public | path ID | Detail/count; unknown 404. |
+| `GET /api/skills` | Public | `keyword?` | Danh sách/tìm skill. |
+| `GET /api/skills/{id}` | Public | ID | Detail; unknown 404. |
+| `GET /api/companies` | Public | `keyword?`,`city?`,`page?`,`per_page?` max100 | Paginated company list/count active jobs. |
+| `GET /api/companies/{id}` | Public | ID | Company + active jobs; unknown 404. |
+| `GET /api/locations/cities` | Public | none | Distinct cities from currently active and unexpired jobs; use as city filter choices. |
+| `GET /api/jobs` | Public; optional Sanctum | `keyword?`,`category_id?` scalar/comma/array, `city?`,`job_type?`,`salary_range?`,`skill_ids?` comma/array, `page?`,`per_page?` <=100 | Active, not past deadline; title/company/skills search; sort updated; pagination; optional is_saved/is_applied. Invalid filters 422. Test salary aliases/boundaries. |
+| `GET /api/jobs/{id}` | Public; optional Sanctum | ID | Job detail and view count; verify closed/expired visibility policy. |
+| `POST /api/jobs/{id}/report` | Sanctum | JSON `reason` required <=100, `details?` <=2000 | 201 report pending; one report/user/job; duplicate 409; job owner employer rejected. |
 
----
+Salary bands accepted by controller include `under_10`/`under_10m`, `10_20`/`10m_20m`, `over_20`/`above_20m`/`above_20`, `negotiable`. Validate min/max and null cases against real fixtures. MySQL collation performs case/accent-insensitive basic comparisons; there is no dedicated transliteration/fuzzy search.
 
-## 4. Ứng viên — Lưu việc & Ứng tuyển (Candidate — Saved Jobs & Applications)
+## 3. Candidate profile and files
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/candidate/saved-jobs` | `Bearer Token` *(Role: candidate)* | Query:<br>• `page?`: số trang (mặc định 1) | HTTP 200 OK:<br>`success: true`<br>`data: [ JobResource ]`<br>`meta: { current_page, last_page, per_page: 10, total }` | Danh sách các tin tuyển dụng ứng viên đã bấm lưu yêu thích. |
-| `POST /api/jobs/{id}/save` | `Bearer Token` *(Role: candidate)* | Path:<br>• `id`: ID tin tuyển dụng | HTTP 200 OK:<br>`success: true`<br>`message: "Lưu việc làm thành công"` | Bấm lưu tin vào danh sách yêu thích. Tin không tồn tại hoặc đã đóng: 404. |
-| `DELETE /api/jobs/{id}/save` | `Bearer Token` *(Role: candidate)* | Path:<br>• `id`: ID tin tuyển dụng | HTTP 200 OK:<br>`success: true`<br>`message: "Bỏ lưu việc làm thành công"` | Bỏ lưu việc làm yêu thích. |
-| `POST /api/jobs/{id}/apply` | `Bearer Token` *(Role: candidate)* | Path:<br>• `id`: ID tin tuyển dụng<br>Body (`multipart/form-data`):<br>• `cv_source?`: `profile` (dùng CV mặc định trong hồ sơ) hoặc `new` (tải file PDF mới)<br>• `cv_file?`: file PDF tối đa 5MB (bắt buộc nếu chọn `cv_source=new`)<br>• `cover_letter?`: string, tối đa 3000 ký tự | HTTP 201 Created:<br>`success: true`<br>`message: "Nộp hồ sơ ứng tuyển thành công"`<br>`data: ApplicationResource` | Quy trình tự động:<br>1. Bump tin (cập nhật `updated_at` của job).<br>2. Gửi Notification in-app tới Nhà tuyển dụng.<br>3. Gọi Gemini AI phân tích CV ngay lập tức và lưu kết quả `ai_analysis`.<br>Đã nộp trước đó: 409.<br>Tin đã đóng hoặc hết hạn: 422. |
-| `GET /api/candidate/applications` | `Bearer Token` *(Role: candidate)* | Query:<br>• `status?`: lọc theo trạng thái (`applied`, `waiting`, `accepted`, `rejected`, `withdrawn`)<br>• `page?`: số trang (mặc định 1)<br>• `per_page?`: số lượng/trang (mặc định 10, tối đa 100) | HTTP 200 OK:<br>`success: true`<br>`data: [ ApplicationResource ]`<br>`meta: { current_page, last_page, per_page, total }` | Lịch sử nộp đơn của ứng viên. Mỗi đơn trả về: `id, job_id, cv_url, cover_letter, status, status_label, can_withdraw, applied_at_display, job: JobResource, ai_analysis: {...}`. |
-| `DELETE /api/candidate/applications/{id}/withdraw` | `Bearer Token` *(Role: candidate)* | Path:<br>• `id`: ID đơn ứng tuyển | HTTP 200 OK:<br>`success: true`<br>`message: "Rút hồ sơ ứng tuyển thành công"` | Chỉ cho phép rút đơn khi trạng thái là `applied` và NTD chưa mở xem (`reviewed_at` là null).<br>Nếu NTD đã xem hoặc đã duyệt: 400. |
+| Method / path | Quyền | Inputs | Contract / checklist |
+|---|---|---|---|
+| `GET /api/candidate/profile` | Candidate | none | User/profile/skills; may create empty profile. CV returns protected API URL, not public path. |
+| `POST|PUT /api/candidate/profile` | Candidate | multipart/JSON: `name?`,`phone?`,`email?`,`dob?`,`title?`,`experience_years?` 0–50, `bio?` <=2000, `address?`,`city?`,`social_links?`, `skills[]` or `skill_ids[]` <=10, `cv_file?` PDF <=5MB, `avatar?` image <=2MB | 200 updated profile; validates user email/DOB, IDs and file. |
+| `POST /api/candidate/cv` | Candidate | multipart `cv_file` PDF <=5MB | Upload private; response has protected `cv_url`. |
+| `GET /api/candidate/cv` | Candidate | none | JSON protected URL; 404 no CV. |
+| `GET /api/candidate/cv/file` | Candidate | none | Streams own PDF, private/no-store; 404 missing. |
+| `DELETE /api/candidate/cv` | Candidate | none | Deletes private file and legacy same-path public copy; idempotent. |
+| `POST|DELETE /api/candidate/avatar` | Candidate | multipart image / none | Upload/delete public avatar. |
+| `GET /api/candidate/saved-jobs` | Candidate | `page?` | Paginated saved jobs. |
+| `POST|DELETE /api/jobs/{id}/save` | Candidate | ID | Save active job / unsave; repeated save safe. |
 
----
+Legacy CV/chat image conversion: `php artisan storage:secure-legacy-cvs` copies `cvs/`, `application_cvs/`, and `chat_images/` and verifies SHA-256; `--delete-source` removes public copies only after backup/verification. Do not treat returned URLs as public.
 
-## 5. Nhà tuyển dụng — Công ty (Employer — Company Profile)
+## 4. Applications and AI
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/employer/company` | `Bearer Token` *(Role: employer)* | Không | HTTP 200 OK:<br>`success: true`<br>`data: CompanyResource` | Lấy hồ sơ công ty của nhà tuyển dụng đang đăng nhập. Tự khởi tạo nếu chưa có. |
-| `POST /api/employer/company` | `Bearer Token` *(Role: employer)* | Body (`multipart/form-data`):<br>• `name`: string, tối đa 200 ký tự (bắt buộc)<br>• `company_size?` (hoặc `size`): string, tối đa 50 ký tự<br>• `website?`: string URL hợp lệ, tối đa 255 ký tự<br>• `address`: string, địa chỉ trụ sở, tối đa 255 ký tự (bắt buộc)<br>• `city`: string, tỉnh/thành phố, tối đa 100 ký tự (bắt buộc)<br>• `description`: string, giới thiệu công ty (bắt buộc)<br>• `logo?`: file ảnh JPEG, PNG, JPG, WebP tối đa 2MB | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật thông tin công ty thành công"`<br>`data: CompanyResource` | Cập nhật hồ sơ công ty và tải lên logo đại diện. Cần hoàn thiện đủ 4 thông tin bắt buộc trước khi được phép đăng tin tuyển dụng đầu tiên. |
+| Method / path | Quyền | Inputs | Contract / checklist |
+|---|---|---|---|
+| `POST /api/jobs/{id}/apply` | Sanctum candidate | multipart `cv_source?=profile|default|new`, `cv_file?` PDF <=5MB when new, `cover_letter?` <=3000 | 201 application; no profile/CV or self-apply invalid; job must be active/in deadline; repeat including withdrawn 409; dispatch AI queue. |
+| `GET /api/candidate/applications` | Candidate | `status?`,`page?`,`per_page?` | Paginated own history. |
+| `DELETE /api/candidate/applications/{id}/withdraw` | Candidate owner | ID | Withdraw only status applied and not reviewed; otherwise 400. |
+| `GET /api/employer/jobs/{id}/applications` | Employer owner | `status?`,`page?` | Applicants for owned job only. |
+| `GET /api/employer/applications/{id}` | Employer owner | ID | Detail; first view sets waiting/reviewed time. |
+| `PATCH /api/employer/applications/{id}/status` | Employer owner | JSON `status=waiting|accepted|rejected` | Update and notify candidate; test transition/idempotency. |
+| `GET /api/applications/{id}/cv` | Candidate owner, job employer, admin | ID | Streams application PDF after policy check; unauthorized gets 403/404. |
+| `POST /api/applications/{id}/ai-analyze` | Application owner/candidate, job employer, admin | ID | Queue/reuse analysis; pending 202. |
+| `GET /api/applications/{id}/ai-analysis` | Same | ID | 200 completed; 202 pending; 422 failed; verify no provider details leak. |
 
----
+`ai_analysis_status=pending|completed|failed`; worker command `php artisan queue:work --tries=2 --timeout=60`. Without worker, database queue remains pending. Gemini is external; fallback heuristic must be tested separately and is not an employment decision.
 
-## 6. Nhà tuyển dụng — Tin tuyển dụng (Employer — Job Management)
+## 5. Employer management
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/employer/my-jobs` | `Bearer Token` *(Role: employer)* | Query:<br>• `page?`: số trang (mặc định 1) | HTTP 200 OK:<br>`success: true`<br>`data: [ JobResource ]`<br>`meta: { current_page, last_page, per_page: 10, total }` | Danh sách tin tuyển dụng do công ty mình đăng. Mỗi tin có kèm số lượt ứng tuyển `applications_count`, sắp xếp `updated_at` giảm dần. |
-| `POST /api/employer/jobs` | `Bearer Token` *(Role: employer)* | Body (JSON):<br>• `title`: string, 10–200 ký tự<br>• `category_id`: integer, id ngành nghề tồn tại<br>• `job_level`: string, cấp bậc (Intern, Junior, Middle, Senior, Lead...)<br>• `quantity`: integer >= 1<br>• `job_type`: enum (`full_time`, `part_time`, `remote`, `internship`)<br>• `city`: string, tỉnh/thành phố làm việc<br>• `address?`: string (nếu để trống tự lấy theo trụ sở công ty)<br>• `deadline`: date, sau ngày hôm nay (`after:today`)<br>• `description`: string, mô tả công việc (JD)<br>• `requirements`: string, yêu cầu chuyên môn<br>• `benefits?`: string, quyền lợi ứng viên<br>• `salary_type?`: enum (`specific`, `range`, `from`, `starting`, `negotiable`)<br>• `is_negotiable?`: boolean<br>• `salary_min?`: integer > 0<br>• `salary_max?`: integer > 0, >= `salary_min`<br>• `skills`: mảng ID kỹ năng, tối thiểu 1 kỹ năng | HTTP 201 Created:<br>`success: true`<br>`message: "Đăng tin tuyển dụng thành công"`<br>`data: JobResource` | Đăng tin tuyển dụng mới với trạng thái mặc định `status = 'active'`.<br>Yêu cầu công ty phải hoàn thiện thông tin trước (nếu chưa: 400).<br>Lỗi hạn nộp / mức lương không hợp lệ: 400. |
-| `PUT /api/employer/jobs/{id}` | `Bearer Token` *(Role: employer)* | Path:<br>• `id`: ID tin tuyển dụng<br>Body (JSON): tương tự `POST /api/employer/jobs` | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật tin tuyển dụng thành công"`<br>`data: JobResource` | Chỉnh sửa tin tuyển dụng của công ty mình. Không tìm thấy hoặc không thuộc công ty: 404. |
-| `PATCH /api/employer/jobs/{id}/status` | `Bearer Token` *(Role: employer)* | Path:<br>• `id`: ID tin tuyển dụng<br>Body (JSON):<br>• `status`: enum (`active`, `closed`)<br>• `deadline?`: date, sau ngày hôm nay (nếu mở lại tin) | HTTP 200 OK:<br>`success: true`<br>`message: "Đã mở lại tin tuyển dụng" / "Đã đóng tin tuyển dụng"`<br>`data: { id, status, deadline }` | Đóng hoặc mở lại tin tuyển dụng. Khi mở lại có thể gia hạn deadline mới. |
+| Method / path | Quyền | Inputs | Contract / checklist |
+|---|---|---|---|
+| `GET /api/employer/company` | Employer | none | Current company (may initialize empty record). |
+| `POST /api/employer/company` | Employer | `name`,`description`,`address`,`city`, optional size/site/logo | Update company; logo constraints and old file cleanup. |
+| `GET /api/employer/my-jobs` | Employer | `page?` | Own paginated jobs. |
+| `POST /api/employer/jobs` | Employer | title/category/level/quantity/type/city/deadline/description/requirements/benefits/salary/skills | 201 active job; complete company required; boundary/ownership validation. |
+| `PUT /api/employer/jobs/{id}` | Employer owner | job fields | Update owned job and skills. |
+| `PATCH /api/employer/jobs/{id}/status` | Employer owner | `status=active|closed`, optional future `deadline` | Close/reopen; verify public visibility and apply behavior. |
+| `GET /api/admin/jobs/reported` | Admin | `page?`,`per_page?` <=100 | Paginated jobs with report details. |
+| `PATCH /api/admin/jobs/{id}/report` | Admin | `status=resolved|dismissed` | Resolve/dismiss pending reports, reviewer/time; clear job flag only when no pending reports remain. |
 
----
+Salary type values and required fields are enforced by `JobRequest`; use exact implementation validation when building clients. `salary_min`/`salary_max` are integer amounts in the project’s stored currency unit; confirm UI label is VND.
 
-## 7. Nhà tuyển dụng — Quản lý Ứng viên & AI (Employer — Applicants & AI Screening)
+## 6. Chat, notifications, admin
 
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/employer/jobs/{id}/applications` | `Bearer Token` *(Role: employer)* | Path:<br>• `id`: ID tin tuyển dụng (Job ID)<br>Query:<br>• `status?`: lọc theo trạng thái (`applied`, `waiting`, `accepted`, `rejected`)<br>• `page?`: số trang (mặc định 1) | HTTP 200 OK:<br>`success: true`<br>`data: [ ApplicationResource ]`<br>`meta: { current_page, last_page, per_page: 10, total }` | Danh sách hồ sơ nộp cho tin tuyển dụng cụ thể (tự động loại bỏ hồ sơ đã rút `withdrawn`). Mỗi hồ sơ kèm thông tin ứng viên và kết quả phân tích AI `ai_analysis`. |
-| `GET /api/employer/applications/{id}` | `Bearer Token` *(Role: employer)* | Path:<br>• `id`: ID đơn ứng tuyển | HTTP 200 OK:<br>`success: true`<br>`data: ApplicationResource` | Xem chi tiết hồ sơ ứng viên:<br>• **Tự động chuyển trạng thái:** Nếu trạng thái là `applied`, tự động cập nhật sang `waiting` và set `reviewed_at = now()`.<br>• **Tự động phân tích AI:** Nếu chưa có kết quả phân tích, tự kích hoạt Gemini AI chấm điểm. |
-| `PATCH /api/employer/applications/{id}/status` | `Bearer Token` *(Role: employer)* | Path:<br>• `id`: ID đơn ứng tuyển<br>Body (JSON):<br>• `status`: enum (`waiting`, `accepted`, `rejected`) | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật trạng thái hồ sơ thành công"`<br>`data: ApplicationResource` | Cập nhật kết quả duyệt hồ sơ. Hệ thống tự động tạo Notification in-app gửi đến tài khoản ứng viên thông báo trúng tuyển hoặc từ chối. |
+| Method / path | Quyền | Inputs | Contract / checklist |
+|---|---|---|---|
+| `GET /api/conversations` | Sanctum | none | Current user's rooms only. |
+| `POST /api/conversations` | Candidate/employer | `job_id`,`partner_id` | Room tied to valid application and job owner; membership/role enforced. |
+| `GET /api/conversations/{id}/messages` | Room member | `page?`,`per_page?` | Paginated history, inbound read handling. |
+| `POST /api/conversations/{id}/messages` | Room member | JSON/multipart `message?` 1–1000, `image?` JPEG/PNG/GIF/WEBP <=5MB; one required | 201; image-only supported; event/notification emitted. DB persistence can succeed if Reverb delivery fails. |
+| `GET /api/conversations/{conversationId}/messages/{messageId}/image` | Room member | Path IDs | Streams private image after membership check; 403 other user, 404 missing. |
+| `PATCH /api/conversations/{id}/read` | Room member | none | Mark inbound read; broadcast receipt. |
+| `GET /api/notifications` | Sanctum | pagination/filter query | Own notifications/unread count. |
+| `PATCH /api/notifications/{id}/read` | Sanctum owner | ID | Mark own notification read. |
+| `PATCH /api/notifications/read-all` | Sanctum | none | Mark all own notifications read. |
+| `DELETE /api/notifications/{id}` | Sanctum owner | ID | Delete own notification. |
+| `GET /api/admin/stats` | Admin | `days?` 1–365 | Dashboard aggregates. |
+| `GET /api/admin/users`, `/api/admin/users/{id}` | Admin | pagination/filter, ID | User list/detail. |
+| `PATCH /api/admin/users/{id}/status`, `/toggle-lock` | Admin | status/action | Lock/unlock/status; verify token revocation and self-lock policy. |
+| `GET /api/admin/jobs`, `/api/admin/jobs/{id}` | Admin | query/ID | Job list/detail. |
+| `DELETE /api/admin/jobs/{id}` | Admin | ID | Delete with configured cascades/notification. |
+| `GET|POST /api/admin/categories`, `PUT|DELETE /api/admin/categories/{id}` | Admin | category data/ID | Taxonomy CRUD; FK restrict behavior. |
+| `GET|POST /api/admin/skills`, `PUT|DELETE /api/admin/skills/{id}` | Admin | skill data/ID | Taxonomy CRUD; pivot behavior. |
+| `GET|POST /api/broadcasting/auth` | Sanctum | channel auth payload | Authorize private chat membership; test wrong user denial. |
 
----
+## 7. Further checks
 
-## 8. Trò chuyện thời gian thực & Thông báo (Chat & Notifications)
-
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/conversations` | `Bearer Token` | Không | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách phòng chat `[{ id, job_id, job_title, job_status, is_closed, is_expired, job_notice, unread_count, partner: { id, name, role, avatar_url }, last_message: {...}, last_message_at, created_at }]` | Lấy toàn bộ phòng chat của người dùng hiện tại, sắp xếp theo tin nhắn mới nhất `last_message_at` giảm dần. Vẫn duy trì hiển thị khi tin tuyển dụng đã đóng kèm thông báo phụ `job_notice`. |
-| `POST /api/conversations` | `Bearer Token` | Body (JSON):<br>• `job_id`: integer, ID tin tuyển dụng<br>• `partner_id`: integer, User ID người đối thoại | HTTP 200 OK:<br>`success: true`<br>`message: "Khởi tạo cuộc trò chuyện thành công"`<br>`data: { id, candidate_id, employer_id, job_id }` | Mở hoặc tạo mới phòng chat giữa Ứng viên và NTD. Điều kiện: Ứng viên phải đã nộp hồ sơ vào tin tuyển dụng này (chưa rút đơn). |
-| `GET /api/conversations/{id}/messages` | `Bearer Token` | Path:<br>• `id`: ID phòng chat (Conversation ID)<br>Query:<br>• `per_page?`: số tin nhắn/trang (mặc định 50, tối đa 100)<br>• `page?`: số trang | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách tin nhắn `[{ id, conversation_id, sender_id, sender_name, sender_avatar_url, message, image_url, is_read, read_at, status_display, time_display, created_at }]`<br>`conversation: { id, job_id, job_title, job_status, is_closed, is_expired, job_notice }`<br>`meta: { current_page, last_page, per_page, total }` | Tự động đánh dấu tất cả tin nhắn đối phương gửi thành "Đã xem" (`is_read = 1`, `read_at = now()`) và phát socket event `MessagesRead`. Không có quyền truy cập: 403. |
-| `POST /api/conversations/{id}/messages` | `Bearer Token` | Path:<br>• `id`: ID phòng chat<br>Body (`multipart/form-data` hoặc JSON):<br>• `message?`: string, nội dung văn bản (1–1.000 ký tự)<br>• `image?`: file ảnh JPEG, PNG, GIF, WebP (tối đa 5MB) | HTTP 201 Created:<br>`success: true`<br>`message: "Gửi tin nhắn thành công"`<br>`data: { id, conversation_id, sender_id, sender_name, message, image_url, is_read, read_at, status_display, time_display, created_at }` | Bắt buộc có ít nhất text hoặc ảnh đính kèm. Tự động broadcast Realtime WebSocket `MessageSent` qua Reverb và gửi Notification in-app cho đối phương. |
-| `PATCH /api/conversations/{id}/read` | `Bearer Token` | Path:<br>• `id`: ID phòng chat | HTTP 200 OK:<br>`success: true`<br>`message: "Đã đánh dấu đã xem tất cả tin nhắn"`<br>`data: { conversation_id, updated_count }` | Đánh dấu tất cả tin nhắn chưa đọc từ đối phương trong phòng này là đã xem. |
-| `POST /broadcasting/auth` | `Bearer Token` | Body (Form/JSON):<br>• `socket_id`: string<br>• `channel_name`: string | HTTP 200 OK:<br>`{ auth: "..." }` | Xác thực kết nối WebSocket Reverb cho các private channel (`chat.{conversationId}`, `App.Models.User.{id}`). |
-| `GET /api/notifications` | `Bearer Token` | Query:<br>• `status?`: `unread` (chưa đọc) hoặc `read` (đã đọc)<br>• `type?`: lọc theo loại thông báo<br>• `page?`: số trang (mặc định 1)<br>• `per_page?`: số lượng/trang (mặc định 15, tối đa 50) | HTTP 200 OK:<br>`success: true`<br>`unread_count`: số lượng thông báo chưa đọc (hiển thị badge chuông)<br>`data:` Danh sách thông báo `[{ id, title, content, type, data, is_read, read_at, status_display, background_color, time_ago, redirect_url, created_at, created_at_display }]`<br>`meta: { current_page, last_page, per_page, total }` | Phân loại màu: `background_color = "blue"` (chưa đọc), `"white"` (đã đọc). Có trường `redirect_url` để click chuyển trang ngay. |
-| `PATCH /api/notifications/{id}/read` | `Bearer Token` | Path:<br>• `id`: ID thông báo | HTTP 200 OK:<br>`success: true`<br>`unread_count`: số lượng còn lại chưa đọc<br>`data: { id, title, content, is_read: true, read_at, redirect_url }` | Đánh dấu 1 thông báo là đã đọc. |
-| `PATCH /api/notifications/read-all` | `Bearer Token` | Không | HTTP 200 OK:<br>`success: true`<br>`message: "Đã đánh dấu tất cả thông báo là đã đọc"`<br>`unread_count: 0`<br>`updated_count`: số bản ghi đã cập nhật | Đánh dấu toàn bộ thông báo của người dùng hiện tại là đã đọc. |
-| `DELETE /api/notifications/{id}` | `Bearer Token` | Path:<br>• `id`: ID thông báo | HTTP 200 OK:<br>`success: true`<br>`message: "Đã xóa thông báo thành công"`<br>`unread_count`: số thông báo chưa đọc còn lại | Xóa bỏ 1 thông báo khỏi danh sách. |
-
----
-
-## 9. Quản trị viên (Admin)
-
-| API & Phương thức | Headers / Xác thực | Tham số đầu vào (Request Input) | Dữ liệu trả về (Response Data) | Ghi chú & Mã lỗi |
-| --- | --- | --- | --- | --- |
-| `GET /api/admin/stats` | `Bearer Token` *(Role: admin)* | Không | HTTP 200 OK:<br>`success: true`<br>`data:`<br>• `total_candidates`: tổng số ứng viên<br>• `total_employers`: tổng số NTD<br>• `total_jobs`: tổng số tin<br>• `active_jobs`: số tin đang mở<br>• `total_applications`: tổng đơn ứng tuyển<br>• `reported_jobs`: số tin bị báo cáo vi phạm<br>• `recent_applications`: danh sách 5 đơn mới nhất | Số liệu thống kê tổng quan hệ thống cho màn hình Dashboard Quản trị. |
-| `GET /api/admin/users` | `Bearer Token` *(Role: admin)* | Query:<br>• `keyword?`: tìm theo tên, email, SĐT<br>• `role?`: `candidate`, `employer`, `admin`<br>• `status?`: `active`, `locked`<br>• `page?`: số trang (phân trang 15/trang) | HTTP 200 OK:<br>`success: true`<br>`data: [ User kèm candidateProfile, company ]`<br>`meta: { current_page, last_page, per_page: 15, total }` | Quản lý và kiểm duyệt danh sách người dùng toàn hệ thống. |
-| `PATCH /api/admin/users/{id}/status` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID người dùng (User ID)<br>Body (JSON):<br>• `status`: enum (`active`, `locked`) | HTTP 200 OK:<br>`success: true`<br>`message: "Đã khóa tài khoản người dùng thành công" / "Đã mở khóa tài khoản người dùng thành công"`<br>`data: { id, status }` | Khóa hoặc mở khóa tài khoản.<br>• Khi khóa: Lập tức thu hồi toàn bộ token đăng nhập (`tokens()->delete()`).<br>• Chặn: Không được tự khóa chính mình hoặc khóa tài khoản Admin khác (400). |
-| `GET /api/admin/jobs` | `Bearer Token` *(Role: admin)* | Query:<br>• `keyword?`: tìm kiếm theo tiêu đề<br>• `status?`: `active`, `closed`, `expired`<br>• `reported?`: boolean (`1`, `true` để lọc tin bị báo cáo vi phạm)<br>• `page?`: số trang (phân trang 15/trang) | HTTP 200 OK:<br>`success: true`<br>`data: [ JobResource ]`<br>`meta: { current_page, last_page, per_page: 15, total }` | Kiểm duyệt danh sách tin tuyển dụng, hỗ trợ lọc tin bị báo cáo vi phạm. |
-| `DELETE /api/admin/jobs/{id}` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID tin tuyển dụng<br>Body (JSON/Form):<br>• `reason?`: string, lý do xóa vi phạm (mặc định: vi phạm chính sách) | HTTP 200 OK:<br>`success: true`<br>`message: "Xóa tin tuyển dụng vi phạm thành công"` | Gỡ bỏ tin tuyển dụng vi phạm và tự động gửi thông báo in-app `job_rejected` kèm lý do tới Nhà tuyển dụng sở hữu tin. |
-| `GET /api/admin/categories` | `Bearer Token` *(Role: admin)* | Không | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách ngành nghề kèm `jobs_count` (số tin đang tuyển) | Xem danh sách ngành nghề trong khu vực quản trị. |
-| `POST /api/admin/categories` | `Bearer Token` *(Role: admin)* | Body (JSON):<br>• `name`: string, 1–150 ký tự, unique | HTTP 201 Created:<br>`success: true`<br>`message: "Thêm ngành nghề thành công"`<br>`data: Category` | Thêm ngành nghề mới vào hệ thống. Trùng tên: 422. |
-| `PUT /api/admin/categories/{id}` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID ngành nghề<br>Body (JSON):<br>• `name`: string, 1–150 ký tự, unique trừ chính nó | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật ngành nghề thành công"`<br>`data: Category` | Đổi tên ngành nghề. Không tìm thấy: 404. |
-| `DELETE /api/admin/categories/{id}` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID ngành nghề | HTTP 200 OK:<br>`success: true`<br>`message: "Xóa ngành nghề thành công"` | Xóa ngành nghề.<br>Ràng buộc: Nếu ngành nghề đang có tin tuyển dụng liên kết (`jobs_count > 0`), hệ thống chặn xóa và trả về 400. |
-| `GET /api/admin/skills` | `Bearer Token` *(Role: admin)* | Query:<br>• `keyword?`: string, từ khóa tìm tên kỹ năng | HTTP 200 OK:<br>`success: true`<br>`data:` Danh sách kỹ năng theo A-Z | Xem danh sách kỹ năng trong khu vực quản trị. |
-| `POST /api/admin/skills` | `Bearer Token` *(Role: admin)* | Body (JSON):<br>• `name`: string, 1–100 ký tự, unique | HTTP 201 Created:<br>`success: true`<br>`message: "Thêm kỹ năng thành công"`<br>`data: Skill` | Thêm kỹ năng mới. Trùng tên: 422. |
-| `PUT /api/admin/skills/{id}` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID kỹ năng<br>Body (JSON):<br>• `name`: string, 1–100 ký tự, unique trừ chính nó | HTTP 200 OK:<br>`success: true`<br>`message: "Cập nhật kỹ năng thành công"`<br>`data: Skill` | Đổi tên kỹ năng. Không tìm thấy: 404. |
-| `DELETE /api/admin/skills/{id}` | `Bearer Token` *(Role: admin)* | Path:<br>• `id`: ID kỹ năng | HTTP 200 OK:<br>`success: true`<br>`message: "Xóa kỹ năng thành công"` | Xóa kỹ năng khỏi hệ thống. |
-
----
-
-## 10. Bảng tổng hợp đối soát (So sánh với bản cũ)
-
-| STT | Endpoint / Tính năng | Hiện trạng trong Code | Thay đổi so với bản Checklist cũ |
-| :---: | :--- | :--- | :--- |
-| 1 | `GET\|POST /api/verify-reset-token` | Đã có trong `AuthController` (FR-02.8) | **Bổ sung:** Bản cũ thiếu hoàn toàn endpoint này. |
-| 2 | `GET /api/categories/{id}`, `GET /api/skills/{id}` | Đã có trong `CategoryController`, `SkillController` | **Bổ sung:** Bản cũ thiếu endpoint xem chi tiết 1 ngành nghề/kỹ năng. |
-| 3 | `DELETE /api/notifications/{id}` | Đã có trong `NotificationController` | **Bổ sung:** Bản cũ thiếu endpoint xóa 1 thông báo. |
-| 4 | `GET /api/employer/jobs/{id}/applications` | Đã có trong `ApplicationController@jobApplicants` | **Đính chính:** Bản cũ ghi nhầm thành `GET /api/employer/applications` (không có job_id). |
-| 5 | Các endpoint riêng về CV & Avatar ứng viên (`POST/DELETE /api/candidate/avatar`, `POST/GET/DELETE /api/candidate/cv`) | Không có trong code (gộp chung vào `POST /api/candidate/profile`) | **Lược bỏ:** Tránh hiểu nhầm backend có route riêng lẻ. |
-| 6 | Các endpoint riêng về Logo công ty (`POST/DELETE /api/employer/company/logo`) | Không có trong code (gộp chung vào `POST /api/employer/company`) | **Lược bỏ:** Logo được gửi chung trong form cập nhật công ty. |
-| 7 | `GET /api/candidate/applications/{id}` & `.../cv` | Không có trong code | **Lược bỏ:** Ứng viên xem lịch sử đầy đủ qua `GET /api/candidate/applications`, file CV xem qua static `cv_url`. |
-| 8 | `GET /api/companies/{id}/jobs` | Không có trong code | **Lược bỏ:** Danh sách jobs đã nhúng trực tiếp trong `GET /api/companies/{id}` (field `jobs`). |
-| 9 | `POST /api/employer/applications/{id}/review` & `GET /api/employer/applications/{id}/analysis` | Không có route riêng | **Lược bỏ:** Tự động chuyển `waiting` khi GET chi tiết, và `ai_analysis` đã nhúng sẵn trong Resource. |
-| 10 | `GET /api/employer/dashboard` | Không có trong routes | **Lược bỏ:** NTD quản lý qua my-jobs, company và applicant list. |
-| 11 | `GET /api/conversations/{id}` | Không có route riêng | **Lược bỏ:** Thông tin phòng chat được trả về kèm trong `GET /api/conversations` và `GET /api/conversations/{id}/messages`. |
-| 12 | `GET /api/admin/users/{id}`, `GET /api/admin/jobs/{id}` | Không có route riêng cho admin | **Lược bỏ:** Admin xem qua list hoặc route public. |
-| 13 | Mục "Bổ sung (tùy chọn)" cũ (`notification-preferences`, `job reports`, `ai-analyze` thủ công, `/api/home`) | Không có trong code | **Lược bỏ:** Loại bỏ các endpoint dự kiến chưa cài đặt trong backend. Riêng rút đơn (`withdraw`) đã đưa vào mục chính thức. |
-| 14 | Chuẩn hóa Body & Tham số | Sát 100% Request Validation Rules | Cập nhật chính xác `salary_range`, `cv_source`, `partner_id`, `status`, phản hồi kèm `meta` và mã lỗi HTTP. |
+- CORS origin matches frontend; Reverb `REVERB_ALLOWED_ORIGINS` must not be wildcard in production.
+- Validate status/shape/DB side effects/authorization for every row. For full FR scenarios see [BACKEND_TESTING_GUIDE.md](BACKEND_TESTING_GUIDE.md).
+- Performance SRS targets (50 concurrent, p95 1.5s, chat <1s, uptime 99%) remain unverified until measured in a representative deployment.

@@ -12,6 +12,8 @@ class Message extends Model
 
     protected $table = 'messages';
 
+    protected $hidden = ['image_path'];
+
     // messages table only has created_at, no updated_at
     const UPDATED_AT = null;
 
@@ -41,7 +43,9 @@ class Message extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return $this->image_path ? asset('storage/' . $this->image_path) : null;
+        return $this->image_path
+            ? url('/api/conversations/' . $this->conversation_id . '/messages/' . $this->id . '/image')
+            : null;
     }
 
     public function getTimeDisplayAttribute(): ?string

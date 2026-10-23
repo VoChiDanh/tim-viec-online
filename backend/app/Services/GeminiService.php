@@ -12,7 +12,7 @@ use Smalot\PdfParser\Parser;
 class GeminiService
 {
     /**
-     * Phân tích CV PDF so với Job Description bằng Gemini 1.5 Flash (FR-07)
+     * Analyze a CV against its job description using the configured Gemini model.
      */
     public function analyze(Application $application): AiCvAnalysis
     {
@@ -23,13 +23,17 @@ class GeminiService
 
         $job = $application->job->load(['skills', 'company']);
         $candidateProfile = $application->candidateProfile->load(['skills', 'user']);
+        $cvText = $this->extractTextFromPdf($application->cv_path);
+        if (mb_strlen(trim($cvText)) < 20) {
+            throw new \RuntimeException('File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn');
+        }
 
         $apiKey = config('services.gemini.key') ?: env('GEMINI_API_KEY');
         $result = null;
 
         if (!empty($apiKey) && $apiKey !== 'dien_api_key_cua_ban_vao_day') {
             try {
-                $result = $this->callGeminiApi($application, $apiKey);
+                $result = $this->callGeminiApi($application, $apiKey, $cvText);
             } catch (\Throwable $e) {
                 Log::warning('Lỗi khi gọi Gemini API: ' . $e->getMessage() . '. Chuyển sang thuật toán phân tích dự phòng.');
             }
@@ -37,19 +41,45 @@ class GeminiService
 
         // Nếu API key chưa cấu hình hoặc gọi API thất bại, sử dụng fallback matching theo SRS FR-07.2
         if (!$result) {
-            $result = $this->generateFallbackAnalysis($application);
+            $result = $this->generateFallbackAnalysis($application, $cvText);
         }
 
-        return AiCvAnalysis::create([
-            'application_id' => $application->id,
-            'match_score' => $result['match_score'],
-            'summary' => $result['summary'],
-            'matched_skills' => $result['matched_skills'] ?? [],
-            'missing_skills' => $result['missing_skills'] ?? [],
-            'strengths' => $result['strengths'] ?? [],
-            'recommendations' => $result['recommendations'] ?? [],
-            'created_at' => now(),
-        ]);
+        $asStringList = static function ($value, int $limit): array {
+            return array_slice(array_values(array_filter(
+                array_map(static fn ($item) => is_string($item) ? trim($item) : '', (array) $value),
+                static fn ($item) => $item !== ''
+            )), 0, $limit);
+        };
+
+        $result['match_score'] = max(0, min(100, (int) ($result['match_score'] ?? 0)));
+        $summary = trim((string) ($result['summary'] ?? ''));
+        $result['summary'] = $this->limitWords(
+            $summary !== '' ? $summary : 'Kết quả được ước tính từ nội dung CV và các yêu cầu của vị trí.',
+            75
+        );
+        $result['strengths'] = $asStringList($result['strengths'] ?? [], 4);
+        while (count($result['strengths']) < 2) {
+            $result['strengths'][] = count($result['strengths']) === 0
+                ? 'CV có nội dung văn bản để đối chiếu với vị trí tuyển dụng'
+                : 'Kết quả đã được so sánh với mô tả và kỹ năng yêu cầu';
+        }
+        $result['matched_skills'] = $asStringList($result['matched_skills'] ?? [], 20);
+        $result['missing_skills'] = $asStringList($result['missing_skills'] ?? [], 4);
+        $result['recommendations'] = $asStringList($result['recommendations'] ?? [], 4);
+
+        // The unique application_id constraint makes retries idempotent if workers race.
+        return AiCvAnalysis::firstOrCreate(
+            ['application_id' => $application->id],
+            [
+                'match_score' => $result['match_score'],
+                'summary' => $result['summary'],
+                'matched_skills' => $result['matched_skills'],
+                'missing_skills' => $result['missing_skills'],
+                'strengths' => $result['strengths'],
+                'recommendations' => $result['recommendations'],
+                'created_at' => now(),
+            ]
+        );
     }
 
     /**
@@ -57,38 +87,44 @@ class GeminiService
      */
     public function extractTextFromPdf(string $filePath): string
     {
-        $fullPath = file_exists($filePath) ? $filePath : storage_path('app/public/' . ltrim($filePath, '/'));
-        if (!file_exists($fullPath)) {
-            return "Không tìm thấy nội dung file CV tại đường dẫn: " . $filePath;
+        $fullPath = file_exists($filePath) ? $filePath : null;
+        if (!$fullPath) {
+            foreach (['private', 'public'] as $disk) {
+                if (Storage::disk($disk)->exists($filePath)) {
+                    $fullPath = Storage::disk($disk)->path($filePath);
+                    break;
+                }
+            }
+        }
+        if (!$fullPath || !file_exists($fullPath)) {
+            return '';
         }
 
         try {
             $parser = new Parser();
             $pdf = $parser->parseFile($fullPath);
-            return $pdf->getText() ?: "Tệp PDF không chứa văn bản có thể trích xuất.";
+            return trim((string) $pdf->getText());
         } catch (\Throwable $e) {
             Log::error("PDF Parse Error: " . $e->getMessage());
-            return "Không thể trích xuất văn bản từ tệp PDF.";
+            return '';
         }
     }
 
     /**
-     * Gửi request trực tiếp file PDF + JD sang Gemini 1.5 Flash
+     * Send the inline PDF and job requirements to the configured Gemini model.
      */
-    protected function callGeminiApi(Application $application, string $apiKey): ?array
+    protected function callGeminiApi(Application $application, string $apiKey, string $pdfText): ?array
     {
         $job = $application->job;
         $candidate = $application->candidateProfile;
 
         $pdfRelativePath = $application->cv_path;
-        if (!Storage::disk('public')->exists($pdfRelativePath)) {
+        $disk = Storage::disk('private')->exists($pdfRelativePath) ? 'private' : 'public';
+        if (!Storage::disk($disk)->exists($pdfRelativePath)) {
             return null;
         }
 
-        $fullPath = storage_path('app/public/' . ltrim($pdfRelativePath, '/'));
-        $pdfText = $this->extractTextFromPdf($fullPath);
-
-        $pdfBytes = Storage::disk('public')->get($pdfRelativePath);
+        $pdfBytes = Storage::disk($disk)->get($pdfRelativePath);
         $base64Pdf = base64_encode($pdfBytes);
 
         $jobSkillsStr = $job->skills->pluck('name')->implode(', ');
@@ -123,15 +159,19 @@ HÃY PHẢN HỒI DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ THEO ĐÚNG C
 }
 EOT;
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}";
+        $model = config('services.gemini.model', 'gemini-3.8-flash');
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 
-        $response = Http::timeout(30)->post($url, [
+        $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
+            ->connectTimeout(5)
+            ->timeout(25)
+            ->post($url, [
             'contents' => [
                 [
                     'parts' => [
                         [
-                            'inline_data' => [
-                                'mime_type' => 'application/pdf',
+                            'inlineData' => [
+                                'mimeType' => 'application/pdf',
                                 'data' => $base64Pdf,
                             ],
                         ],
@@ -142,7 +182,7 @@ EOT;
                 ],
             ],
             'generationConfig' => [
-                'response_mime_type' => 'application/json',
+                'responseMimeType' => 'application/json',
                 'temperature' => 0.2,
             ],
         ]);
@@ -156,11 +196,11 @@ EOT;
                 if (isset($parsed['match_score'])) {
                     return [
                         'match_score' => max(0, min(100, (int) $parsed['match_score'])),
-                        'summary' => $parsed['summary'] ?? 'Đã hoàn tất phân tích tương thích CV.',
-                        'matched_skills' => $parsed['matched_skills'] ?? [],
-                        'missing_skills' => $parsed['missing_skills'] ?? [],
-                        'strengths' => $parsed['strengths'] ?? [],
-                        'recommendations' => $parsed['recommendations'] ?? [],
+                        'summary' => (string) ($parsed['summary'] ?? 'Đã hoàn tất phân tích tương thích CV.'),
+                        'matched_skills' => is_array($parsed['matched_skills'] ?? null) ? $parsed['matched_skills'] : [],
+                        'missing_skills' => is_array($parsed['missing_skills'] ?? null) ? $parsed['missing_skills'] : [],
+                        'strengths' => is_array($parsed['strengths'] ?? null) ? $parsed['strengths'] : [],
+                        'recommendations' => is_array($parsed['recommendations'] ?? null) ? $parsed['recommendations'] : [],
                     ];
                 }
             }
@@ -172,7 +212,7 @@ EOT;
     /**
      * Thuật toán phân tích dự phòng dựa trên dữ liệu hệ thống (SRS FR-07.2)
      */
-    protected function generateFallbackAnalysis(Application $application): array
+    protected function generateFallbackAnalysis(Application $application, string $cvText): array
     {
         $job = $application->job;
         $profile = $application->candidateProfile;
@@ -181,26 +221,35 @@ EOT;
         $candidateSkills = $profile ? $profile->skills->pluck('name')->toArray() : [];
 
         // 1. Kỹ năng chuyên môn (40%)
-        $matched = array_values(array_intersect($jobSkills, $candidateSkills));
-        $missing = array_values(array_diff($jobSkills, $candidateSkills));
-        $skillScore = count($jobSkills) > 0 ? (count($matched) / count($jobSkills)) * 40 : 35;
+        $cvNeedles = array_map(fn ($skill) => mb_strtolower($skill), $candidateSkills);
+        $matched = [];
+        $missing = [];
+        foreach ($jobSkills as $skill) {
+            $needle = mb_strtolower($skill);
+            if (in_array($needle, $cvNeedles, true) || mb_stripos($cvText, $needle) !== false) {
+                $matched[] = $skill;
+            } else {
+                $missing[] = $skill;
+            }
+        }
+        $skillScore = count($jobSkills) > 0 ? (count($matched) / count($jobSkills)) * 40 : 20;
 
         // 2. Kinh nghiệm (30%)
-        $expYears = $profile?->experience_years ?? 0;
-        $expScore = min(30, 15 + ($expYears * 5));
+        $expYears = max((int) ($profile?->experience_years ?? 0), $this->estimateExperienceYears($cvText));
+        $expScore = min(30, max(0, $expYears * 6));
 
         // 3. Học vấn & Kỹ năng phụ trợ (15%)
-        $eduScore = 12;
+        $eduScore = preg_match('/\b(đại học|cao đẳng|cử nhân|thạc sĩ|bachelor|master|university|college)\b/iu', $cvText) ? 12 : 4;
 
         // 4. Ngôn ngữ & Mục tiêu (15%)
-        $langScore = 12;
+        $langScore = preg_match('/\b(ielts|toeic|toefl|english|tiếng anh|ngoại ngữ)\b/iu', $cvText) ? 12 : 4;
 
         $totalScore = (int) round($skillScore + $expScore + $eduScore + $langScore);
-        $totalScore = max(35, min(95, $totalScore));
+        $totalScore = max(0, min(100, $totalScore));
 
         $strengths = [
-            'Hồ sơ thể hiện kỹ năng thực tế với ' . (count($matched) > 0 ? implode(', ', array_slice($matched, 0, 3)) : 'nền tảng công nghệ cơ bản'),
-            'Có ' . ($expYears > 0 ? $expYears . ' năm' : 'thời gian') . ' kinh nghiệm làm việc trong lĩnh vực liên quan',
+            count($matched) > 0 ? 'Kỹ năng phù hợp: ' . implode(', ', array_slice($matched, 0, 3)) : 'CV có nội dung văn bản để đối chiếu với yêu cầu công việc',
+            $expYears > 0 ? "Thể hiện khoảng {$expYears} năm kinh nghiệm" : 'Có thông tin hồ sơ để nhà tuyển dụng xem xét',
         ];
 
         $recommendations = [];
@@ -209,17 +258,32 @@ EOT;
         }
         $recommendations[] = 'Mô tả rõ hơn các dự án thực tế đã hoàn thành trong CV';
 
-        $summary = "Ứng viên đáp ứng {$totalScore}% yêu cầu vị trí {$job->title}. " .
+        $summary = "Ước tính hồ sơ đáp ứng {$totalScore}% yêu cầu vị trí {$job->title}. " .
                    (count($matched) > 0 ? "Phù hợp tốt với các kỹ năng " . implode(', ', array_slice($matched, 0, 2)) . ". " : "") .
                    "Hồ sơ tiềm năng để sắp xếp phỏng vấn.";
 
         return [
             'match_score' => $totalScore,
-            'summary' => mb_substr($summary, 0, 200),
+            'summary' => $this->limitWords($summary, 75),
             'matched_skills' => $matched,
             'missing_skills' => array_slice($missing, 0, 4),
             'strengths' => $strengths,
             'recommendations' => $recommendations,
         ];
+    }
+
+    private function estimateExperienceYears(string $cvText): int
+    {
+        if (preg_match('/(\d{1,2})\s*\+?\s*(?:năm|years?)/iu', $cvText, $matches)) {
+            return min(30, (int) $matches[1]);
+        }
+        return 0;
+    }
+
+    private function limitWords(string $text, int $limit): string
+    {
+        preg_match_all('/[\p{L}\p{N}]+(?:[-+][\p{L}\p{N}]+)*/u', trim($text), $matches);
+        $words = $matches[0] ?? [];
+        return implode(' ', array_slice($words, 0, $limit));
     }
 }
