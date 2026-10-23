@@ -283,12 +283,26 @@ DELETE /api/admin/skills/{id}           # [Admin] Xóa kỹ năng
 
 ---
 
-## 7. Quy tắc làm việc nhóm
+## 7. Đăng nhập thử frontend
+
+Frontend đã có hai tài khoản mẫu và kiểm tra đăng nhập/vai trò trên server. Cấu hình `AUTH_MODE=mock`, `AUTH_APP_URL=http://localhost:3000` trong `frontend/.env.local`, rồi khởi động lại `npm run dev`.
+
+| Vai trò | Email | Mật khẩu demo |
+| --- | --- | --- |
+| Ứng viên | `candidate@example.test` | `Candidate@123` |
+| Nhà tuyển dụng | `employer@example.test` | `Employer@123` |
+
+Truy cập `/login`. Các trang `/account/*`, `/employer`, `/admin` và alias `/preview/*` đều yêu cầu phiên hợp lệ và đúng vai trò. Mock mất phiên khi khởi động lại server; không sử dụng cho tài khoản thật. Cách chuyển sang Laravel bằng `AUTH_MODE=api` và hợp đồng endpoint nằm trong [hướng dẫn tích hợp xác thực](docs/plans/mock-auth.md).
+
+## 8. Quy tắc làm việc nhóm
+
+Phạm vi frontend ứng viên/nhà tuyển dụng và các điểm nối backend được tổng hợp tại [rà soát hoàn thiện frontend](docs/plans/frontend-completion-audit.md). Theo yêu cầu cập nhật ngày 20/10/2026, kết quả đánh giá AI **chỉ hiển thị cho nhà tuyển dụng**, không hiển thị cho ứng viên. Dữ liệu nghiệp vụ trong chế độ mock chỉ tồn tại trong phiên xem trước; upload, AI, WebSocket và email thật cần tích hợp backend.
 
 1. **Về Git:** Không bao giờ push code trực tiếp vào branch `main`. Mỗi tính năng tạo branch từ `develop` (ví dụ `feature/auth-fe`, `feature/job-be`, `feature/chat`), test chạy được trên máy mình rồi mới tạo Pull Request.
 2. **Về Database & phpMyAdmin:** Không tự ý sửa bảng trực tiếp trên phpMyAdmin mà không báo nhóm. Mọi thay đổi DB phải viết qua file Laravel Migration. Trước khi nộp bài cho thầy, xuất file `.sql` từ phpMyAdmin.
 3. **Về API:** Backend và Frontend phải thống nhất format JSON trả về trước khi code (Status code, message, data).
-4. **Họp nhanh:** Mỗi tối dành 10 - 15 phút nhắn tin nhóm báo cáo:
+4. **Component dùng chung:** Mọi danh sách frontend cần phân trang phải tái sử dụng `frontend/src/components/layout/pagination.tsx` và helper `frontend/src/features/pagination.ts`: tối đa 4 số trang, giữ mẫu ô vuông hiện tại. Không tạo thêm kiểu phân trang riêng. Các ô tỉnh/thành phố dùng chung service `frontend/src/services/locations.ts`, lấy đủ dữ liệu từ API `new-provinces` của tinhthanhpho.com.
+5. **Họp nhanh:** Mỗi tối dành 10 - 15 phút nhắn tin nhóm báo cáo:
    * Hôm nay đã làm xong việc gì?
    * Ngày mai sẽ làm việc gì?
    * Có vướng mắc hay lỗi gì cần hỗ trợ không?

@@ -103,7 +103,7 @@
 | FR-06.1 | Khách nhấn "Ứng tuyển" sẽ được hệ thống yêu cầu chuyển hướng đến trang Đăng nhập. Chỉ tài khoản Ứng viên mới có quyền nộp đơn. |
 | FR-06.2 | Khi nộp đơn, Ứng viên chọn 1 trong 2 hình thức: Sử dụng file CV sẵn có trong hồ sơ cá nhân HOẶC Tải lên một file CV PDF mới riêng cho vị trí này. |
 | FR-06.4 | Một ứng viên chỉ được nộp đơn **duy nhất 1 lần** cho cùng một tin tuyển dụng đang mở. Nếu đã nộp trước đó, nút ứng tuyển hiển thị trạng thái đã vô hiệu hóa kèm thông báo "Bạn đã nộp hồ sơ cho công việc này rồi". |
-| FR-06.5 | Vòng đời trạng thái hồ sơ ứng tuyển gồm 6 trạng thái:<br>1. `Đã ứng tuyển (Applied)`: Mặc định ngay sau khi ứng viên nộp hồ sơ.<br>2. `Đang xem xét (Waiting)`: Tự động chuyển khi xem CV của ứng viên lần đầu tiên.br>3. `Trúng tuyển (Accepted)`: Nhà tuyển dụng xác nhận đồng ý tuyển dụng.<br>4. `Từ chối (Rejected)`: Nhà tuyển dụng từ chối hồ sơ chưa phù hợp. |
+| FR-06.5 | Vòng đời trạng thái hồ sơ ứng tuyển gồm 4 trạng thái:<br>1. `Đã ứng tuyển (Applied)`: Mặc định ngay sau khi ứng viên nộp hồ sơ.<br>2. `Đang xem xét (Waiting)`: Tự động chuyển khi xem CV của ứng viên lần đầu tiên.br>3. `Trúng tuyển (Accepted)`: Nhà tuyển dụng xác nhận đồng ý tuyển dụng.<br>4. `Từ chối (Rejected)`: Nhà tuyển dụng từ chối hồ sơ chưa phù hợp. |
 | FR-06.7 | Ứng viên có thể theo dõi danh sách toàn bộ các việc đã nộp kèm trạng thái xét duyệt hiện tại theo thời gian thực tại trang "Lịch sử ứng tuyển". |
 
 ### FR-07. AI Phân tích CV & Chấm điểm độ phù hợp (Match Score)
