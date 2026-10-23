@@ -407,7 +407,7 @@ main {
   margin-top: 28px;
   align-items: center;
 }
-.pagination a {
+.pagination :is(a, button) {
   display: grid;
   place-items: center;
   width: 50px;
@@ -417,8 +417,12 @@ main {
   border: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, var(--card));
   border-radius: 8px;
   font-size: 14px;
+  font-family: inherit;
+  color: var(--foreground);
+  padding: 0;
+  cursor: pointer;
 }
-.pagination a:hover:not([aria-current]) {
+.pagination :is(a, button):hover:not([aria-current]) {
   border-color: var(--brand-blue);
   color: var(--brand-blue);
   background: var(--selection-background);
@@ -457,7 +461,7 @@ main {
   .pagination {
     gap: 6px;
   }
-  .pagination a {
+  .pagination :is(a, button) {
     width: 40px;
     height: 44px;
   }
@@ -465,7 +469,7 @@ main {
     margin-left: auto;
   }
 }
-.pagination a[aria-current="page"] {
+.pagination :is(a, button)[aria-current="page"] {
   background: var(--brand-blue);
   color: var(--primary-foreground);
   border-color: var(--brand-blue);

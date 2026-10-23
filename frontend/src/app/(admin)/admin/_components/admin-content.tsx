@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/services/auth-session";
 import { authMockEnabled } from "@/services/auth-mode";
 import { getInitialDatabase } from "@/features/admin/mock-data";
+import { AdminPageEntrance } from "@/components/admin/admin-page-entrance";
 import { AdminLoading } from "@/components/admin/admin-loading";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminUsers } from "@/components/admin/admin-users";
@@ -58,18 +59,42 @@ async function Content({ section, params, legacyPreview }: AdminContentProps) {
   if (id !== undefined) {
     if (!getInitialDatabase().jobs.some((job) => job.id === Number(id)))
       notFound();
-    return <AdminJobDetail jobId={Number(id)} />;
+    return (
+      <AdminPageEntrance>
+        <AdminJobDetail jobId={Number(id)} />
+      </AdminPageEntrance>
+    );
   }
   switch (section) {
     case "overview":
-      return <AdminOverview />;
+      return (
+        <AdminPageEntrance>
+          <AdminOverview />
+        </AdminPageEntrance>
+      );
     case "users":
-      return <AdminUsers />;
+      return (
+        <AdminPageEntrance>
+          <AdminUsers />
+        </AdminPageEntrance>
+      );
     case "jobs":
-      return <AdminJobs />;
+      return (
+        <AdminPageEntrance>
+          <AdminJobs />
+        </AdminPageEntrance>
+      );
     case "categories":
-      return <AdminCategories />;
+      return (
+        <AdminPageEntrance>
+          <AdminCategories />
+        </AdminPageEntrance>
+      );
     case "skills":
-      return <AdminSkills />;
+      return (
+        <AdminPageEntrance>
+          <AdminSkills />
+        </AdminPageEntrance>
+      );
   }
 }

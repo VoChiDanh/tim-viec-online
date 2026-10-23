@@ -34,3 +34,15 @@ Build phát hiện Next.js 16.4.0 thuộc dải phiên bản có cảnh báo b�
 - 18/18 E2E chế độ API đạt, bao gồm không lộ fixture qua canonical/preview/query admin, role từ server, session, logout, CSRF, đổi mật khẩu và form xác thực.
 - Axe tự động ở 5 trang danh sách/tổng quan × 360/1440px và dialog danh mục đạt. Đã xem ảnh desktop tổng quan/kiểm duyệt và mobile tài khoản. Không tràn ngang trang quá 1px, header/sidebar giữ node khi chuyển trang; thay đổi dữ liệu liên trang được kiểm tra thực tế.
 - Chưa kiểm tra trình đọc màn hình thật, Firefox/Safari, API quản trị Laravel thật hoặc tác vụ thu hồi phiên/gửi thông báo thật. Fixture chỉ giữ trong bộ nhớ cho tới reload/đăng xuất.
+
+## Đồng bộ UI và chuyển động với sản phẩm
+
+Sau phản hồi giao diện còn lệch với ứng viên/employer, tiếp tục giữ hướng quản trị tối giản nhưng đối chiếu trực tiếp thông số đang dùng ở employer: sidebar 224px/container 1600px, trạng thái nav nền nhạt không viền trái, tiêu đề 25px/700, panel bo 14px, nút 44px/bo 9px/600, primary cam và secondary navy. Tab dùng gạch chân, giảm độ nổi của ghi chú mock. Giữ chữ đủ đọc và màu trạng thái nghiệp vụ.
+
+Phân trang admin dùng trực tiếp `Pagination` chung với hai chế độ URL và callback; input/textarea dùng primitive có sẵn, footer hộp thoại và kích thước title thống nhất. Không thêm dependency hoặc đổi logic quản trị.
+
+Chuyển trang dùng `AdminPageEntrance` tại từng leaf đã xác thực: opacity 0.65 → 1, tiêu đề dịch lên 6px, 240ms/easing từ `motion.css`. Layout, provider, form và bộ lọc không bị remount; Activity khôi phục trang sẽ chạy lại hiệu ứng. Không animate chiều rộng/chiều cao, không transform ancestor của sticky/portal, không trì hoãn hiển thị nội dung. Hủy animation khi trang bị ẩn hoặc bật reduced motion; popup/dialog/sheet tiếp tục dùng animation mở/đóng chung của Radix. Hover và press dùng token chung 120ms.
+
+Kiểm chứng bổ sung: so sánh thông số phân trang public/admin tại 360/1440px; chuyển qua lại giữ node sidebar/header và giá trị tìm kiếm; xác nhận effect chạy khi mở/quay lại trang, không chạy lại khi gõ; reduced motion giữ focus dialog. Chạy lại các luồng CRUD/quyền truy cập và kiểm tra ảnh/axe trên mobile/desktop.
+
+Kết quả đợt đồng bộ: production build/TypeScript, lint và 69 unit test đạt; 24 E2E đạt cho UI/motion admin, CRUD, auth, navbar và bộ lọc chung. Thời lượng WAAPI được chuyển đổi cả đơn vị `ms` và `s` vì CSS production có thể rút `240ms` thành `.24s`; kiểm tra browser xác nhận đúng 240ms và easing chung. So sánh phân trang public/admin khớp height/min-width/radius/background/color tại 360/1440px. Đã xem ảnh kiểm duyệt desktop và tài khoản mobile sau khi thu gọn ghi chú mock; axe và focus/reduced-motion đạt trong phạm vi tự động. Chưa kiểm thử cảm nhận chuyển động với người dùng thật hoặc trình đọc màn hình.

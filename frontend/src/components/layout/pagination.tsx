@@ -1,45 +1,61 @@
 import Link from "next/link";
 import { paginationPages } from "@/features/pagination";
 
+type PaginationProps = {
+  page: number;
+  lastPage: number;
+  label?: string;
+} & (
+  | { pageUrl: (page: number) => string; onPageChange?: never }
+  | { pageUrl?: never; onPageChange: (page: number) => void }
+);
+
 export function Pagination({
   page,
   lastPage,
   pageUrl,
+  onPageChange,
   label = "Phân trang",
-}: {
-  page: number;
-  lastPage: number;
-  pageUrl: (page: number) => string;
-  label?: string;
-}) {
+}: PaginationProps) {
   if (lastPage <= 1) return null;
+  const control = (
+    number: number,
+    name: string,
+    text: string,
+    current = false,
+  ) =>
+    pageUrl ? (
+      <Link
+        key={name}
+        href={pageUrl(number)}
+        aria-label={name}
+        aria-current={current ? "page" : undefined}
+      >
+        {text}
+      </Link>
+    ) : (
+      <button
+        key={name}
+        type="button"
+        onClick={() => onPageChange(number)}
+        aria-label={name}
+        aria-current={current ? "page" : undefined}
+      >
+        {text}
+      </button>
+    );
   return (
     <nav className="pagination" aria-label={label}>
       {page > 1 && (
         <>
-          <Link href={pageUrl(1)} aria-label="Trang đầu">
-            &lt;&lt;
-          </Link>
-          <Link href={pageUrl(page - 1)} aria-label="Trang trước">
-            &lt;
-          </Link>
+          {control(1, "Trang đầu", "<<")}
+          {control(page - 1, "Trang trước", "<")}
         </>
       )}
-      {paginationPages(page, lastPage).map((number) => (
-        <Link
-          key={number}
-          href={pageUrl(number)}
-          aria-label={`Trang ${number}`}
-          aria-current={number === page ? "page" : undefined}
-        >
-          {number}
-        </Link>
-      ))}
-      {page < lastPage && (
-        <Link href={pageUrl(page + 1)} aria-label="Trang sau">
-          &gt;
-        </Link>
+      {paginationPages(page, lastPage).map((number) =>
+        control(number, `Trang ${number}`, String(number), number === page),
       )}
+      {page < lastPage && control(page + 1, "Trang sau", ">")}
     </nav>
   );
 }

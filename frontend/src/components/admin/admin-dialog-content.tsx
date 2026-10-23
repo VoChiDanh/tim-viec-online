@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ComponentProps } from "react";
+import { cn } from "cn";
 import { DialogContent } from "@/modules/cores/shadcn/components/ui/dialog";
 
 /** Controlled admin dialogs also restore focus without a Radix Trigger. */
@@ -14,7 +15,7 @@ export function AdminDialogContent({
   return (
     <DialogContent
       {...props}
-      className={`admin-page ap-modal ${className ?? ""}`}
+      className={cn("admin-page ap-modal", className)}
       onOpenAutoFocus={(event) => {
         opener.current =
           document.activeElement instanceof HTMLElement

@@ -3,6 +3,8 @@ import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
 import { useCallback, useId, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/modules/cores/shadcn/components/ui/button";
+import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { toast } from "sonner";
 import { useAdminData } from "./admin-provider";
 import { AdminPagination } from "./admin-pagination";
@@ -19,6 +21,7 @@ import {
 import {
   Dialog,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -312,7 +315,7 @@ export function AdminSkills() {
             <span>Tìm kiếm</span>
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
-              <input
+              <Input
                 id={`${prefix}-listSearch`}
                 type="search"
                 placeholder="Tìm tên kỹ năng…"
@@ -479,16 +482,11 @@ export function AdminSkills() {
           aria-describedby={`${prefix}-edit-skill-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              {editingSkill ? "Sửa" : "Thêm"} kỹ năng
-            </DialogTitle>
+            <DialogTitle>{editingSkill ? "Sửa" : "Thêm"} kỹ năng</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSaveSkill} className="space-y-4 pt-2">
-            <DialogDescription
-              id={`${prefix}-edit-skill-desc`}
-              className="text-xs text-[var(--ap-muted)]"
-            >
+            <DialogDescription id={`${prefix}-edit-skill-desc`}>
               Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác
               hơn.
             </DialogDescription>
@@ -497,7 +495,7 @@ export function AdminSkills() {
               <span className="text-xs font-semibold text-[var(--ap-navy)] block mb-1">
                 Tên kỹ năng
               </span>
-              <input
+              <Input
                 id={`${prefix}-catalogName`}
                 aria-invalid={!!formError}
                 aria-describedby={
@@ -514,7 +512,7 @@ export function AdminSkills() {
                   setFormName(e.target.value);
                   if (formError) setFormError(null);
                 }}
-                className="w-full text-xs p-2.5 border border-[var(--ap-line)] rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--ap-blue)]"
+                className="min-h-11"
               />
               <small className="text-[11px] text-[var(--ap-muted)] block mt-1">
                 Bắt buộc · Tối đa {MAX_SKILL_LENGTH} ký tự.
@@ -531,18 +529,19 @@ export function AdminSkills() {
               </p>
             )}
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-[var(--ap-line)]">
-              <button
+            <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+              <Button
                 type="button"
-                className="ap-button"
+                variant="outline"
+                className="min-h-11"
                 onClick={() => setIsEditOpen(false)}
               >
                 Hủy
-              </button>
-              <button type="submit" className="ap-button ap-button-primary">
+              </Button>
+              <Button type="submit" variant="default" className="min-h-11">
                 Lưu vào bản xem trước
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -559,9 +558,7 @@ export function AdminSkills() {
           aria-describedby={`${prefix}-delete-skill-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              Xóa kỹ năng?
-            </DialogTitle>
+            <DialogTitle>Xóa kỹ năng?</DialogTitle>
           </DialogHeader>
 
           {deletingSkill && (
@@ -590,22 +587,24 @@ export function AdminSkills() {
                 Thao tác này chỉ áp dụng cho dữ liệu minh họa.
               </p>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--ap-line)]">
-                <button
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                <Button
                   type="button"
-                  className="ap-button"
+                  variant="outline"
+                  className="min-h-11"
                   onClick={() => setDeletingSkill(null)}
                 >
                   Hủy
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="ap-button ap-button-danger"
+                  variant="destructive"
+                  className="min-h-11"
                   onClick={handleConfirmDelete}
                 >
                   Xóa khỏi danh mục
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

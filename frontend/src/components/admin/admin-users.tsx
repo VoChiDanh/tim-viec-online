@@ -3,6 +3,7 @@ import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
 import { useId, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { toast } from "sonner";
 import { useAdminData } from "./admin-provider";
 import { AdminPagination } from "./admin-pagination";
@@ -23,6 +24,7 @@ import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import {
   Dialog,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -255,7 +257,7 @@ export function AdminUsers() {
             <span>Tìm kiếm</span>
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
-              <input
+              <Input
                 id={`${prefix}-listSearch`}
                 data-list-search
                 type="search"
@@ -422,11 +424,7 @@ export function AdminUsers() {
                               type="button"
                               variant={isLocked ? "default" : "outline"}
                               size="sm"
-                              className={`h-7 gap-1 text-[11px] px-2.5 ${
-                                isLocked
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200"
-                              }`}
+                              className="min-h-11 gap-1 px-2.5"
                               onClick={() => setTogglingUser(user)}
                               aria-label={`${
                                 isLocked ? "Mở khóa" : "Khóa"
@@ -514,9 +512,7 @@ export function AdminUsers() {
       >
         <DialogContent className="admin-page ap-modal sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              Chi tiết tài khoản
-            </DialogTitle>
+            <DialogTitle>Chi tiết tài khoản</DialogTitle>
             <DialogDescription>
               Thông tin đăng ký, vai trò và trạng thái truy cập của tài khoản.
             </DialogDescription>
@@ -596,15 +592,16 @@ export function AdminUsers() {
                 )}
               </dl>
 
-              <div className="flex justify-end pt-5">
-                <button
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                <Button
                   type="button"
-                  className="ap-button"
+                  variant="outline"
+                  className="min-h-11"
                   onClick={() => setViewingUser(null)}
                 >
                   Đóng
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
@@ -617,7 +614,7 @@ export function AdminUsers() {
       >
         <DialogContent className="admin-page ap-modal sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle>
               {togglingUser?.status === "locked"
                 ? "Mở khóa tài khoản?"
                 : "Khóa tài khoản?"}
@@ -664,10 +661,11 @@ export function AdminUsers() {
                 Thao tác hiện tại chỉ cập nhật dữ liệu minh họa.
               </p>
 
-              <div className="flex justify-end gap-2.5 pt-3">
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
                 <Button
                   type="button"
                   variant="outline"
+                  className="min-h-11"
                   onClick={() => setTogglingUser(null)}
                 >
                   Hủy
@@ -678,17 +676,13 @@ export function AdminUsers() {
                     togglingUser.status === "locked" ? "default" : "destructive"
                   }
                   onClick={handleConfirmToggle}
-                  className={
-                    togglingUser.status === "locked"
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : ""
-                  }
+                  className="min-h-11"
                 >
                   {togglingUser.status === "locked"
                     ? "Mở khóa tài khoản"
                     : "Khóa tài khoản"}
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

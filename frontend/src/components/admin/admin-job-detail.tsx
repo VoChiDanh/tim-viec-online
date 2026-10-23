@@ -3,6 +3,8 @@ import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
 import { useId, useLayoutEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/modules/cores/shadcn/components/ui/button";
+import { Textarea } from "@/modules/cores/shadcn/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   Dialog,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -396,7 +399,7 @@ export function AdminJobDetail({
           aria-describedby={`${prefix}-delete-job-dialog-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-red-600">
+            <DialogTitle className="text-destructive">
               Xóa tin tuyển dụng vi phạm?
             </DialogTitle>
           </DialogHeader>
@@ -434,7 +437,7 @@ export function AdminJobDetail({
                 <span className="text-xs font-semibold text-[var(--ap-navy)] block mb-1">
                   Lý do vi phạm
                 </span>
-                <textarea
+                <Textarea
                   id={`${prefix}-deleteReason`}
                   name="reason"
                   maxLength={255}
@@ -452,7 +455,7 @@ export function AdminJobDetail({
                     if (deleteReasonError) setDeleteReasonError(null);
                   }}
                   placeholder="Nêu rõ nội dung vi phạm chính sách tuyển dụng…"
-                  className="w-full text-xs p-2.5 border border-[var(--ap-line)] rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--ap-blue)] resize-none"
+                  className="min-h-11"
                 />
                 <small className="text-[11px] text-[var(--ap-muted)] block mt-1">
                   Bắt buộc · Tối đa 255 ký tự.
@@ -494,18 +497,23 @@ export function AdminJobDetail({
                 xóa dữ liệu thực tế cần được hệ thống xử lý.
               </p>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--ap-line)]">
-                <button
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                <Button
                   type="button"
-                  className="ap-button"
+                  variant="outline"
+                  className="min-h-11"
                   onClick={() => setShowDeleteModal(false)}
                 >
                   Hủy
-                </button>
-                <button type="submit" className="ap-button ap-button-danger">
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  className="min-h-11"
+                >
                   Xác nhận xóa tin
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </form>
           )}
         </DialogContent>
@@ -520,9 +528,7 @@ export function AdminJobDetail({
           aria-describedby={`${prefix}-owner-account-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">
-              Chi tiết tài khoản chủ tin
-            </DialogTitle>
+            <DialogTitle>Chi tiết tài khoản chủ tin</DialogTitle>
           </DialogHeader>
 
           {owner && (
@@ -588,15 +594,16 @@ export function AdminJobDetail({
                 )}
               </dl>
 
-              <div className="flex justify-end pt-5">
-                <button
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                <Button
                   type="button"
-                  className="ap-button"
+                  variant="outline"
+                  className="min-h-11"
                   onClick={() => setShowOwnerModal(false)}
                 >
                   Đóng
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

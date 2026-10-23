@@ -164,6 +164,7 @@ export function AdminShell({ children, user }: AdminShellProps) {
             </SheetContent>
           </Sheet>
           <Brand />
+          <span className="ap-header-divider" aria-hidden="true" />
           <span className="ap-header-label">Dành cho quản trị viên</span>
         </div>
         <div className="ap-header-right">

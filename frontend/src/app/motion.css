@@ -211,6 +211,33 @@
     background-color 80ms ease-out,
     color 80ms ease-out;
 }
+
+/* Admin uses the same interaction timing as candidate/employer controls. */
+.admin-page
+  :is(
+    .ap-button,
+    .ap-icon-button,
+    .ap-nav a,
+    .ap-segments button,
+    .pagination button,
+    .ap-table tbody tr
+  ) {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
+.admin-page :is(.ap-button, .ap-icon-button, .pagination button) {
+  transition-property: color, background-color, border-color, box-shadow, scale;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .admin-page
+    :is(.ap-button, .ap-icon-button, .pagination button):active:not(
+      :disabled,
+      [aria-disabled="true"]
+    ) {
+    scale: 0.98;
+  }
+}
 .selection-trigger > svg,
 .header-chevron {
   transition: transform var(--motion-fast) var(--motion-ease-out);

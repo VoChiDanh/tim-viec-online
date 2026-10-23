@@ -18,6 +18,7 @@ import {
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import {
   Dialog,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -673,9 +674,7 @@ export function AdminOverview() {
           aria-describedby={undefined}
         >
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              Chi tiết tài khoản
-            </DialogTitle>
+            <DialogTitle>Chi tiết tài khoản</DialogTitle>
           </DialogHeader>
 
           {selectedUser && (
@@ -751,15 +750,16 @@ export function AdminOverview() {
                 )}
               </dl>
 
-              <div className="flex justify-end pt-5">
-                <button
+              <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                <Button
                   type="button"
-                  className="ap-button"
+                  variant="outline"
+                  className="min-h-11"
                   onClick={() => setSelectedUser(null)}
                 >
                   Đóng
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

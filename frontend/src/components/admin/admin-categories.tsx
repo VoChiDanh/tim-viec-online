@@ -3,6 +3,8 @@ import { AdminDialogContent as DialogContent } from "./admin-dialog-content";
 
 import { useCallback, useId, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/modules/cores/shadcn/components/ui/button";
+import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { toast } from "sonner";
 import { useAdminData } from "./admin-provider";
 import { AdminPagination } from "./admin-pagination";
@@ -19,6 +21,7 @@ import {
 import {
   Dialog,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/modules/cores/shadcn/components/ui/dialog";
@@ -308,7 +311,7 @@ export function AdminCategories() {
             <span>Tìm kiếm</span>
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
-              <input
+              <Input
                 id={`${prefix}-listSearch`}
                 type="search"
                 placeholder="Tìm tên ngành nghề…"
@@ -481,16 +484,13 @@ export function AdminCategories() {
           aria-describedby={`${prefix}-edit-cat-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle>
               {editingCategory ? "Sửa" : "Thêm"} ngành nghề
             </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSaveCategory} className="space-y-4 pt-2">
-            <DialogDescription
-              id={`${prefix}-edit-cat-desc`}
-              className="text-xs text-[var(--ap-muted)]"
-            >
+            <DialogDescription id={`${prefix}-edit-cat-desc`}>
               Tên rõ ràng, nhất quán giúp việc tìm kiếm và phân loại chính xác
               hơn.
             </DialogDescription>
@@ -499,7 +499,7 @@ export function AdminCategories() {
               <span className="text-xs font-semibold text-[var(--ap-navy)] block mb-1">
                 Tên ngành nghề
               </span>
-              <input
+              <Input
                 id={`${prefix}-catalogName`}
                 aria-invalid={!!formError}
                 aria-describedby={
@@ -516,7 +516,7 @@ export function AdminCategories() {
                   setFormName(e.target.value);
                   if (formError) setFormError(null);
                 }}
-                className="w-full text-xs p-2.5 border border-[var(--ap-line)] rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--ap-blue)]"
+                className="min-h-11"
               />
               <small className="text-[11px] text-[var(--ap-muted)] block mt-1">
                 Bắt buộc · Tối đa {MAX_CATEGORY_LENGTH} ký tự.
@@ -533,18 +533,19 @@ export function AdminCategories() {
               </p>
             )}
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-[var(--ap-line)]">
-              <button
+            <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+              <Button
                 type="button"
-                className="ap-button"
+                variant="outline"
+                className="min-h-11"
                 onClick={() => setIsEditOpen(false)}
               >
                 Hủy
-              </button>
-              <button type="submit" className="ap-button ap-button-primary">
+              </Button>
+              <Button type="submit" variant="default" className="min-h-11">
                 Lưu vào bản xem trước
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -561,7 +562,7 @@ export function AdminCategories() {
           aria-describedby={`${prefix}-delete-cat-desc`}
         >
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
+            <DialogTitle>
               {deletingJobsCount > 0
                 ? "Ngành nghề đang được sử dụng"
                 : "Xóa ngành nghề?"}
@@ -587,15 +588,16 @@ export function AdminCategories() {
                   <p className="text-xs text-[var(--ap-muted)]">
                     Bạn vẫn có thể sửa tên ngành nghề trong danh sách.
                   </p>
-                  <div className="flex justify-end pt-3 border-t border-[var(--ap-line)]">
-                    <button
+                  <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                    <Button
                       type="button"
-                      className="ap-button"
+                      variant="outline"
+                      className="min-h-11"
                       onClick={() => setDeletingCategory(null)}
                     >
                       Đóng
-                    </button>
-                  </div>
+                    </Button>
+                  </DialogFooter>
                 </>
               ) : (
                 /* Can delete when unused */
@@ -607,22 +609,24 @@ export function AdminCategories() {
                   <p className="text-[11px] text-[var(--ap-muted)]">
                     Thao tác này chỉ áp dụng cho dữ liệu minh họa.
                   </p>
-                  <div className="flex justify-end gap-2 pt-3 border-t border-[var(--ap-line)]">
-                    <button
+                  <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
+                    <Button
                       type="button"
-                      className="ap-button"
+                      variant="outline"
+                      className="min-h-11"
                       onClick={() => setDeletingCategory(null)}
                     >
                       Hủy
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="ap-button ap-button-danger"
+                      variant="destructive"
+                      className="min-h-11"
                       onClick={handleConfirmDelete}
                     >
                       Xóa khỏi danh mục
-                    </button>
-                  </div>
+                    </Button>
+                  </DialogFooter>
                 </>
               )}
             </div>

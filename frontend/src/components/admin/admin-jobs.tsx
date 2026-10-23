@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useMemo, useState } from "react";
 import Link from "next/link";
+import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { toast } from "sonner";
 import { useAdminData } from "./admin-provider";
 import { AdminPagination } from "./admin-pagination";
@@ -256,7 +257,7 @@ export function AdminJobs() {
             <span>Tìm kiếm</span>
             <span className="ap-input-wrap">
               <Search className="ap-icon" aria-hidden="true" />
-              <input
+              <Input
                 id={`${prefix}-listSearch`}
                 type="search"
                 placeholder="Tiêu đề công việc hoặc tên công ty…"
