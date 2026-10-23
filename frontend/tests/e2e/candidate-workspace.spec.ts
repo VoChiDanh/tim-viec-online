@@ -40,11 +40,13 @@ test("chat composer grows, respects IME and keeps the thread bounded while readi
   const initial = await page.locator(".cc-message:visible").count();
   await composer.dispatchEvent("keydown", {
     key: "Enter",
-    ctrlKey: true,
     isComposing: true,
   });
   await expect(page.locator(".cc-message:visible")).toHaveCount(initial);
   await composer.press("Control+Enter");
+  await expect(composer).toHaveValue("Một dòng\n".repeat(12) + "\n");
+  await expect(page.locator(".cc-message:visible")).toHaveCount(initial);
+  await composer.press("Enter");
   await expect(page.locator(".cc-message:visible")).toHaveCount(initial + 1);
   await expect
     .poll(async () => (await composer.boundingBox())!.height)
@@ -212,7 +214,7 @@ test("chat preserves per-thread drafts, validates, renders text safely and does 
   await expect(composer).toHaveValue("Bản nháp FPT");
   const payload = '<img src=x onerror="window.bad=true">';
   await composer.fill(payload);
-  await composer.press("Control+Enter");
+  await composer.press("Enter");
   await expect(page.locator(".cc-message:visible").last()).toContainText(
     payload,
   );

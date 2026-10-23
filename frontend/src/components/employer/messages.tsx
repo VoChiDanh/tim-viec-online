@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { isJobOpen, vietnamToday } from "@/features/jobs/formatters";
 import { normalizeSearch } from "@/features/jobs/query";
+import { handleMessageComposerKeyDown } from "@/lib/message-composer";
 import { APPLICATION_LABELS } from "@/features/employer/types";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
@@ -126,6 +127,12 @@ export function EmployerMessages() {
       )?.focus({ preventScroll: true });
     previousRequested.current = requested;
   }, [requested]);
+  const updateDraft = (value: string) => {
+    if (!conversation) return;
+    state.setDraft(conversation.id, value);
+    setError(null);
+    setAnnouncement("");
+  };
   const send = () => {
     if (!conversation) return;
     const issue = state.sendMessage(conversation.id);
@@ -444,21 +451,10 @@ export function EmployerMessages() {
                       value={draft}
                       aria-invalid={!!activeError}
                       aria-describedby="em-message-hint em-message-error"
-                      onChange={(event) => {
-                        state.setDraft(conversation.id, event.target.value);
-                        setError(null);
-                        setAnnouncement("");
-                      }}
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "Enter" &&
-                          (event.ctrlKey || event.metaKey) &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          event.preventDefault();
-                          send();
-                        }
-                      }}
+                      onChange={(event) => updateDraft(event.target.value)}
+                      onKeyDown={(event) =>
+                        handleMessageComposerKeyDown(event, updateDraft)
+                      }
                     />
                     <Button type="submit" size="icon" aria-label="Gửi tin nhắn">
                       <Send size={18} aria-hidden="true" />
@@ -467,7 +463,9 @@ export function EmployerMessages() {
                   <FieldError id="em-message-error">{activeError}</FieldError>
                 </Field>
                 <div className="em-chat-composer-meta">
-                  <span id="em-message-hint">Ctrl/⌘ + Enter để gửi</span>
+                  <span id="em-message-hint">
+                    Enter để gửi · Ctrl/⌘ + Enter để xuống dòng
+                  </span>
                   <span>{draft.length}/1.000</span>
                 </div>
                 <p className="sr-only" role="status">

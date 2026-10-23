@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { isJobOpen } from "@/features/jobs/formatters";
 import { normalizeSearch } from "@/features/jobs/query";
+import { handleMessageComposerKeyDown } from "@/lib/message-composer";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { Textarea } from "@/modules/cores/shadcn/components/ui/textarea";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
@@ -102,6 +103,12 @@ export function CandidateMessages() {
     }
     previousConversation.current = requested;
   }, [requested]);
+  const updateDraft = (value: string) => {
+    if (!conversation) return;
+    state.setDraft(conversation.id, value);
+    setError("");
+    setAnnouncement("");
+  };
   const send = () => {
     if (!conversation) return;
     const nextError = state.sendPreview(conversation.id);
@@ -352,23 +359,12 @@ export function CandidateMessages() {
                       maxLength={1000}
                       placeholder="Viết tin nhắn…"
                       value={draft}
-                      onChange={(event) => {
-                        state.setDraft(conversation.id, event.target.value);
-                        setError("");
-                        setAnnouncement("");
-                      }}
+                      onChange={(event) => updateDraft(event.target.value)}
                       aria-invalid={!!error}
                       aria-describedby="message-hint message-error"
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "Enter" &&
-                          (event.ctrlKey || event.metaKey) &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          event.preventDefault();
-                          send();
-                        }
-                      }}
+                      onKeyDown={(event) =>
+                        handleMessageComposerKeyDown(event, updateDraft)
+                      }
                     />
                     <Button
                       type="submit"
@@ -382,7 +378,9 @@ export function CandidateMessages() {
                   <FieldError id="message-error">{error}</FieldError>
                 </Field>
                 <div className="cc-composer-meta">
-                  <span id="message-hint">Ctrl/⌘ + Enter để gửi</span>
+                  <span id="message-hint">
+                    Enter để gửi · Ctrl/⌘ + Enter để xuống dòng
+                  </span>
                   <span>{draft.length}/1.000</span>
                 </div>
                 <p className="cc-preview-note">

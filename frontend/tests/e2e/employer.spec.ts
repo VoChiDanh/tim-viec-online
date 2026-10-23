@@ -400,11 +400,13 @@ test("closed-job chat retains per-thread drafts, ignores IME submission and send
   const count = await page.locator(".em-chat-message").count();
   await composer.dispatchEvent("keydown", {
     key: "Enter",
-    ctrlKey: true,
     isComposing: true,
   });
   await expect(page.locator(".em-chat-message")).toHaveCount(count);
   await composer.press("Control+Enter");
+  await expect(composer).toHaveValue(payload + "\n");
+  await expect(page.locator(".em-chat-message")).toHaveCount(count);
+  await composer.press("Enter");
   await expect(page.locator(".em-chat-message")).toHaveCount(count + 1);
   await expect(page.locator(".em-chat-message").last()).toContainText(payload);
   await expect(page.locator(".em-chat-message img")).toHaveCount(0);
