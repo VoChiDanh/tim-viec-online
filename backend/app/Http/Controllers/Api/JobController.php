@@ -69,7 +69,7 @@ class JobController extends Controller
         // FR-05.3: Quy tắc lọc theo mức lương
         if ($request->filled('salary_range')) {
             $range = $request->input('salary_range');
-            if ($range === 'under_10') {
+            if ($range === 'under_10' || $range === 'under_10m') {
                 $query->where('is_negotiable', 0)
                       ->where(function ($q) {
                           $q->where('salary_max', '<', 10000000)
@@ -77,15 +77,26 @@ class JobController extends Controller
                                 $sub->whereNull('salary_max')->where('salary_min', '<', 10000000);
                             });
                       });
-            } elseif ($range === '10_20') {
+            } elseif ($range === '10_20' || $range === '10m_20m') {
                 $query->where('is_negotiable', 0)
                       ->where('salary_max', '>=', 10000000)
                       ->where('salary_min', '<=', 20000000);
-            } elseif ($range === 'over_20') {
+            } elseif ($range === 'over_20' || $range === 'above_20m' || $range === 'above_20') {
                 $query->where('is_negotiable', 0)
                       ->where('salary_min', '>', 20000000);
             } elseif ($range === 'negotiable') {
                 $query->where('is_negotiable', 1);
+            }
+        }
+
+        // Lọc theo danh sách kỹ năng (FR-05.2)
+        if ($request->filled('skill_ids')) {
+            $skillIds = is_array($request->skill_ids) ? $request->skill_ids : explode(',', $request->skill_ids);
+            $skillIds = array_filter(array_map('intval', $skillIds));
+            if (!empty($skillIds)) {
+                $query->whereHas('skills', function ($q) use ($skillIds) {
+                    $q->whereIn('skills.id', $skillIds);
+                }, '=', count($skillIds));
             }
         }
 

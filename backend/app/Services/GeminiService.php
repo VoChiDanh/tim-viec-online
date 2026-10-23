@@ -7,6 +7,7 @@ use App\Models\Application;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Smalot\PdfParser\Parser;
 
 class GeminiService
 {
@@ -23,7 +24,7 @@ class GeminiService
         $job = $application->job->load(['skills', 'company']);
         $candidateProfile = $application->candidateProfile->load(['skills', 'user']);
 
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.key') ?: env('GEMINI_API_KEY');
         $result = null;
 
         if (!empty($apiKey) && $apiKey !== 'dien_api_key_cua_ban_vao_day') {
@@ -52,6 +53,26 @@ class GeminiService
     }
 
     /**
+     * Trích xuất văn bản từ tệp PDF (hỗ trợ cả đường dẫn tương đối trong storage và tuyệt đối)
+     */
+    public function extractTextFromPdf(string $filePath): string
+    {
+        $fullPath = file_exists($filePath) ? $filePath : storage_path('app/public/' . ltrim($filePath, '/'));
+        if (!file_exists($fullPath)) {
+            return "Không tìm thấy nội dung file CV tại đường dẫn: " . $filePath;
+        }
+
+        try {
+            $parser = new Parser();
+            $pdf = $parser->parseFile($fullPath);
+            return $pdf->getText() ?: "Tệp PDF không chứa văn bản có thể trích xuất.";
+        } catch (\Throwable $e) {
+            Log::error("PDF Parse Error: " . $e->getMessage());
+            return "Không thể trích xuất văn bản từ tệp PDF.";
+        }
+    }
+
+    /**
      * Gửi request trực tiếp file PDF + JD sang Gemini 1.5 Flash
      */
     protected function callGeminiApi(Application $application, string $apiKey): ?array
@@ -59,39 +80,45 @@ class GeminiService
         $job = $application->job;
         $candidate = $application->candidateProfile;
 
-        $pdfPath = $application->cv_path;
-        if (!Storage::disk('public')->exists($pdfPath)) {
+        $pdfRelativePath = $application->cv_path;
+        if (!Storage::disk('public')->exists($pdfRelativePath)) {
             return null;
         }
 
-        $pdfBytes = Storage::disk('public')->get($pdfPath);
+        $fullPath = storage_path('app/public/' . ltrim($pdfRelativePath, '/'));
+        $pdfText = $this->extractTextFromPdf($fullPath);
+
+        $pdfBytes = Storage::disk('public')->get($pdfRelativePath);
         $base64Pdf = base64_encode($pdfBytes);
 
         $jobSkillsStr = $job->skills->pluck('name')->implode(', ');
 
         $prompt = <<<EOT
-Bạn là chuyên gia phân tích nhân sự và tuyển dụng cấp cao. Hãy đọc file CV (PDF đính kèm) của ứng viên và đối chiếu với bản mô tả công việc (JD) sau đây:
+Bạn là chuyên gia nhân sự và tuyển dụng cấp cao. Hãy phân tích CV của ứng viên và đối chiếu với bản mô tả công việc (JD) sau đây:
 
-THÔNG TIN VỊ TRÍ TUYỂN DỤNG:
+--- THÔNG TIN VỊ TRÍ TUYỂN DỤNG ---
 - Tiêu đề công việc: {$job->title}
 - Cấp bậc: {$job->job_level}
 - Kỹ năng yêu cầu: {$jobSkillsStr}
 - Mô tả công việc (JD): {$job->description}
 - Yêu cầu chuyên môn: {$job->requirements}
 
-TIÊU CHÍ ĐÁNH GIÁ (SRS FR-07.2):
+--- NỘI DUNG VĂN BẢN TRÍCH XUẤT TỪ CV ---
+{$pdfText}
+
+--- TIÊU CHÍ ĐÁNH GIÁ (SRS FR-07.2) ---
 1. Kỹ năng chuyên môn (Trọng số 40%): Độ khớp giữa kỹ năng CV có và JD đòi hỏi.
 2. Kinh nghiệm làm việc (Trọng số 30%): Số năm kinh nghiệm và vị trí tương đương.
 3. Học vấn & Chứng chỉ (Trọng số 15%).
 4. Định hướng & Trình độ ngoại ngữ (Trọng số 15%).
 
-HÃY PHẢN HỒI DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ VỚI CÁC TRƯỜNG SAU:
+HÃY PHẢN HỒI DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ THEO ĐÚNG CẤU TRÚC SAU (không kèm markdown ngoài):
 {
-  "match_score": (Số nguyên từ 0 đến 100),
-  "summary": "(Đoạn văn ngắn gọn dưới 80 từ nhận xét mức độ phù hợp tổng quan)",
+  "match_score": 85,
+  "summary": "Đoạn văn ngắn gọn dưới 80 từ nhận xét mức độ phù hợp tổng quan",
   "matched_skills": ["Kỹ năng 1", "Kỹ năng 2"],
-  "missing_skills": ["Kỹ năng còn thiếu 1", "Kỹ năng còn thiếu 2 (1 đến 4 kỹ năng)"],
-  "strengths": ["Điểm mạnh 1", "Điểm mạnh 2 (2 đến 4 điểm)"],
+  "missing_skills": ["Kỹ năng còn thiếu 1", "Kỹ năng còn thiếu 2"],
+  "strengths": ["Điểm mạnh 1", "Điểm mạnh 2"],
   "recommendations": ["Lời khuyên cải thiện 1", "Lời khuyên cải thiện 2"]
 }
 EOT;
@@ -124,7 +151,8 @@ EOT;
             $json = $response->json();
             $rawText = $json['candidates'][0]['content']['parts'][0]['text'] ?? null;
             if ($rawText) {
-                $parsed = json_decode($rawText, true);
+                $cleanJson = trim(str_replace(['```json', '```'], '', $rawText));
+                $parsed = json_decode($cleanJson, true);
                 if (isset($parsed['match_score'])) {
                     return [
                         'match_score' => max(0, min(100, (int) $parsed['match_score'])),
@@ -150,7 +178,7 @@ EOT;
         $profile = $application->candidateProfile;
 
         $jobSkills = $job->skills->pluck('name')->toArray();
-        $candidateSkills = $profile->skills->pluck('name')->toArray();
+        $candidateSkills = $profile ? $profile->skills->pluck('name')->toArray() : [];
 
         // 1. Kỹ năng chuyên môn (40%)
         $matched = array_values(array_intersect($jobSkills, $candidateSkills));
@@ -158,7 +186,7 @@ EOT;
         $skillScore = count($jobSkills) > 0 ? (count($matched) / count($jobSkills)) * 40 : 35;
 
         // 2. Kinh nghiệm (30%)
-        $expYears = $profile->experience_years;
+        $expYears = $profile?->experience_years ?? 0;
         $expScore = min(30, 15 + ($expYears * 5));
 
         // 3. Học vấn & Kỹ năng phụ trợ (15%)

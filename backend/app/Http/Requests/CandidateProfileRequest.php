@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -16,14 +17,34 @@ class CandidateProfileRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'name' => ['nullable', 'string', 'min:2', 'max:100'],
+            'phone' => ['nullable', 'regex:/^(03|05|07|08|09)[0-9]{8}$/'],
+            'email' => ['nullable', 'string', 'email', 'max:100'],
+            'dob' => ['nullable', 'date'],
             'title' => ['nullable', 'string', 'max:100'],
-            'experience_years' => ['nullable', 'integer', 'min:0', 'max:50'],
+            'experience_years' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:50',
+                function ($attribute, $value, $fail) {
+                    $dob = $this->input('dob', $this->user()?->dob);
+                    if ($dob && $value) {
+                        $age = Carbon::parse($dob)->age;
+                        if ($value > $age) {
+                            $fail("Số năm kinh nghiệm ({$value} năm) không hợp lý với độ tuổi hiện tại (Ứng viên mới {$age} tuổi).");
+                        }
+                    }
+                },
+            ],
             'bio' => ['nullable', 'string', 'max:2000'],
             'address' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:100'],
             'social_links' => ['nullable', 'array'],
             'skills' => ['nullable', 'array', 'max:10'],
             'skills.*' => ['integer', 'exists:skills,id'],
+            'skill_ids' => ['nullable', 'array', 'max:10'],
+            'skill_ids.*' => ['integer', 'exists:skills,id'],
             'cv_file' => ['nullable', 'file', 'mimes:pdf', 'max:5120'], // 5MB = 5120 KB
             'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
         ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\ApplicationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CandidateProfileController;
@@ -61,10 +62,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
+    // AI CV Analysis (FR-07)
+    Route::prefix('applications')->group(function () {
+        Route::post('/{applicationId}/ai-analyze', [AiAnalysisController::class, 'analyzeAndStore']);
+        Route::get('/{applicationId}/ai-analysis', [AiAnalysisController::class, 'show']);
+    });
+
     // Candidate Routes (FR-03, FR-05.6, FR-06)
     Route::middleware('role:candidate')->prefix('candidate')->group(function () {
         Route::get('/profile', [CandidateProfileController::class, 'show']);
         Route::post('/profile', [CandidateProfileController::class, 'update']);
+        Route::put('/profile', [CandidateProfileController::class, 'update']);
+        Route::post('/cv', [CandidateProfileController::class, 'uploadCv']);
+        Route::get('/cv', [CandidateProfileController::class, 'getCv']);
+        Route::delete('/cv', [CandidateProfileController::class, 'deleteCv']);
+        Route::post('/avatar', [CandidateProfileController::class, 'uploadAvatar']);
+        Route::delete('/avatar', [CandidateProfileController::class, 'deleteAvatar']);
         Route::get('/saved-jobs', [JobController::class, 'savedJobs']);
         Route::get('/applications', [ApplicationController::class, 'candidateHistory']);
         Route::delete('/applications/{id}/withdraw', [ApplicationController::class, 'withdraw']);
@@ -101,22 +114,26 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Users Moderation (FR-09.4)
         Route::get('/users', [AdminController::class, 'users']);
+        Route::get('/users/{id}', [AdminController::class, 'userDetail']);
         Route::patch('/users/{id}/status', [AdminController::class, 'updateUserStatus']);
+        Route::patch('/users/{id}/toggle-lock', [AdminController::class, 'toggleLockUser']);
 
         // Jobs Moderation (FR-09.1, FR-09.2)
         Route::get('/jobs', [AdminController::class, 'jobs']);
+        Route::get('/jobs/reported', [AdminController::class, 'getReportedJobs']);
+        Route::get('/jobs/{id}', [AdminController::class, 'jobDetail']);
         Route::delete('/jobs/{id}', [AdminController::class, 'deleteJob']);
 
         // Categories Management (FR-09.5)
-        Route::get('/categories', [CategoryController::class, 'index']);
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::put('/categories/{id}', [CategoryController::class, 'update']);
-        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+        Route::get('/categories', [AdminController::class, 'categories']);
+        Route::post('/categories', [AdminController::class, 'storeCategory']);
+        Route::put('/categories/{id}', [AdminController::class, 'updateCategory']);
+        Route::delete('/categories/{id}', [AdminController::class, 'destroyCategory']);
 
         // Skills Management (FR-09.5)
-        Route::get('/skills', [SkillController::class, 'index']);
-        Route::post('/skills', [SkillController::class, 'store']);
-        Route::put('/skills/{id}', [SkillController::class, 'update']);
-        Route::delete('/skills/{id}', [SkillController::class, 'destroy']);
+        Route::get('/skills', [AdminController::class, 'skills']);
+        Route::post('/skills', [AdminController::class, 'storeSkill']);
+        Route::put('/skills/{id}', [AdminController::class, 'updateSkill']);
+        Route::delete('/skills/{id}', [AdminController::class, 'destroySkill']);
     });
 });
