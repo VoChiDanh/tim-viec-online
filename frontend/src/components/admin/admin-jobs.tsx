@@ -355,11 +355,7 @@ export function AdminJobs() {
                       <td data-label="Địa điểm">{job.city}</td>
                       <td data-label="Trạng thái">
                         <div className="ap-status-stack">
-                          <span
-                            className={`ap-badge ${
-                              job.status === "active" ? "ap-badge-green" : ""
-                            }`}
-                          >
+                          <span className={`ap-badge ap-badge-${job.status}`}>
                             {JOB_STATUS_LABELS[job.status] || job.status}
                           </span>
                           {job.is_reported && (

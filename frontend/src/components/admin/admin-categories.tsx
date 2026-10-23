@@ -504,7 +504,7 @@ export function AdminCategories() {
             {formError && (
               <p
                 id={`${prefix}-catalog-error`}
-                className="ap-field-error text-xs text-red-600"
+                className="ap-field-error text-xs ap-tone-danger"
                 role="alert"
               >
                 {formError}
@@ -559,7 +559,7 @@ export function AdminCategories() {
                 <>
                   <div className="ap-notice ap-notice-amber">
                     <AlertCircle
-                      className="ap-icon shrink-0 text-amber-600"
+                      className="ap-icon shrink-0 ap-tone-warning"
                       aria-hidden="true"
                     />
                     <p className="text-xs leading-relaxed">

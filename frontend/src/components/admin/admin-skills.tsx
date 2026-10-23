@@ -494,7 +494,7 @@ export function AdminSkills() {
             {formError && (
               <p
                 id={`${prefix}-catalog-error`}
-                className="ap-field-error text-xs text-red-600"
+                className="ap-field-error text-xs ap-tone-danger"
                 role="alert"
               >
                 {formError}
@@ -548,7 +548,7 @@ export function AdminSkills() {
               {(deletingJobsCount > 0 || deletingCandidatesCount > 0) && (
                 <div className="ap-notice ap-notice-amber">
                   <AlertTriangle
-                    className="ap-icon shrink-0 text-amber-600"
+                    className="ap-icon shrink-0 ap-tone-warning"
                     aria-hidden="true"
                   />
                   <p className="text-xs leading-relaxed">

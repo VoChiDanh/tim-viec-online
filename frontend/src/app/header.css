@@ -456,6 +456,9 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 7.2px;
 }
+.header-account [data-slot="dropdown-menu-separator"] {
+  margin-inline: 0;
+}
 .header-account-info strong {
   display: block;
   font-size: 12.6px;

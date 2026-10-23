@@ -153,12 +153,16 @@ export function EmployerShell({ children }: { children: ReactNode }) {
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={12}>
-              <div className="px-3 py-2 text-sm">
+            <DropdownMenuContent
+              className="header-account"
+              align="end"
+              sideOffset={12}
+              collisionPadding={16}
+            >
+              <div className="header-account-info">
                 <strong>{user.name}</strong>
-                <p>{user.email}</p>
+                <span>{user.email}</span>
               </div>
-              <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/employer/company">
                   <Building2 />

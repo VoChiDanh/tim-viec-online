@@ -417,7 +417,7 @@ export function AdminUsers() {
                               title="Tài khoản quản trị được bảo vệ"
                             >
                               <ShieldCheck
-                                className="ap-icon text-blue-600 size-3"
+                                className="ap-icon ap-tone-brand size-3"
                                 aria-hidden="true"
                               />
                               Được bảo vệ
@@ -496,7 +496,7 @@ export function AdminUsers() {
 
       {/* Security notice card under panel */}
       <div className="ap-notice mt-6">
-        <ShieldCheck className="ap-icon text-blue-700" aria-hidden="true" />
+        <ShieldCheck className="ap-icon ap-tone-brand" aria-hidden="true" />
         <div>
           <strong>
             Khóa tài khoản là quyết định ảnh hưởng đến quyền truy cập.
@@ -642,12 +642,12 @@ export function AdminUsers() {
               >
                 {togglingUser.status === "locked" ? (
                   <LockKeyholeOpen
-                    className="ap-icon text-emerald-700"
+                    className="ap-icon ap-tone-success"
                     aria-hidden="true"
                   />
                 ) : (
                   <ShieldCheck
-                    className="ap-icon text-amber-700"
+                    className="ap-icon ap-tone-warning"
                     aria-hidden="true"
                   />
                 )}

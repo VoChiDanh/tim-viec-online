@@ -85,7 +85,7 @@
 .ep-overview .ep-company :is(small, .ep-progress-label, .ep-company-checks li),
 .ep-overview .ep-event :is(p, time),
 .ep-overview .ep-metric small {
-  font-size: 12px;
+  font-size: var(--workspace-meta-size);
   line-height: 1.7;
 }
 .ep-overview .ep-company-checks li[data-complete="false"] {
@@ -95,7 +95,7 @@
   color: var(--ep-muted);
 }
 .ep-owned-jobs .ep-job-table th {
-  font-size: 11px;
+  font-size: var(--workspace-table-size);
   font-weight: 600;
 }
 .ep-owned-jobs .ep-job-table td {
@@ -105,10 +105,10 @@
   width: 49%;
 }
 .ep-owned-jobs .ep-job-title {
-  font-size: 13px;
+  font-size: var(--workspace-row-title-size);
 }
 .ep-owned-jobs .ep-job-meta {
-  font-size: 12px;
+  font-size: var(--workspace-meta-size);
 }
 .ep-owned-jobs .ep-job-count {
   display: inline-flex;
@@ -135,7 +135,7 @@
   font-weight: 600;
 }
 .ep-owned-jobs .ep-badge {
-  font-size: 11px;
+  font-size: var(--workspace-badge-size);
 }
 .ep-owned-jobs .ep-row-actions {
   flex-wrap: wrap;

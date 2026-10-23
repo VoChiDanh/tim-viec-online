@@ -10,18 +10,16 @@ body:has(.employer-page) {
   --ep-border: var(--border);
   --ep-bg: var(--background);
   --ep-white: var(--card);
-  --ep-green: #117653;
-  --ep-green-soft: #eaf7f0;
-  --ep-shadow: 0 3px 12px rgb(22 36 59 / 3%);
+  --ep-green: var(--workspace-success);
+  --ep-green-soft: var(--workspace-success-background);
+  --ep-shadow: var(--workspace-shadow);
 }
 
 .employer-page {
   margin: 0;
   color: var(--ep-text);
   background: var(--ep-bg);
-  font:
-    14px/1.6 var(--font-brand),
-    sans-serif;
+  font: var(--workspace-body-size)/1.6 var(--workspace-font);
 }
 
 .employer-page a {
@@ -32,7 +30,7 @@ body:has(.employer-page) {
 .employer-page input,
 .employer-page select,
 .employer-page textarea {
-  font: inherit;
+  font-family: inherit;
 }
 
 .employer-page button,
@@ -236,7 +234,7 @@ body:has(.employer-page) {
 
 .ep-nav-label {
   color: var(--ep-muted);
-  font-size: 9px;
+  font-size: var(--workspace-eyebrow-size);
   text-transform: uppercase;
   letter-spacing: 1.6px;
   font-weight: 600;
@@ -331,7 +329,7 @@ body:has(.employer-page) {
 }
 
 .ep-page-heading h1 {
-  font-size: 25px;
+  font-size: var(--workspace-heading-size);
   font-weight: 700;
   letter-spacing: -0.8px;
   line-height: 1.4;
@@ -349,13 +347,13 @@ body:has(.employer-page) {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 9px;
+  border-radius: var(--workspace-card-radius);
   min-height: 44px;
   padding: 10px 16px;
   border: 1px solid var(--ep-border);
   background: var(--ep-white);
   color: var(--ep-text);
-  font-size: 13px;
+  font-size: var(--workspace-control-size);
   font-weight: 600;
   white-space: nowrap;
   transition: background 0.15s;
@@ -501,7 +499,7 @@ body:has(.employer-page) {
 .ep-metric {
   border: 1px solid var(--ep-border);
   background: var(--ep-white);
-  border-radius: 9px;
+  border-radius: var(--workspace-card-radius);
   padding: 18px 20px;
   box-shadow: var(--ep-shadow);
 }
@@ -511,7 +509,7 @@ body:has(.employer-page) {
   align-items: center;
   justify-content: space-between;
   color: var(--ep-muted);
-  font-size: 11px;
+  font-size: var(--workspace-table-size);
 }
 
 .ep-metric-top .ep-icon {
@@ -531,7 +529,8 @@ body:has(.employer-page) {
 .ep-metric small {
   display: block;
   color: var(--ep-muted);
-  font-size: 10px;
+  font-size: var(--workspace-meta-size);
+  line-height: 1.7;
 }
 
 .ep-metric small span {
@@ -549,7 +548,7 @@ body:has(.employer-page) {
 .ep-panel {
   background: var(--ep-white);
   border: 1px solid var(--ep-border);
-  border-radius: 14px;
+  border-radius: var(--workspace-panel-radius);
   box-shadow: var(--ep-shadow);
   overflow: hidden;
   min-width: 0;
@@ -564,7 +563,7 @@ body:has(.employer-page) {
 }
 
 .ep-panel-heading h2 {
-  font-size: 16px;
+  font-size: var(--workspace-section-size);
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.3px;
@@ -572,7 +571,7 @@ body:has(.employer-page) {
 
 .ep-panel-heading p {
   color: var(--ep-muted);
-  font-size: 12px;
+  font-size: var(--workspace-label-size);
   margin: 3px 0 0;
 }
 
@@ -680,15 +679,15 @@ body:has(.employer-page) {
 .ep-job-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--workspace-table-size);
   text-align: left;
 }
 
 .ep-job-table th {
   color: var(--ep-muted);
-  font-size: 9px;
+  font-size: var(--workspace-eyebrow-size);
   font-weight: 500;
-  background: #fafbfd;
+  background: var(--workspace-table-background);
   padding: 10px 14px;
   border-top: 1px solid var(--ep-border);
   border-bottom: 1px solid var(--ep-border);
@@ -710,13 +709,13 @@ body:has(.employer-page) {
   display: block;
   color: var(--ep-navy);
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--workspace-label-size);
   margin-bottom: 5px;
   line-height: 1.7;
 }
 
 .ep-job-meta {
-  font-size: 10px;
+  font-size: var(--workspace-caption-size);
   color: var(--ep-muted);
   line-height: 1.9;
 }
@@ -740,7 +739,7 @@ body:has(.employer-page) {
   align-items: center;
   padding: 3px 8px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: var(--workspace-eyebrow-size);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -752,12 +751,12 @@ body:has(.employer-page) {
 
 .ep-badge-closed {
   color: var(--ep-muted);
-  background: #f0f2f5;
+  background: var(--workspace-muted-background);
 }
 
 .ep-badge-expired {
-  color: #9a5a16;
-  background: #fff5e4;
+  color: var(--workspace-warning);
+  background: var(--workspace-warning-background);
 }
 
 .ep-row-actions {
@@ -1277,7 +1276,7 @@ body:has(.employer-page) {
   }
 
   .ep-metric small {
-    font-size: 9px;
+    font-size: var(--workspace-meta-size);
   }
 
   .ep-aside {
@@ -1428,7 +1427,7 @@ body:has(.employer-page) {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-size: 12px;
+  font-size: var(--workspace-label-size);
   font-weight: 500;
   min-width: 0;
 }
@@ -1444,7 +1443,7 @@ body:has(.employer-page) {
   border: 1px solid var(--ep-border);
   background: var(--ep-white);
   color: var(--ep-text);
-  border-radius: 6px;
+  border-radius: var(--workspace-field-radius);
   padding: 11px 12px;
   font-size: 12px;
   line-height: 1.6;

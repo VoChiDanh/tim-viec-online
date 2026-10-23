@@ -6,6 +6,7 @@ import { AppToaster } from "@/components/feedback/app-toaster";
 import { ScrollbarLayout } from "@/components/layout/scrollbar-layout";
 import "./globals.css";
 import "./site.css";
+import "./workspace.css";
 import "./auth.css";
 import "./header.css";
 import "./selection.css";

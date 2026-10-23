@@ -271,7 +271,7 @@ export function AdminOverview() {
               <p>Tin đăng mới và lượt ứng tuyển theo ngày.</p>
             </div>
             <div
-              className="flex shrink-0 gap-1"
+              className="ap-chart-period"
               role="group"
               aria-label="Khoảng thời gian thống kê"
             >
@@ -497,12 +497,12 @@ export function AdminOverview() {
                 return (
                   <article key={job.id} className="ap-summary-item">
                     <Flag
-                      className="ap-icon text-amber-600"
+                      className="ap-icon ap-tone-warning"
                       aria-hidden="true"
                     />
                     <div>
                       <Link
-                        className="ap-cell-title font-medium hover:text-blue-600"
+                        className="ap-cell-title"
                         href={`/admin/jobs/${job.id}`}
                       >
                         {job.title}

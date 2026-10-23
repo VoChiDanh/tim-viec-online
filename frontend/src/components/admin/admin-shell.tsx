@@ -191,13 +191,13 @@ export function AdminShell({ children, user }: AdminShellProps) {
             <DropdownMenuContent
               align="end"
               sideOffset={12}
-              className="ap-account-menu"
+              collisionPadding={16}
+              className="header-account"
             >
-              <div className="ap-account-identity">
+              <div className="header-account-info">
                 <strong>{user.name}</strong>
-                <p>{user.email}</p>
+                <span>{user.email}</span>
               </div>
-              <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/account/security">
                   <Settings aria-hidden="true" />

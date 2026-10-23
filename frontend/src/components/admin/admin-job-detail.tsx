@@ -171,7 +171,7 @@ export function AdminJobDetail({
         <section className="ap-panel">
           <div className="ap-empty">
             <CheckCircle2
-              className="ap-icon text-emerald-600"
+              className="ap-icon ap-tone-success"
               aria-hidden="true"
             />
             <h2>Đã xóa tin trong bản xem trước</h2>
@@ -207,7 +207,7 @@ export function AdminJobDetail({
           {job.is_reported && (
             <div className="ap-notice ap-notice-amber">
               <Flag
-                className="ap-icon text-amber-600 shrink-0"
+                className="ap-icon ap-tone-warning shrink-0"
                 aria-hidden="true"
               />
               <div>
@@ -225,11 +225,7 @@ export function AdminJobDetail({
             <article className="ap-panel">
               <div className="ap-detail-header">
                 <div className="ap-tags">
-                  <span
-                    className={`ap-badge ${
-                      job.status === "active" ? "ap-badge-green" : ""
-                    }`}
-                  >
+                  <span className={`ap-badge ap-badge-${job.status}`}>
                     {JOB_STATUS_LABELS[job.status] || job.status}
                   </span>
                   {job.is_reported && (
@@ -428,7 +424,7 @@ export function AdminJobDetail({
                 id={`${prefix}-delete-job-dialog-desc`}
               >
                 <AlertTriangle
-                  className="ap-icon shrink-0 text-red-600"
+                  className="ap-icon shrink-0 ap-tone-danger"
                   aria-hidden="true"
                 />
                 <p className="text-xs leading-relaxed">
@@ -471,7 +467,7 @@ export function AdminJobDetail({
                 {deleteReasonError && (
                   <p
                     id={`${prefix}-delete-reason-error`}
-                    className="ap-field-error text-xs text-red-600 mt-1"
+                    className="ap-field-error text-xs ap-tone-danger mt-1"
                     role="alert"
                   >
                     {deleteReasonError}
@@ -495,7 +491,10 @@ export function AdminJobDetail({
                 </span>
               </label>
               {confirmError && (
-                <p className="ap-field-error text-xs text-red-600" role="alert">
+                <p
+                  className="ap-field-error text-xs ap-tone-danger"
+                  role="alert"
+                >
                   {confirmError}
                 </p>
               )}
