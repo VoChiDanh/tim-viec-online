@@ -24,14 +24,14 @@ class GeminiService
         $job = $application->job->load(['skills', 'company']);
         $candidateProfile = $application->candidateProfile->load(['skills', 'user']);
         $cvText = $this->extractTextFromPdf($application->cv_path);
-        if (mb_strlen(trim($cvText)) < 20) {
-            throw new \RuntimeException('File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn');
-        }
 
         $apiKey = config('services.gemini.key') ?: env('GEMINI_API_KEY');
         $result = null;
 
-        if (!empty($apiKey) && $apiKey !== 'dien_api_key_cua_ban_vao_day') {
+        // Use Gemini only when text extraction produced enough content. Scanned,
+        // malformed, or placeholder PDFs still get a useful deterministic score
+        // from the candidate's structured profile and the job requirements.
+        if (mb_strlen(trim($cvText)) >= 20 && !empty($apiKey) && $apiKey !== 'dien_api_key_cua_ban_vao_day') {
             try {
                 $result = $this->callGeminiApi($application, $apiKey, $cvText);
             } catch (\Throwable $e) {

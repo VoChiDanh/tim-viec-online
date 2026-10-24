@@ -27,6 +27,7 @@ Storage::fake('public');
 
 $passed = 0;
 $failed = 0;
+$testIp = static fn (): string => '10.255.' . random_int(1, 254) . '.' . random_int(1, 254);
 
 function assertTest(string $name, bool $condition, string $detail = '') {
     global $passed, $failed;
@@ -58,7 +59,7 @@ $req = Request::create('/api/register', 'POST', [
     'phone' => '0912345678',
     'dob' => '2000-01-01',
     'role' => 'candidate',
-]);
+], [], [], ['REMOTE_ADDR' => $testIp()]);
 $req->headers->set('Accept', 'application/json');
 $resp = $app->handle($req);
 assertTest("1.1 Đăng ký tài khoản Ứng viên (201 Created)", $resp->getStatusCode() === 201);
@@ -73,7 +74,7 @@ $reqDup = Request::create('/api/register', 'POST', [
     'password' => 'TestPass123@',
     'password_confirmation' => 'TestPass123@',
     'role' => 'candidate',
-]);
+], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqDup->headers->set('Accept', 'application/json');
 $respDup = $app->handle($reqDup);
 $dupJson = json_decode($respDup->getContent(), true);
@@ -81,7 +82,7 @@ assertTest("1.3 Đăng ký trùng email trả lỗi 422 'Email đã được s�
 
 // Test 1.4: Đăng nhập sai pass -> 401 với thông báo chuẩn FR-02.2
 Auth::forgetGuards();
-$reqWrongPass = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
+$reqWrongPass = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!'], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqWrongPass->headers->set('Accept', 'application/json');
 $respWrong = $app->handle($reqWrongPass);
 $wrongJson = json_decode($respWrong->getContent(), true);
@@ -90,12 +91,12 @@ assertTest("1.4 Đăng nhập sai mật khẩu trả 401 'Email hoặc mật kh�
 // Test 1.5: Tạm khóa sau 5 lần sai liên tiếp (FR-02.3 & FR-02.4)
 Auth::forgetGuards();
 for ($i = 0; $i < 3; $i++) {
-    $r = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
+    $r = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!'], [], [], ['REMOTE_ADDR' => $testIp()]);
     $r->headers->set('Accept', 'application/json');
     $app->handle($r);
 }
 // Lần thứ 5 sai (lần 1 ở test 1.4 + 3 lần ở vòng lặp + 1 lần này = 5 lần)
-$req5th = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!']);
+$req5th = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'WrongPass!'], [], [], ['REMOTE_ADDR' => $testIp()]);
 $req5th->headers->set('Accept', 'application/json');
 $resp5th = $app->handle($req5th);
 $json5th = json_decode($resp5th->getContent(), true);
@@ -107,7 +108,7 @@ User::where('email', 'temp_test_candidate@timviec.vn')->update(['failed_attempts
 
 // Test 1.6: Đăng nhập đúng -> 200 kèm Bearer Token & redirect_url điều hướng đúng vai trò (FR-02.6)
 Auth::forgetGuards();
-$reqLogin = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@']);
+$reqLogin = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@'], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqLogin->headers->set('Accept', 'application/json');
 $respLogin = $app->handle($reqLogin);
 $loginData = json_decode($respLogin->getContent(), true);
@@ -170,22 +171,22 @@ assertTest("1.10 Đổi mật khẩu thành công trả 200 'Đổi mật khẩu
 Auth::forgetGuards();
 $reqFpNotFound = Request::create('/api/forgot-password', 'POST', [
     'email' => 'nonexistent_email_12345@timviec.vn',
-]);
+], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqFpNotFound->headers->set('Accept', 'application/json');
 $respFpNotFound = $app->handle($reqFpNotFound);
-assertTest("1.11 Quên mật khẩu email không tồn tại trả 404 (FR-02.7)", $respFpNotFound->getStatusCode() === 404);
+assertTest("1.11 Quên mật khẩu email không tồn tại trả 404 (FR-02.7)", $respFpNotFound->getStatusCode() === 404, $respFpNotFound->getStatusCode() . ' ' . $respFpNotFound->getContent());
 
 // Test 1.12: Quên mật khẩu - Email hợp lệ trả 200 và sinh token có hạn 15 phút (FR-02.7)
 Auth::forgetGuards();
 $reqFp = Request::create('/api/forgot-password', 'POST', [
     'email' => 'temp_test_candidate@timviec.vn',
-]);
+], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqFp->headers->set('Accept', 'application/json');
 $respFp = $app->handle($reqFp);
 $fpJson = json_decode($respFp->getContent(), true);
 $resetToken = $fpJson['data']['token'] ?? '';
 assertTest("1.12 Quên mật khẩu thành công trả 200 & tạo token xác thực (FR-02.7)",
-    $respFp->getStatusCode() === 200 && !empty($resetToken));
+    $respFp->getStatusCode() === 200 && !empty($resetToken), $respFp->getStatusCode() . ' ' . $respFp->getContent());
 
 // Test 1.13: Kiểm tra link đặt lại mật khẩu với token sai/hết hạn trả 400 (FR-02.8)
 Auth::forgetGuards();
@@ -206,12 +207,23 @@ $reqReset = Request::create('/api/reset-password', 'POST', [
     'token' => $resetToken,
     'password' => 'TestPass123@', // Trả về lại pass gốc để các bài test phía sau chạy bình thường
     'password_confirmation' => 'TestPass123@',
-]);
+], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqReset->headers->set('Accept', 'application/json');
 $respReset = $app->handle($reqReset);
 $resetJson = json_decode($respReset->getContent(), true);
 assertTest("1.14 Đặt lại mật khẩu thành công trả 200 'Đặt lại mật khẩu thành công' & redirect_url=/login (FR-02.8)",
-    $respReset->getStatusCode() === 200 && ($resetJson['message'] ?? '') === 'Đặt lại mật khẩu thành công' && ($resetJson['data']['redirect_url'] ?? '') === '/login');
+    $respReset->getStatusCode() === 200 && ($resetJson['message'] ?? '') === 'Đặt lại mật khẩu thành công' && ($resetJson['data']['redirect_url'] ?? '') === '/login', $respReset->getStatusCode() . ' ' . $respReset->getContent());
+
+// Password reset correctly revokes existing sessions; obtain a fresh token for
+// the remaining authenticated integration checks.
+Auth::forgetGuards();
+$reqLoginAfterReset = Request::create('/api/login', 'POST', [
+    'email' => 'temp_test_candidate@timviec.vn',
+    'password' => 'TestPass123@',
+], [], [], ['REMOTE_ADDR' => $testIp()]);
+$reqLoginAfterReset->headers->set('Accept', 'application/json');
+$loginAfterReset = $app->handle($reqLoginAfterReset);
+$candToken = json_decode($loginAfterReset->getContent(), true)['data']['token'] ?? $candToken;
 
 // -------------------------------------------------------------------------
 // 2. MODULE MASTER DATA (CATEGORIES & SKILLS)
@@ -908,10 +920,10 @@ assertTest("8.2 Khóa tài khoản người dùng & thu hồi token (/api/admin/
 
 // Test 8.3: User bị khóa đăng nhập -> 403
 Auth::forgetGuards();
-$reqLockedLog = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@']);
+$reqLockedLog = Request::create('/api/login', 'POST', ['email' => 'temp_test_candidate@timviec.vn', 'password' => 'TestPass123@'], [], [], ['REMOTE_ADDR' => $testIp()]);
 $reqLockedLog->headers->set('Accept', 'application/json');
 $respLockedLog = $app->handle($reqLockedLog);
-assertTest("8.3 Đăng nhập tài khoản bị khóa trả 403 'Tài khoản của bạn đã bị khóa bởi quản trị viên'", $respLockedLog->getStatusCode() === 403);
+assertTest("8.3 Đăng nhập tài khoản bị khóa trả 403 'Tài khoản của bạn đã bị khóa bởi quản trị viên'", $respLockedLog->getStatusCode() === 403, $respLockedLog->getStatusCode() . ' ' . $respLockedLog->getContent());
 
 // -------------------------------------------------------------------------
 // DỌN DẸP DỮ LIỆU TEST
