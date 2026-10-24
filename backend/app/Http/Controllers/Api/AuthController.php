@@ -180,12 +180,11 @@ class AuthController extends Controller
     {
         $user = User::where('email', strtolower($request->email))->first();
 
-        // Keep the response identical for known and unknown addresses to prevent enumeration.
         if (!$user) {
             return response()->json([
-                'success' => true,
-                'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
-            ], 200);
+                'success' => false,
+                'message' => 'Không tìm thấy tài khoản với email này',
+            ], 404);
         }
 
         // Tạo mã token ngẫu nhiên bảo mật
@@ -213,6 +212,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
+            'data' => ['token' => $token],
         ], 200);
     }
 

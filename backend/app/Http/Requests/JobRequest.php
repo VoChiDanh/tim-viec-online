@@ -138,6 +138,14 @@ class JobRequest extends FormRequest
 
     protected function failedValidation(Validator $validator)
     {
+        $company = $this->user()?->company;
+        if (!$company || !$company->isComplete()) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'message' => 'Vui lòng cập nhật đầy đủ thông tin công ty (Tên, Giới thiệu, Trụ sở, Tỉnh/Thành phố) trước khi đăng tin tuyển dụng đầu tiên',
+            ], 400));
+        }
+
         $errors = $validator->errors();
         $statusCode = 422;
 

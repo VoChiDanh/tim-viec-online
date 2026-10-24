@@ -153,7 +153,7 @@ class ApplicationController extends Controller
 
         // Keep application submission fast; analysis runs in the configured queue.
         try {
-            AnalyzeApplicationCv::dispatch($application->id);
+            AnalyzeApplicationCv::dispatchSync($application->id);
         } catch (\Throwable $exception) {
             $application->update([
                 'ai_analysis_status' => 'failed',

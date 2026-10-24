@@ -48,7 +48,12 @@ class AiAnalysisController extends Controller
         }
 
         if ($application->aiAnalysis) {
-            return response()->json(['success' => true, 'message' => 'Kết quả phân tích đã có sẵn', 'data' => $application->aiAnalysis], 200);
+            return response()->json(
+                ['success' => true, 'message' => 'Kết quả phân tích đã có sẵn', 'data' => $application->aiAnalysis],
+                200,
+                [],
+                JSON_UNESCAPED_UNICODE
+            );
         }
 
         if ($application->ai_analysis_status === 'pending') {
@@ -140,6 +145,6 @@ class AiAnalysisController extends Controller
                 'recommendations' => $analysis->recommendations,
                 'analyzed_at' => $analysis->created_at,
             ]
-        ], 200);
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }

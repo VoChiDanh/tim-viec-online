@@ -62,7 +62,7 @@ Các nhóm lương được bộ điều khiển chấp nhận gồm `under_10`/
 | `GET /api/candidate/cv` | Ứng viên | không có | Trả JSON có đường dẫn được bảo vệ; 404 nếu chưa có CV. |
 | `GET /api/candidate/cv/file` | Ứng viên | không có | Trả nội dung PDF của chính người dùng dưới dạng riêng tư, không lưu bộ nhớ đệm; 404 nếu thiếu tệp. |
 | `DELETE /api/candidate/cv` | Ứng viên | không có | Xóa tệp riêng tư và bản sao công khai cũ cùng đường dẫn; gọi lặp lại vẫn an toàn. |
-| `POST|DELETE /api/candidate/avatar` | Ứng viên | multipart ảnh / không có | Tải lên/xóa ảnh đại diện công khai. |
+| `POST/DELETE /api/candidate/avatar` | Ứng viên | multipart ảnh / không có | Tải lên/xóa ảnh đại diện công khai. |
 | `GET /api/candidate/saved-jobs` | Ứng viên | `page?` | Danh sách tin đã lưu có phân trang. |
 | `POST/DELETE /api/jobs/{id}/save` | Ứng viên | ID | Lưu/bỏ lưu tin đang hoạt động; thao tác lưu lặp lại an toàn. |
 

@@ -341,7 +341,7 @@ class ChatController extends Controller
         }
 
         $request->validate([
-            'message' => ['nullable', 'string', 'max:1000'],
+            'message' => ['nullable', 'string'],
             'image' => ['nullable', 'file', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
         ]);
 
