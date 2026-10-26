@@ -17,6 +17,7 @@ import { CompanyJobCard } from "@/components/companies/company-job-card";
 import { CompanyShare } from "@/components/companies/company-share";
 import { CompaniesSkeleton } from "@/components/companies/companies-skeleton";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
+import { authApiEnabled } from "@/services/auth-mode";
 
 type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -107,7 +108,9 @@ async function Profile({ params }: Props) {
         </div>
       </section>
       <div className="company-profile-caption">
-        <span className="demo-pill">Dữ liệu minh họa</span>
+        {!authApiEnabled() && (
+          <span className="demo-pill">Dữ liệu minh họa</span>
+        )}
       </div>
       <div className="company-profile-grid">
         <section

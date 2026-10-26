@@ -389,18 +389,19 @@ export function EmployerCandidates() {
                     </span>
                   </span>
                   <span className="ec-row-status">
-                    {application.analysis ? (
-                      <span
-                        className={`ec-score ec-score-${scoreClass(application.analysis.match_score)}`}
-                      >
-                        {application.analysis.match_score}%{" "}
-                        <small>phù hợp</small>
-                      </span>
-                    ) : (
-                      <span className="ec-analysis-pending">
-                        {apiMode ? "AI chưa triển khai" : "Chưa có điểm AI"}
-                      </span>
-                    )}
+                    {!apiMode &&
+                      (application.analysis ? (
+                        <span
+                          className={`ec-score ec-score-${scoreClass(application.analysis.match_score)}`}
+                        >
+                          {application.analysis.match_score}%{" "}
+                          <small>phù hợp</small>
+                        </span>
+                      ) : (
+                        <span className="ec-analysis-pending">
+                          Chưa có điểm AI
+                        </span>
+                      ))}
                     <ApplicationBadge status={application.status} />
                   </span>
                   <span className="ec-open-profile">

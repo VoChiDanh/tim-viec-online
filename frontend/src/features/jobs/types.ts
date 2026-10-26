@@ -31,6 +31,7 @@ export type JobSort = keyof typeof JOB_SORT_LABELS;
 export interface Company {
   id: number;
   name: string;
+  logo?: string | null;
   company_size: string;
   website: string | null;
   address: string;

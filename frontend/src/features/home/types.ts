@@ -7,6 +7,7 @@ export type HomeJobCard = {
   mark: string;
   brand: string;
   featured: boolean;
+  logo?: string | null;
 };
 
 export type HomeCategory = {
@@ -31,4 +32,5 @@ export type HomeCompany = {
   brand: string;
   count: number;
   location: string;
+  logo?: string | null;
 };

@@ -49,12 +49,14 @@ type Props = {
   user?: AuthUser;
   sessionUnavailable?: boolean;
   pendingSession?: boolean;
+  categories?: { id: number; name: string }[];
 };
 
 export function HeaderControls({
   user,
   sessionUnavailable = false,
   pendingSession = false,
+  categories,
 }: Props) {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const pathname = usePathname();
@@ -193,21 +195,36 @@ export function HeaderControls({
               Khám phá doanh nghiệp
             </Link>
           </div>
-          <div>
-            <h2>TimViecOnline inTECH</h2>
-            <Link
-              href="/jobs?category_ids=1"
-              onClick={() => setCategoriesOpen(false)}
-            >
-              IT Jobs
-            </Link>
-            <Link
-              href="/jobs?category_ids=1"
-              onClick={() => setCategoriesOpen(false)}
-            >
-              IT Hub
-            </Link>
-          </div>
+          {categories ? (
+            <div>
+              <h2>Ngành nghề tuyển dụng</h2>
+              {categories.slice(0, 6).map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/jobs?category_ids=${category.id}`}
+                  onClick={() => setCategoriesOpen(false)}
+                >
+                  {category.name}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <h2>TimViecOnline inTECH</h2>
+              <Link
+                href="/jobs?category_ids=1"
+                onClick={() => setCategoriesOpen(false)}
+              >
+                IT Jobs
+              </Link>
+              <Link
+                href="/jobs?category_ids=1"
+                onClick={() => setCategoriesOpen(false)}
+              >
+                IT Hub
+              </Link>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
       {!pendingSession && user?.role !== "candidate" && (

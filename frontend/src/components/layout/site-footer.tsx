@@ -1,6 +1,37 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Brand } from "./brand";
+import { Suspense } from "react";
+import { connection } from "next/server";
+import { authApiEnabled } from "@/services/auth-mode";
+import { backendRequest } from "@/services/backend-api";
+
+async function IndustryLinks() {
+  await connection();
+  if (!authApiEnabled())
+    return (
+      <>
+        <Link href="/jobs?category_ids=1">Công nghệ thông tin</Link>
+        <Link href="/jobs?category_ids=2">Marketing & truyền thông</Link>
+        <Link href="/jobs?category_ids=4">Thiết kế & sáng tạo</Link>
+      </>
+    );
+  try {
+    const response = await backendRequest<{ id: number; name: string }[]>(
+      "/categories",
+      {},
+      false,
+    );
+    return response.data.slice(0, 3).map((category) => (
+      <Link key={category.id} href={`/jobs?category_ids=${category.id}`}>
+        {category.name}
+      </Link>
+    ));
+  } catch {
+    // Secondary navigation must not prevent login or error recovery during an API outage.
+    return null;
+  }
+}
 
 export function SiteFooter() {
   return (
@@ -14,9 +45,9 @@ export function SiteFooter() {
           <h2>Khám phá việc làm</h2>
           <Link href="/jobs">Tất cả việc làm</Link>
           <Link href="/#top-companies">Doanh nghiệp tuyển dụng</Link>
-          <Link href="/jobs?category_ids=1">Công nghệ thông tin</Link>
-          <Link href="/jobs?category_ids=2">Marketing & truyền thông</Link>
-          <Link href="/jobs?category_ids=4">Thiết kế & sáng tạo</Link>
+          <Suspense fallback={null}>
+            <IndustryLinks />
+          </Suspense>
         </nav>
         <nav aria-label="Việc làm theo hình thức">
           <h2>Hình thức làm việc</h2>

@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Briefcase,
   Building2,
@@ -39,6 +40,11 @@ export function FeaturedJobs({
       aria-roledescription="carousel"
     >
       <div className="home-jobs-grid" id={id} aria-live="polite">
+        {!jobs.length && (
+          <p className="col-span-full py-10 text-center text-muted-foreground">
+            Chưa có việc làm đang tuyển. Hãy quay lại để xem các cơ hội mới.
+          </p>
+        )}
         {visible.map((job) => (
           <article
             className="home-job-card"
@@ -51,7 +57,18 @@ export function FeaturedJobs({
                 data-brand={job.brand}
                 aria-hidden="true"
               >
-                <span>{job.mark}</span>
+                {job.logo ? (
+                  <Image
+                    src={job.logo}
+                    alt=""
+                    width={56}
+                    height={56}
+                    unoptimized
+                    className="size-full object-contain"
+                  />
+                ) : (
+                  <span>{job.mark}</span>
+                )}
               </span>
               <div className="home-job-body">
                 <div className="home-job-title">
@@ -128,6 +145,7 @@ export function KeyCategories({ categories }: { categories: HomeCategory[] }) {
           <button
             type="button"
             aria-label="Nhóm ngành trước"
+            disabled={categories.length <= 5}
             aria-controls={id}
             onClick={() =>
               setStart(
@@ -140,6 +158,7 @@ export function KeyCategories({ categories }: { categories: HomeCategory[] }) {
           <button
             type="button"
             aria-label="Nhóm ngành tiếp theo"
+            disabled={categories.length <= 5}
             aria-controls={id}
             onClick={() => setStart((value) => (value + 5) % categories.length)}
           >

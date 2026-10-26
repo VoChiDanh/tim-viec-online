@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { BriefcaseBusiness, Clock3, MapPin } from "lucide-react";
 import type { Job } from "@/features/jobs/types";
 import type { AuthRole } from "@/features/auth/types";
@@ -7,7 +8,13 @@ import { formatDate, formatSalary } from "@/features/jobs/formatters";
 import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
 import { GuestActions } from "./guest-actions";
 
-export function CompanyMark({ name }: { name: string }) {
+export function CompanyMark({
+  name,
+  logo,
+}: {
+  name: string;
+  logo?: string | null;
+}) {
   const initials = name
     .split(/\s+/)
     .slice(0, 2)
@@ -15,7 +22,18 @@ export function CompanyMark({ name }: { name: string }) {
     .join("");
   return (
     <span className="company-mark" aria-hidden="true">
-      {initials}
+      {logo ? (
+        <Image
+          src={logo}
+          alt=""
+          width={56}
+          height={56}
+          unoptimized
+          className="size-full object-contain"
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }
@@ -29,7 +47,7 @@ export function JobCard({
 }) {
   return (
     <article className="job-card" data-testid="job-card">
-      <CompanyMark name={job.company.name} />
+      <CompanyMark name={job.company.name} logo={job.company.logo} />
       <div className="job-card-body">
         <div className="job-card-top">
           <div>

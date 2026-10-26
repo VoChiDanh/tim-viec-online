@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Building2, ChevronRight } from "lucide-react";
 import { FeaturedJobs, KeyCategories } from "./home-carousels";
 import { HomeSearch } from "./home-search";
@@ -15,8 +16,7 @@ export async function HomeHero() {
         <p className="home-opportunity">
           <span>
             <span>
-              Hơn <strong>45.000+</strong> cơ hội nghề nghiệp chất lượng cao
-              đang chờ đón bạn
+              Khám phá cơ hội nghề nghiệp từ các doanh nghiệp đang tuyển dụng
             </span>
             <ArrowRight size={13} aria-hidden="true" />
           </span>
@@ -24,8 +24,8 @@ export async function HomeHero() {
         <div className="home-heading">
           <h1 id="home-title">Tìm Việc Làm Mơ Ước Của Bạn Tại Việt Nam</h1>
           <p>
-            Tiếp cận hàng nghìn cơ hội nghề nghiệp với mức đãi ngộ hấp dẫn từ
-            các doanh nghiệp uy tín hàng đầu trên toàn quốc.
+            Tìm công việc phù hợp theo kỹ năng, địa điểm và mức lương mong muốn
+            của bạn.
           </p>
         </div>
         <HomeSearch cities={cities} />
@@ -83,6 +83,11 @@ export async function HomeContent() {
           </div>
         </div>
         <div className="home-companies-grid">
+          {!content.companies.length && (
+            <p className="col-span-full py-10 text-center text-muted-foreground">
+              Chưa có doanh nghiệp tuyển dụng để hiển thị.
+            </p>
+          )}
           {content.companies.map((company) => (
             <Link
               key={company.id}
@@ -94,7 +99,18 @@ export async function HomeContent() {
                 data-brand={company.brand}
                 aria-hidden="true"
               >
-                <span>{company.mark}</span>
+                {company.logo ? (
+                  <Image
+                    src={company.logo}
+                    alt=""
+                    width={64}
+                    height={64}
+                    unoptimized
+                    className="size-full object-contain"
+                  />
+                ) : (
+                  <span>{company.mark}</span>
+                )}
               </span>
               <h3>{company.name}</h3>
               <p>{company.count} việc làm</p>

@@ -15,25 +15,42 @@ import {
   HOME_COMPANIES,
   HOME_FEATURED,
 } from "../mocks/home";
-import type { HomeJobCard } from "../features/home/types";
+import type {
+  HomeJobCard,
+  HomeCategory,
+  HomeCompany,
+} from "../features/home/types";
 import { getProvinceNames } from "./locations";
 import { authApiEnabled } from "./auth-mode";
 import { backendAll, backendRequest } from "./backend-api";
 import { ApiError } from "@/features/api/types";
-import { mapJob, mapCompanyProfile, backendJobQuery, record } from "@/features/jobs/api";
+import {
+  mapJob,
+  mapCompanyProfile,
+  backendJobQuery,
+  record,
+} from "@/features/jobs/api";
 
 // React cache deduplicates reads within one server render without caching private data across users.
 export const getJobRepository = cache(async () => {
   await connection();
   const now = new Date();
-  if (authApiEnabled()) return { jobs: (await backendAll<unknown>("/jobs", false)).map(mapJob), today: vietnamToday(now) };
+  if (authApiEnabled())
+    return {
+      jobs: (await backendAll<unknown>("/jobs", false)).map(mapJob),
+      today: vietnamToday(now),
+    };
   return {
     jobs: [...createJobFixtures(now), ...createHomeJobFixtures(now)],
     today: vietnamToday(now),
   };
 });
 
-export const getHomeContent = cache(async function getHomeContent() {
+export const getHomeContent = cache(async function getHomeContent(): Promise<{
+  jobs: HomeJobCard[];
+  categories: HomeCategory[];
+  companies: HomeCompany[];
+}> {
   if (authApiEnabled()) {
     const [listing, categoryResponse, companyRows] = await Promise.all([
       backendRequest<unknown[]>("/jobs?per_page=12", {}, false),
@@ -41,14 +58,39 @@ export const getHomeContent = cache(async function getHomeContent() {
       backendAll<unknown>("/companies", false),
     ]);
     return {
-      jobs: listing.data.map(mapJob).map(job => ({ id: job.id, title: job.title, company: job.company.name,
-        salary: formatSalary(job), city: job.city, mark: job.company.name.split(/\s+/).map(w => w[0]).slice(0, 3).join(""), brand: "generic", featured: false })),
-      categories: categoryResponse.data.map(value => { const category = record(value); return {
-        name: String(category.name ?? ""), count: Number(category.jobs_count ?? category.active_jobs_count ?? 0),
-        icon: "briefcase" as const, href: `/jobs?category_ids=${Number(category.id)}`,
-      }; }),
-      companies: companyRows.map(mapCompanyProfile).map(company => ({ id: company.id, name: company.name,
-        mark: company.mark, brand: "generic", count: company.active_jobs_count, location: company.city })),
+      jobs: listing.data.map(mapJob).map((job) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company.name,
+        salary: formatSalary(job),
+        city: job.city,
+        logo: job.company.logo,
+        mark: job.company.name
+          .split(/\s+/)
+          .map((w) => w[0])
+          .slice(0, 3)
+          .join(""),
+        brand: "generic",
+        featured: false,
+      })),
+      categories: categoryResponse.data.map((value) => {
+        const category = record(value);
+        return {
+          name: String(category.name ?? ""),
+          count: Number(category.jobs_count ?? category.active_jobs_count ?? 0),
+          icon: "briefcase" as const,
+          href: `/jobs?category_ids=${Number(category.id)}`,
+        };
+      }),
+      companies: companyRows.map(mapCompanyProfile).map((company) => ({
+        id: company.id,
+        name: company.name,
+        mark: company.mark,
+        logo: company.logo,
+        brand: "generic",
+        count: company.active_jobs_count,
+        location: company.city,
+      })),
     };
   }
   const { jobs, today } = await getJobRepository();
@@ -91,21 +133,40 @@ export const getHomeContent = cache(async function getHomeContent() {
 
 export async function listJobs(query: JobQuery) {
   if (authApiEnabled()) {
-    const response = await backendRequest<unknown[]>(backendJobQuery(query), {}, false);
+    const response = await backendRequest<unknown[]>(
+      backendJobQuery(query),
+      {},
+      false,
+    );
     const meta = response.meta;
-    return { data: response.data.map(mapJob), meta: { total: Number(meta?.total ?? 0), page: Number(meta?.current_page ?? query.page),
-      per_page: Number(meta?.per_page ?? 6), last_page: Math.max(1, Number(meta?.last_page ?? 1)) } };
+    return {
+      data: response.data.map(mapJob),
+      meta: {
+        total: Number(meta?.total ?? 0),
+        page: Number(meta?.current_page ?? query.page),
+        per_page: Number(meta?.per_page ?? 6),
+        last_page: Math.max(1, Number(meta?.last_page ?? 1)),
+      },
+    };
   }
   const { jobs, today } = await getJobRepository();
   return paginateJobs(filterJobs(jobs, query, today), query.page);
 }
 
-export const getJob = cache(async function getJob(id: string | number): Promise<Job | null> {
+export const getJob = cache(async function getJob(
+  id: string | number,
+): Promise<Job | null> {
   if (!/^[1-9]\d*$/.test(String(id)) || !Number.isSafeInteger(Number(id)))
     return null;
   if (authApiEnabled()) {
-    try { return mapJob((await backendRequest<unknown>(`/jobs/${id}`, {}, false)).data); }
-    catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
+    try {
+      return mapJob(
+        (await backendRequest<unknown>(`/jobs/${id}`, {}, false)).data,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
   }
   const { jobs } = await getJobRepository();
   return jobs.find((job) => job.id === Number(id)) ?? null;
@@ -113,8 +174,18 @@ export const getJob = cache(async function getJob(id: string | number): Promise<
 
 export const getJobCatalog = cache(async function getJobCatalog() {
   if (authApiEnabled()) {
-    const [response, cities] = await Promise.all([backendRequest<unknown[]>("/categories", {}, false), getProvinceNames()]);
-    return { categories: response.data.map(value => { const dto = record(value); return { id: Number(dto.id), name: String(dto.name) }; }), cities, levels: [...JOB_LEVELS] };
+    const [response, cities] = await Promise.all([
+      backendRequest<unknown[]>("/categories", {}, false),
+      getProvinceNames(),
+    ]);
+    return {
+      categories: response.data.map((value) => {
+        const dto = record(value);
+        return { id: Number(dto.id), name: String(dto.name) };
+      }),
+      cities,
+      levels: [...JOB_LEVELS],
+    };
   }
   return {
     categories: JOB_CATEGORIES,
@@ -125,9 +196,17 @@ export const getJobCatalog = cache(async function getJobCatalog() {
 
 export async function findRelatedJobs(job: Job, limit = 3): Promise<Job[]> {
   if (authApiEnabled()) {
-    const count = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 99) : 3;
-    const response = await backendRequest<unknown[]>(`/jobs?category_id=${job.category_id}&per_page=${count + 1}`, {}, false);
-    return response.data.map(mapJob).filter(item => item.id !== job.id).slice(0, count);
+    const count =
+      Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 99) : 3;
+    const response = await backendRequest<unknown[]>(
+      `/jobs?category_id=${job.category_id}&per_page=${count + 1}`,
+      {},
+      false,
+    );
+    return response.data
+      .map(mapJob)
+      .filter((item) => item.id !== job.id)
+      .slice(0, count);
   }
   const { jobs, today } = await getJobRepository();
   const count = Number.isSafeInteger(limit) && limit > 0 ? limit : 3;

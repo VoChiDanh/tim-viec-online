@@ -1,10 +1,11 @@
 import type { CompanyProfile } from "@/features/companies/types";
+import Image from "next/image";
 
 export function CompanyAvatar({
   company,
   large = false,
 }: {
-  company: Pick<CompanyProfile, "mark" | "brand">;
+  company: Pick<CompanyProfile, "mark" | "brand" | "logo">;
   large?: boolean;
 }) {
   return (
@@ -13,7 +14,18 @@ export function CompanyAvatar({
       data-brand={company.brand}
       aria-hidden="true"
     >
-      <span>{company.mark}</span>
+      {company.logo ? (
+        <Image
+          src={company.logo}
+          alt=""
+          width={80}
+          height={80}
+          unoptimized
+          className="size-full object-contain"
+        />
+      ) : (
+        <span>{company.mark}</span>
+      )}
     </span>
   );
 }

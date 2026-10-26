@@ -22,6 +22,7 @@ import { GuestActions } from "@/components/jobs/guest-actions";
 import { JobCard, CompanyMark } from "@/components/jobs/job-card";
 import { JobsSkeleton } from "@/components/jobs/jobs-skeleton";
 import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
+import { authApiEnabled } from "@/services/auth-mode";
 
 type DetailProps = { params: Promise<{ id: string }> };
 export async function generateMetadata({
@@ -68,7 +69,7 @@ async function JobDetail({ params }: DetailProps) {
       </nav>
       <section className="surface detail-summary">
         <div className="detail-heading">
-          <CompanyMark name={job.company.name} />
+          <CompanyMark name={job.company.name} logo={job.company.logo} />
           <div>
             <p className="company-name">
               <Link href={`/companies/${job.company_id}`}>
@@ -109,7 +110,9 @@ async function JobDetail({ params }: DetailProps) {
           </p>
         )}
         <GuestActions jobId={job.id} open={open} viewerRole={user?.role} />
-        <p className="detail-demo">Dữ liệu việc làm minh họa.</p>
+        {!authApiEnabled() && (
+          <p className="detail-demo">Dữ liệu việc làm minh họa.</p>
+        )}
       </section>
       <div className="results-layout detail-layout">
         <div>
@@ -149,7 +152,7 @@ async function JobDetail({ params }: DetailProps) {
         </div>
         <aside className="discovery-sidebar">
           <section className="surface company-summary" id="company">
-            <CompanyMark name={job.company.name} />
+            <CompanyMark name={job.company.name} logo={job.company.logo} />
             <h2>
               <Link href={`/companies/${job.company_id}`}>
                 {job.company.name}
