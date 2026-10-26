@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Events\MessageSent;
 use App\Events\MessagesRead;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StartConversationRequest;
 use App\Models\Application;
 use App\Models\Conversation;
 use App\Models\Job;
@@ -40,7 +41,11 @@ class ChatController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $data = $conversations->map(function ($conv) use ($userId) {
+        $applications = Application::whereIn('job_id', $conversations->pluck('job_id'))
+            ->with('candidateProfile')->get()
+            ->keyBy(fn ($application) => $application->job_id.':'.$application->candidateProfile?->user_id);
+
+        $data = $conversations->map(function ($conv) use ($userId, $applications) {
             $isCandidate = (int) $userId === (int) $conv->candidate_id;
             $partner = $isCandidate ? $conv->employer : $conv->candidate;
             $partnerName = $isCandidate
@@ -71,6 +76,9 @@ class ChatController extends Controller
 
             return [
                 'id' => $conv->id,
+                'candidate_id' => $conv->candidate_id,
+                'employer_id' => $conv->employer_id,
+                'application_id' => $applications->get($conv->job_id.':'.$conv->candidate_id)?->id,
                 'job_id' => $conv->job_id,
                 'job_title' => $conv->job?->title,
                 'job_status' => $conv->job?->status,
@@ -110,14 +118,9 @@ class ChatController extends Controller
     /**
      * Mở hoặc tạo mới cuộc trò chuyện giữa NTD và Ứng viên (FR-08.1)
      */
-    public function startConversation(Request $request): JsonResponse
+    public function startConversation(StartConversationRequest $request): JsonResponse
     {
         $user = $request->user();
-
-        $request->validate([
-            'job_id' => ['required', 'integer', 'exists:jobs,id'],
-            'partner_id' => ['required', 'integer', 'exists:users,id'],
-        ]);
 
         $job = Job::with('company.user')->find($request->job_id);
 
@@ -130,7 +133,7 @@ class ChatController extends Controller
 
         if ($user->isCandidate()) {
             $candidateId = $user->id;
-            $employerId = (int) $request->partner_id;
+            $employerId = (int) ($request->partner_id ?? $job->company?->user_id);
 
             // Kiểm tra partner_id có phải là NTD sở hữu tin này không
             if (!$job->company || (int) $job->company->user_id !== $employerId) {

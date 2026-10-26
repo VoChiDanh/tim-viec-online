@@ -110,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/jobs/{id}/status', [JobController::class, 'toggleStatus']);
 
         // Applicant Management
+        Route::get('/applications', [ApplicationController::class, 'employerApplications']);
         Route::get('/jobs/{id}/applications', [ApplicationController::class, 'jobApplicants']);
         Route::get('/applications/{id}', [ApplicationController::class, 'showEmployerApplication']);
         Route::patch('/applications/{id}/status', [ApplicationController::class, 'updateStatus']);

@@ -9,6 +9,8 @@ abstract class TestCase extends BaseTestCase
     protected function refreshApplication(): void
     {
         parent::refreshApplication();
+        // Existing analysis contract tests opt in; runtime defaults to deferred.
+        config(['services.gemini.enabled' => true]);
 
         // This runs before RefreshDatabase and its migrate:fresh operation.
         $expected = (string) env('TEST_DB_NAME', 'tim_viec_online_test');

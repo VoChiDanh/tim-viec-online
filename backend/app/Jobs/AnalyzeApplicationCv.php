@@ -35,6 +35,11 @@ class AnalyzeApplicationCv implements ShouldQueue
         if (! $application) {
             return;
         }
+        if (! config('services.gemini.enabled')) {
+            $application->update(['ai_analysis_status' => 'deferred', 'ai_analysis_error' => null]);
+
+            return;
+        }
         if ($application->aiAnalysis) {
             $application->update(['ai_analysis_status' => 'completed', 'ai_analysis_error' => null]);
 

@@ -76,7 +76,8 @@ class JobController extends Controller
 
         // Lọc theo Tỉnh/Thành phố (City)
         if ($request->filled('city')) {
-            $query->where('city', $request->input('city'));
+            $city = preg_replace('/^(?:TP\.?|Thành phố|Tỉnh)\s+/iu', '', trim($request->input('city')));
+            $query->whereIn('city', [$city, 'TP. '.$city, 'TP '.$city, 'Thành phố '.$city, 'Tỉnh '.$city]);
         }
 
         // Lọc theo hình thức làm việc (Job Type)
@@ -123,8 +124,25 @@ class JobController extends Controller
             }
         }
 
-        // FR-05.4: Sắp xếp theo thứ tự đẩy tin mới nhất (updated_at giảm dần)
-        $query->orderBy('updated_at', 'desc');
+        if ($request->filled('level')) {
+            $level = $request->string('level')->toString();
+            $query->whereIn('job_level', strtolower($level) === 'middle' ? [$level, 'mid'] : [$level]);
+        }
+        // Whitelisted ordering is applied before pagination, with stable tie breaks.
+        $sort = $request->input('sort', 'default');
+        if ($sort === 'relevance' && $request->filled('keyword')) {
+            $keyword = '%'.trim($request->input('keyword')).'%';
+            $query->orderByRaw('(CASE WHEN jobs.title LIKE ? THEN 3 ELSE 0 END + '
+                .'CASE WHEN EXISTS (SELECT 1 FROM job_skills JOIN skills ON skills.id = job_skills.skill_id WHERE job_skills.job_id = jobs.id AND skills.name LIKE ?) THEN 2 ELSE 0 END + '
+                .'CASE WHEN EXISTS (SELECT 1 FROM companies WHERE companies.id = jobs.company_id AND companies.name LIKE ?) THEN 1 ELSE 0 END) DESC',
+                [$keyword, $keyword, $keyword]);
+        }
+        match ($sort) {
+            'salary_desc' => $query->orderBy('is_negotiable')->orderByRaw('COALESCE(salary_max, salary_min, 0) DESC'),
+            'newest' => $query->orderByDesc('created_at'),
+            default => $query->orderByDesc('updated_at'),
+        };
+        $query->orderByDesc('id');
 
         $perPage = (int) $request->input('per_page', 10);
         $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 10;

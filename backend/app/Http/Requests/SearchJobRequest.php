@@ -38,6 +38,8 @@ class SearchJobRequest extends FormRequest
             'skill_ids.*' => 'integer|distinct|exists:skills,id',
             'per_page' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
+            'level' => 'nullable|string|max:50',
+            'sort' => 'nullable|in:default,relevance,salary_desc,newest',
         ];
     }
 

@@ -38,6 +38,10 @@ class AiAnalysisController extends Controller
             ], 403);
         }
 
+        if (! config('services.gemini.enabled')) {
+            return response()->json(['success' => false, 'message' => 'Phân tích AI chưa được bật.'], 503);
+        }
+
         // 3. Kiểm tra file CV có tồn tại không
         if (! $application->cv_path) {
             return response()->json([

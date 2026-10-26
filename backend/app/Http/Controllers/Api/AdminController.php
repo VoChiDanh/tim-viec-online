@@ -271,7 +271,7 @@ class AdminController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $query = Job::query()->with(['company.user', 'category', 'skills']);
+        $query = Job::query()->with(['company.user', 'category', 'skills'])->withCount('applications');
 
         if ($request->boolean('reported')) {
             $query->where('is_reported', 1);
@@ -306,7 +306,7 @@ class AdminController extends Controller
      */
     public function jobDetail($id): JsonResponse
     {
-        $job = Job::with(['company.user', 'category', 'skills', 'applications.candidateProfile.user'])->find($id);
+        $job = Job::with(['company.user', 'category', 'skills', 'applications.candidateProfile.user'])->withCount('applications')->find($id);
 
         if (!$job) {
             return response()->json([
@@ -328,6 +328,7 @@ class AdminController extends Controller
     public function getReportedJobs(Request $request): JsonResponse
     {
         $query = Job::with(['company.user', 'category', 'skills'])
+            ->withCount('applications')
             ->with(['reports.reporter'])
             ->where('is_reported', 1)
             ->latest();

@@ -112,7 +112,7 @@ class ApplicationController extends Controller
                     'cv_path' => $cvPath,
                     'cover_letter' => $request->cover_letter,
                     'status' => 'applied',
-                    'ai_analysis_status' => 'pending',
+                    'ai_analysis_status' => config('services.gemini.enabled') ? 'pending' : 'deferred',
                 ]);
                 $currentJob->touch();
 
@@ -164,7 +164,9 @@ class ApplicationController extends Controller
 
         // Keep application submission fast; analysis runs in the configured queue.
         try {
-            AnalyzeApplicationCv::dispatch($application->id);
+            if (config('services.gemini.enabled')) {
+                AnalyzeApplicationCv::dispatch($application->id);
+            }
         } catch (\Throwable $exception) {
             $application->update([
                 'ai_analysis_status' => 'failed',
@@ -299,6 +301,29 @@ class ApplicationController extends Controller
     /**
      * [Employer] Danh sách ứng viên nộp cho một tin tuyển dụng
      */
+    public function employerApplications(Request $request): JsonResponse
+    {
+        $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $applications = Application::whereHas('job.company', function ($query) use ($request) {
+            $query->where('user_id', $request->user()->id);
+        })->with(['job.company', 'candidateProfile.user', 'candidateProfile.skills'])
+            ->orderByDesc('id')->paginate((int) $request->input('per_page', 50));
+
+        return response()->json([
+            'success' => true,
+            'data' => ApplicationResource::collection($applications),
+            'meta' => [
+                'current_page' => $applications->currentPage(),
+                'last_page' => $applications->lastPage(),
+                'per_page' => $applications->perPage(),
+                'total' => $applications->total(),
+            ],
+        ]);
+    }
+
     public function jobApplicants(Request $request, $jobId): JsonResponse
     {
         $request->validate([
@@ -368,7 +393,7 @@ class ApplicationController extends Controller
         }
 
         // Đảm bảo AI analysis tồn tại
-        if (! $application->aiAnalysis && $application->ai_analysis_status !== 'pending') {
+        if (config('services.gemini.enabled') && ! $application->aiAnalysis && $application->ai_analysis_status !== 'pending') {
             $application->update(['ai_analysis_status' => 'pending', 'ai_analysis_error' => null]);
             try {
                 AnalyzeApplicationCv::dispatch($application->id);
