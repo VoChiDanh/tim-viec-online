@@ -1,66 +1,50 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+﻿# TimViecOnline Backend API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 API (PHP 8.2+) for the job-search coursework project. PR #3 maintainer fixes upgrade the framework from 11 to 12.70.1 to address dependency advisories; Sanctum, Reverb and the existing API routes remain in use. See the root [SRS](../docs/SRS.md), [Backend Guide](../BACKEND_GUIDE.md), [Testing Guide](../BACKEND_TESTING_GUIDE.md), and [API Checklist](../API_CHECKLIST.md).
 
-## About Laravel
+## Current implementation status
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Backend has auth, profiles/files, company/job CRUD/search, applications, queued AI analysis, chat, notifications, admin moderation, job reports, migrations, and API validation. The frontend in this checkout is still the default Next.js starter page, so the complete user-facing product is not implemented. External mail, Gemini, Reverb, production CV migration, performance, and uptime have not been verified here.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Local setup
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Requires PHP 8.2+, Composer, MySQL/MariaDB with PDO MySQL, and fileinfo.
 
-## Learning Laravel
+```powershell
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Set local `DB_*` values and create a fresh development database. Then:
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```powershell
+php artisan migrate --seed
+php artisan storage:link
+php artisan serve --host=127.0.0.1 --port=8000
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+`migrate:fresh` drops all tables; only use it on a disposable dev/test database. `DatabaseSeeder` seeds categories and skills. To create a local admin, set `ADMIN_EMAIL` and a password of at least 12 characters in `.env` before seeding; the seeder will not promote an existing non-admin account. Do not depend on SQL dump demo credentials in production.
 
-## Laravel Sponsors
+For background AI and realtime features, run separate processes:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```powershell
+php artisan queue:work --tries=2 --timeout=60
+php artisan reverb:start
+php artisan schedule:work
+```
 
-### Premium Partners
+Configure `GEMINI_API_KEY`, `GEMINI_MODEL`, SMTP/mail and Reverb in `.env` only when those integrations are required. Queue worker is required for database queue processing; scheduler marks expired job listings.
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+## Safe verification
 
-## Contributing
+```powershell
+php artisan route:list --path=api
+php artisan migrate:status
+php artisan test
+composer validate --no-check-publish
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The current PHPUnit suite is only Laravel example tests, not FR acceptance coverage. Do not run `test_all_backend.php`: it can mutate/delete accounts, jobs, and tokens and is not isolated. Do not run migrations against a database with data that must be preserved.
 
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The SQL file `../db/tim_viec_online.sql` is a standalone demo import and includes demo accounts; rotate/remove them before any shared deployment. New CVs and chat images are private. Before retiring legacy public uploads, back up the database/storage and run `php artisan storage:secure-legacy-cvs` to copy and verify; use `--delete-source` only after reviewing results.
