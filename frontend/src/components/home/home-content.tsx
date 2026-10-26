@@ -1,7 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowRight, Building2, ChevronRight } from "lucide-react";
-import { FeaturedJobs, KeyCategories } from "./home-carousels";
+import { FeaturedJobs, KeyCategories, TopCompanies } from "./home-carousels";
 import { HomeSearch } from "./home-search";
 import { getHomeContent } from "@/services/jobs";
 import { getCurrentUser } from "@/services/auth-session";
@@ -82,42 +81,7 @@ export async function HomeContent() {
             </p>
           </div>
         </div>
-        <div className="home-companies-grid">
-          {!content.companies.length && (
-            <p className="col-span-full py-10 text-center text-muted-foreground">
-              Chưa có doanh nghiệp tuyển dụng để hiển thị.
-            </p>
-          )}
-          {content.companies.map((company) => (
-            <Link
-              key={company.id}
-              href={`/companies/${company.id}`}
-              className="home-company-card"
-            >
-              <span
-                className="home-company-mark"
-                data-brand={company.brand}
-                aria-hidden="true"
-              >
-                {company.logo ? (
-                  <Image
-                    src={company.logo}
-                    alt=""
-                    width={64}
-                    height={64}
-                    unoptimized
-                    className="size-full object-contain"
-                  />
-                ) : (
-                  <span>{company.mark}</span>
-                )}
-              </span>
-              <h3>{company.name}</h3>
-              <p>{company.count} việc làm</p>
-              <span>{company.location}</span>
-            </Link>
-          ))}
-        </div>
+        <TopCompanies companies={content.companies} />
       </section>
       <section className="home-employer" aria-labelledby="home-employer-title">
         <div className="home-employer-copy">

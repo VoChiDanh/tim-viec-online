@@ -16,7 +16,11 @@ import {
   Users,
 } from "lucide-react";
 import { GuestActions } from "@/components/jobs/guest-actions";
-import type { HomeCategory, HomeJobCard } from "@/features/home/types";
+import type {
+  HomeCategory,
+  HomeCompany,
+  HomeJobCard,
+} from "@/features/home/types";
 import type { AuthRole } from "@/features/auth/types";
 
 export function FeaturedJobs({
@@ -112,6 +116,85 @@ export function FeaturedJobs({
             />
           ))}
         </nav>
+      )}
+    </div>
+  );
+}
+
+export function TopCompanies({ companies }: { companies: HomeCompany[] }) {
+  const id = useId();
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
+  const pages = Math.ceil(companies.length / pageSize);
+  const currentPage = Math.min(page, Math.max(0, pages - 1));
+  const visible = companies.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
+  );
+
+  return (
+    <div>
+      <div
+        className={`home-companies-grid${pages > 1 ? " home-companies-grid--paged" : ""}`}
+        id={id}
+      >
+        {!companies.length && (
+          <p className="col-span-full py-10 text-center text-muted-foreground">
+            Chưa có doanh nghiệp tuyển dụng để hiển thị.
+          </p>
+        )}
+        {visible.map((company) => (
+          <Link
+            key={company.id}
+            href={`/companies/${company.id}`}
+            className="home-company-card"
+            title={company.name}
+          >
+            <span
+              className="home-company-mark"
+              data-brand={company.brand}
+              aria-hidden="true"
+            >
+              {company.logo ? (
+                <Image
+                  src={company.logo}
+                  alt=""
+                  width={64}
+                  height={64}
+                  unoptimized
+                  className="size-full object-contain"
+                />
+              ) : (
+                <span>{company.mark}</span>
+              )}
+            </span>
+            <h3>{company.name}</h3>
+            <p>{company.count} việc làm</p>
+            <span>{company.location}</span>
+          </Link>
+        ))}
+      </div>
+      {pages > 1 && (
+        <>
+          <p className="sr-only" role="status">
+            Trang doanh nghiệp {currentPage + 1} trên {pages}
+          </p>
+          <nav
+            className="home-pagination home-company-pagination"
+            aria-label="Nhóm doanh nghiệp nổi bật"
+          >
+            {Array.from({ length: pages }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label={`Nhóm doanh nghiệp ${index + 1}`}
+                aria-controls={id}
+                aria-current={currentPage === index ? "true" : undefined}
+                onClick={() => setPage(index)}
+              />
+            ))}
+          </nav>
+        </>
       )}
     </div>
   );

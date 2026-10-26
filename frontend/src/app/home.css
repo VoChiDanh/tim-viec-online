@@ -589,6 +589,16 @@
   background: var(--home-navy);
 }
 
+.home-company-pagination {
+  flex-wrap: wrap;
+}
+
+.home-companies-grid--paged {
+  align-content: start;
+  grid-auto-rows: minmax(160px, auto);
+  min-height: calc(3 * 160px + 2 * 14.4px);
+}
+
 .home-category-actions {
   display: flex;
   flex-shrink: 0;
@@ -932,6 +942,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .home-companies-grid--paged {
+    min-height: calc(2 * 160px + 14.4px);
+  }
+
   .home-employer h2 {
     font-size: 30px;
   }
@@ -963,6 +977,10 @@
 
   .home-companies-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .home-companies-grid--paged {
+    min-height: 160px;
   }
 
   .home-employer {
