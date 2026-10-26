@@ -22,7 +22,6 @@ import { GuestActions } from "@/components/jobs/guest-actions";
 import { JobCard, CompanyMark } from "@/components/jobs/job-card";
 import { JobsSkeleton } from "@/components/jobs/jobs-skeleton";
 import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
-import { CompanyReferenceNotice } from "@/components/companies/company-reference-notice";
 import { authApiEnabled } from "@/services/auth-mode";
 
 type DetailProps = { params: Promise<{ id: string }> };
@@ -68,7 +67,6 @@ async function JobDetail({ params }: DetailProps) {
         <span aria-hidden="true">/</span>
         <span>{job.company.name}</span>
       </nav>
-      <CompanyReferenceNotice company={job.company} />
       <section className="surface detail-summary">
         <div className="detail-heading">
           <CompanyMark name={job.company.name} logo={job.company.logo} />

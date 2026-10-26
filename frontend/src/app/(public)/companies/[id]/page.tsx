@@ -15,7 +15,6 @@ import { companyWebsite } from "@/features/companies/query";
 import { CompanyAvatar } from "@/components/companies/company-avatar";
 import { CompanyJobCard } from "@/components/companies/company-job-card";
 import { CompanyShare } from "@/components/companies/company-share";
-import { CompanyReferenceNotice } from "@/components/companies/company-reference-notice";
 import { CompaniesSkeleton } from "@/components/companies/companies-skeleton";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { authApiEnabled } from "@/services/auth-mode";
@@ -64,7 +63,6 @@ async function Profile({ params }: Props) {
         <span aria-hidden="true">/</span>
         <span>{company.short_name}</span>
       </nav>
-      <CompanyReferenceNotice company={company} />
       <div className="company-cover" aria-hidden="true" />
       <section
         className="company-profile-heading"

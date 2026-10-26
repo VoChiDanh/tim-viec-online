@@ -9,7 +9,7 @@ Catalog gồm 121 doanh nghiệp có hoạt động tại Việt Nam, thu thập
 - Khi áp dụng, ảnh được chép vào `backend/storage/app/public/company_logos/real/` và phục vụ qua `/storage/company_logos/real/...png`.
 - `companies.avatar` và `companies.logo` lưu cùng đường dẫn tương đối. API trả cả `avatar` và `logo` dưới dạng URL; frontend ưu tiên avatar, vẫn hỗ trợ dữ liệu logo cũ. Upload logo/avatar mới đồng bộ hai trường.
 - `companies.reference_sources` lưu URL hồ sơ chính thức, URL ảnh nhận diện gốc, tiêu đề trang, ngày thu thập và SHA-256 của PNG. Mỗi ảnh có nguồn riêng trong catalog; không dùng dịch vụ favicon tổng hợp hoặc hotlink ảnh ngoài khi duyệt web.
-- `companies.is_demo=true` nhận diện các hồ sơ tham khảo. Trang công ty và chi tiết việc làm hiển thị thông tin minh họa cùng liên kết tới nguồn chính thức.
+- `companies.is_demo=true` nhận diện các hồ sơ tham khảo. Thông tin xuất xứ được giữ trong catalog và API; trang công ty và chi tiết việc làm không hiển thị khung thông báo tham khảo theo yêu cầu giao diện.
 
 Tên thương hiệu không luôn là tên pháp nhân đăng ký đầy đủ. Mô tả là tóm tắt ngắn về lĩnh vực hoạt động, không sao chép toàn bộ nội dung website và không thêm phúc lợi hay lời cam kết tuyển dụng. Địa chỉ chỉ được điền khi tìm thấy địa điểm công khai rõ ràng trên nguồn; hiện có 65 hồ sơ có địa chỉ được đối chiếu. Đó có thể là văn phòng/cơ sở hoạt động, không khẳng định luôn là trụ sở pháp lý. Giữ nguyên cách ghi địa chỉ của nguồn, kể cả khi nguồn dùng tên đơn vị hành chính cũ. Trường chưa xác minh được để `null`, không dùng địa chỉ hoặc quy mô giả của seed.
 
