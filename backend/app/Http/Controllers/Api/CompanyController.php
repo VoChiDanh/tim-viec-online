@@ -34,8 +34,8 @@ class CompanyController extends Controller
             $keyword = trim($request->input('keyword'));
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('description', 'like', "%{$keyword}%")
-                  ->orWhere('address', 'like', "%{$keyword}%");
+                    ->orWhere('description', 'like', "%{$keyword}%")
+                    ->orWhere('address', 'like', "%{$keyword}%");
             });
         }
 
@@ -75,7 +75,7 @@ class CompanyController extends Controller
             },
         ])->find($id);
 
-        if (!$company) {
+        if (! $company) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy thông tin công ty',
@@ -120,11 +120,13 @@ class CompanyController extends Controller
         );
 
         // Xử lý upload Logo công ty
-        if ($request->hasFile('logo')) {
-            if ($company->logo && !filter_var($company->logo, FILTER_VALIDATE_URL) && Storage::disk('public')->exists($company->logo)) {
+        if ($request->hasFile('logo') || $request->hasFile('avatar')) {
+            if ($company->logo && ! filter_var($company->logo, FILTER_VALIDATE_URL) && Storage::disk('public')->exists($company->logo)) {
                 Storage::disk('public')->delete($company->logo);
             }
-            $company->logo = $request->file('logo')->store('company_logos', 'public');
+            $image = $request->file('avatar') ?? $request->file('logo');
+            $company->logo = $image->store('company_logos', 'public');
+            $company->avatar = $company->logo;
         }
 
         // Cập nhật thông tin

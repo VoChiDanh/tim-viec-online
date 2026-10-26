@@ -15,16 +15,20 @@ class CompanyResource extends JsonResource
     public function toArray(Request $request): array
     {
         $logoUrl = null;
-        if ($this->logo) {
-            $logoUrl = filter_var($this->logo, FILTER_VALIDATE_URL)
-                ? $this->logo
-                : asset('storage/' . ltrim($this->logo, '/'));
+        $avatar = $this->avatar ?: $this->logo;
+        if ($avatar) {
+            $logoUrl = filter_var($avatar, FILTER_VALIDATE_URL)
+                ? $avatar
+                : asset('storage/'.ltrim($avatar, '/'));
         }
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'logo' => $logoUrl,
+            'avatar' => $logoUrl,
+            'is_demo' => (bool) $this->is_demo,
+            'reference_sources' => $this->reference_sources,
             'website' => $this->website,
             'company_size' => $this->company_size,
             'size' => $this->company_size, // Alias cho FR-04.7

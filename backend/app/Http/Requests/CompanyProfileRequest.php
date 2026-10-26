@@ -16,13 +16,13 @@ class CompanyProfileRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         // Hỗ trợ alias size -> company_size
-        if ($this->has('size') && !$this->has('company_size')) {
+        if ($this->has('size') && ! $this->has('company_size')) {
             $this->merge(['company_size' => $this->input('size')]);
         }
 
         // Tự động chuẩn hóa protocol website nếu người dùng chỉ nhập domain
-        if ($this->filled('website') && !preg_match('~^(?:f|ht)tps?://~i', (string) $this->input('website'))) {
-            $this->merge(['website' => 'https://' . $this->input('website')]);
+        if ($this->filled('website') && ! preg_match('~^(?:f|ht)tps?://~i', (string) $this->input('website'))) {
+            $this->merge(['website' => 'https://'.$this->input('website')]);
         }
     }
 
@@ -36,6 +36,7 @@ class CompanyProfileRequest extends FormRequest
             'city' => ['required', 'string', 'max:100'],
             'description' => ['required', 'string'],
             'logo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
         ];
     }
 
