@@ -63,15 +63,18 @@ export function EmployerCandidates() {
   const searchId = useId();
   const filterId = useId();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { applications, jobs, today } = useEmployer();
+  const { applications, jobs, today, apiMode } = useEmployer();
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const jobId = params.get("job_id") ?? "";
   const status = params.get("status") ?? "";
-  const minimum = params.get("match_score") ?? "";
+  const minimum = apiMode ? "" : (params.get("match_score") ?? "");
   const keyword = params.get("keyword") ?? "";
-  const sort = params.get("sort") ?? "score";
+  const sort =
+    apiMode && params.get("sort") === "score"
+      ? "newest"
+      : (params.get("sort") ?? (apiMode ? "newest" : "score"));
   const selectedJob = jobs.find((job) => String(job.id) === jobId);
   const jobApplications = applications.filter(
     (application) => !jobId || String(application.job_id) === jobId,
@@ -143,7 +146,11 @@ export function EmployerCandidates() {
           Tin nhắn ứng viên
         </Link>
       </div>
-      <section className="ec-overview" aria-label="Thống kê hồ sơ">
+      <section
+        className="ec-overview"
+        data-api={apiMode}
+        aria-label="Thống kê hồ sơ"
+      >
         {[
           {
             label: "Tổng hồ sơ",
@@ -155,15 +162,19 @@ export function EmployerCandidates() {
             count: jobApplications.filter((a) => a.status === "applied").length,
             note: "Chưa xem CV ứng tuyển",
           },
-          {
-            label: "Phù hợp từ 80%",
-            count: jobApplications.filter(
-              (a) =>
-                a.status !== "withdrawn" &&
-                (a.analysis?.match_score ?? 0) >= 80,
-            ).length,
-            note: "Đánh giá theo tin ứng tuyển",
-          },
+          ...(!apiMode
+            ? [
+                {
+                  label: "Phù hợp từ 80%",
+                  count: jobApplications.filter(
+                    (a) =>
+                      a.status !== "withdrawn" &&
+                      (a.analysis?.match_score ?? 0) >= 80,
+                  ).length,
+                  note: "Đánh giá theo tin ứng tuyển",
+                },
+              ]
+            : []),
           {
             label: "Đã trúng tuyển",
             count: jobApplications.filter((a) => a.status === "accepted")
@@ -253,17 +264,19 @@ export function EmployerCandidates() {
                 onValueChange={(value) => filter("status", value)}
               />
             </div>
-            <div className="ep-field">
-              <span className="ec-field-label">Điểm phù hợp AI</span>
-              <SelectionField
-                name="match_score"
-                label="Lọc điểm phù hợp AI"
-                placeholder="Tất cả mức điểm"
-                options={scoreOptions}
-                value={minimum}
-                onValueChange={(value) => filter("match_score", value)}
-              />
-            </div>
+            {!apiMode && (
+              <div className="ep-field">
+                <span className="ec-field-label">Điểm phù hợp AI</span>
+                <SelectionField
+                  name="match_score"
+                  label="Lọc điểm phù hợp AI"
+                  placeholder="Tất cả mức điểm"
+                  options={scoreOptions}
+                  value={minimum}
+                  onValueChange={(value) => filter("match_score", value)}
+                />
+              </div>
+            )}
           </div>
           <div className="ec-job-meta">
             {selectedJob ? (
@@ -321,7 +334,11 @@ export function EmployerCandidates() {
               label="Sắp xếp hồ sơ"
               placeholder="Điểm AI cao nhất"
               clearable={false}
-              options={sortOptions}
+              options={
+                apiMode
+                  ? sortOptions.filter((option) => option.value !== "score")
+                  : sortOptions
+              }
               value={sort}
               onValueChange={(value) => filter("sort", value || "score")}
             />
@@ -381,7 +398,7 @@ export function EmployerCandidates() {
                       </span>
                     ) : (
                       <span className="ec-analysis-pending">
-                        Chưa có điểm AI
+                        {apiMode ? "AI chưa triển khai" : "Chưa có điểm AI"}
                       </span>
                     )}
                     <ApplicationBadge status={application.status} />

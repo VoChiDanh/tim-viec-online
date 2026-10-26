@@ -1,8 +1,6 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/services/auth-session";
-import { authMockEnabled } from "@/services/auth-mode";
 import { getEmployerData } from "@/services/employer";
 import { employerApplicationHref } from "@/features/employer/candidate-navigation";
 import { EmployerLoading } from "./employer-loading";
@@ -60,19 +58,6 @@ async function Content({
     "employer",
     destination.length <= 1000 ? destination : returnTo,
   );
-  if (!authMockEnabled())
-    return (
-      <main id="main" className="site-container page-content">
-        <section className="surface empty-state">
-          <h1>Không gian tuyển dụng</h1>
-          <p>
-            Dữ liệu tuyển dụng chưa được kết nối. Vui lòng thử lại khi dịch vụ
-            sẵn sàng.
-          </p>
-          <Link href="/account/security">Bảo mật tài khoản</Link>
-        </section>
-      </main>
-    );
   switch (section) {
     case "dashboard":
       return <EmployerDashboard />;

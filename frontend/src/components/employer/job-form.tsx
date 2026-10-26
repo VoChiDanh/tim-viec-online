@@ -209,7 +209,16 @@ export function JobForm({ id }: { id?: number }) {
 
 function JobEditor({ existing }: { existing?: EmployerJob }) {
   const prefix = useId();
-  const { company, categories, skills, cities, today, saveJob } = useEmployer();
+  const {
+    company,
+    categories,
+    skills,
+    cities,
+    today,
+    saveJob,
+    apiMode,
+    pending,
+  } = useEmployer();
   const router = useRouter();
   const [values, setValues] = useState<JobValues>(() =>
     initialValues(existing),
@@ -277,10 +286,10 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
           className="ep-job-form"
           noValidate
           aria-label="Soạn tin tuyển dụng"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
-            const result = saveJob(values, existing?.id);
+            const result = await saveJob(values, existing?.id);
             setErrors(result.errors);
             if (Object.keys(result.errors).length) {
               toast.error("Vui lòng kiểm tra thông tin tuyển dụng.");
@@ -295,14 +304,21 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
               return;
             }
             toast.success(
-              existing
-                ? "Đã cập nhật tin trong phiên xem trước."
-                : "Đã đăng tin trong phiên xem trước.",
+              apiMode
+                ? "Đã lưu tin tuyển dụng."
+                : existing
+                  ? "Đã cập nhật tin trong phiên xem trước."
+                  : "Đã đăng tin trong phiên xem trước.",
             );
             if (!existing) setValues(initialValues());
             router.push("/employer/jobs");
           }}
         >
+          {errors.form && (
+            <p role="alert" className="ep-field-error">
+              {errors.form}
+            </p>
+          )}
           <p className="ep-job-required-note">
             Các trường có dấu{" "}
             <span className="ep-required" aria-hidden="true">
@@ -618,7 +634,11 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
           <div className="ep-panel ep-job-form-footer">
             <div>
               <strong>Sẵn sàng tìm đồng đội mới?</strong>
-              <p>Thay đổi chỉ được lưu trong phiên xem trước hiện tại.</p>
+              <p>
+                {apiMode
+                  ? "Tin tuyển dụng được lưu vào hệ thống."
+                  : "Thay đổi chỉ được lưu trong phiên xem trước hiện tại."}
+              </p>
             </div>
             <div className="ep-form-actions">
               <button
@@ -632,7 +652,11 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
               >
                 Hủy
               </button>
-              <button type="submit" className="ep-button ep-button-primary">
+              <button
+                type="submit"
+                disabled={pending}
+                className="ep-button ep-button-primary"
+              >
                 {existing ? "Lưu thay đổi" : "Đăng tin tuyển dụng"}
               </button>
             </div>

@@ -86,6 +86,8 @@ function ApplicationContent({
   const router = useRouter();
   const {
     today,
+    apiMode,
+    pending,
     conversations,
     openConversation,
     reviewApplication,
@@ -104,9 +106,11 @@ function ApplicationContent({
     conversations.some((item) => item.application_id === application.id);
   const jobStatus = effectiveJobStatus(job, today);
   const analysis = application.analysis;
-  // Preview only the bundled demo PDF, never an arbitrary supplied URL.
+  // Only the bundled mock PDF or an authenticated local proxy may be embedded.
   const cvPath =
-    application.cv_path === "/demo/employer-cv.pdf"
+    application.cv_path === "/demo/employer-cv.pdf" ||
+    (apiMode &&
+      application.cv_path === `/api/backend/applications/${application.id}/cv`)
       ? application.cv_path
       : null;
   const options = Object.entries(APPLICATION_LABELS)
@@ -124,20 +128,21 @@ function ApplicationContent({
       disabled: true,
     });
 
-  function message() {
-    const id = openConversation(application.id);
+  async function message() {
+    const id = await openConversation(application.id);
     if (id === null)
       return toast.error("Không thể mở hội thoại cho hồ sơ này.");
     router.push(`/employer/messages?conversation=${id}`);
   }
-  function preview() {
+  async function preview() {
     if (!cvPath || withdrawn) return;
-    reviewApplication(application.id);
+    const error = await reviewApplication(application.id);
+    if (error) return void toast.error(error);
     setPreviewOpen(true);
   }
-  function updateStatus() {
+  async function updateStatus() {
     if (!nextStatus || withdrawn) return;
-    const error = setApplicationStatus(
+    const error = await setApplicationStatus(
       application.id,
       nextStatus as ApplicationStatus,
     );
@@ -196,7 +201,7 @@ function ApplicationContent({
             type="button"
             className="ep-button ep-button-blue"
             onClick={message}
-            disabled={!canMessage}
+            disabled={pending || !canMessage}
           >
             <MessageSquare size={16} aria-hidden="true" />
             Nhắn tin cho ứng viên
@@ -264,6 +269,7 @@ function ApplicationContent({
                   type="button"
                   ref={previewTrigger}
                   className="ep-button ep-button-primary"
+                  disabled={pending}
                   onClick={preview}
                 >
                   Xem CV ứng tuyển
@@ -281,7 +287,7 @@ function ApplicationContent({
                       ? `Đã xem CV ngày ${dateLabel(application.reviewed_at)}.`
                       : "CV được đính kèm cùng hồ sơ ứng tuyển."}
             </p>
-            {cvPath && !withdrawn && (
+            {!apiMode && cvPath && !withdrawn && (
               <p className="ec-preview-label">
                 PDF minh họa cho bản xem trước, chưa phải CV thực tế của ứng
                 viên.
@@ -387,7 +393,9 @@ function ApplicationContent({
                 <button
                   type="button"
                   className="ep-button ep-button-primary"
-                  disabled={!nextStatus || nextStatus === application.status}
+                  disabled={
+                    pending || !nextStatus || nextStatus === application.status
+                  }
                   onClick={updateStatus}
                 >
                   Cập nhật trạng thái
@@ -491,7 +499,9 @@ function ApplicationContent({
               </>
             ) : (
               <p className="ec-ai-note">
-                Hồ sơ này chưa có kết quả phân tích AI.
+                {apiMode
+                  ? "Phân tích AI chưa được triển khai trong bản kết nối hiện tại."
+                  : "Hồ sơ này chưa có kết quả phân tích AI."}
               </p>
             )}
           </section>
@@ -520,7 +530,9 @@ function ApplicationContent({
           <DialogHeader>
             <DialogTitle>CV ứng tuyển — {application.name}</DialogTitle>
             <DialogDescription>
-              PDF minh họa cho bản xem trước, chưa phải CV thực tế của ứng viên.
+              {apiMode
+                ? "CV do ứng viên nộp cho vị trí này."
+                : "PDF minh họa cho bản xem trước, chưa phải CV thực tế của ứng viên."}
             </DialogDescription>
           </DialogHeader>
           <DialogClose asChild>
@@ -539,12 +551,16 @@ function ApplicationContent({
             <>
               <iframe
                 src={cvPath}
-                title={`CV minh họa của ${application.name}`}
+                title={`CV của ${application.name}`}
                 tabIndex={-1}
                 referrerPolicy="no-referrer"
               />
-              <a className="ep-button" href={cvPath} download="CV_minh_hoa.pdf">
-                Tải CV minh họa
+              <a
+                className="ep-button"
+                href={cvPath}
+                download={apiMode ? "CV.pdf" : "CV_minh_hoa.pdf"}
+              >
+                {apiMode ? "Tải CV" : "Tải CV minh họa"}
               </a>
             </>
           )}

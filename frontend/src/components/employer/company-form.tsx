@@ -105,7 +105,16 @@ function CompanyField({
 
 export function CompanyForm() {
   const prefix = useId();
-  const { company, cities, user, logo, setLogo, saveCompany } = useEmployer();
+  const {
+    company,
+    cities,
+    user,
+    logo,
+    setLogo,
+    saveCompany,
+    apiMode,
+    pending,
+  } = useEmployer();
   const [values, setValues] = useState<CompanyValues>(() => ({
     name: company.name,
     website: company.website ?? "",
@@ -186,11 +195,12 @@ export function CompanyForm() {
             </div>
             <form
               noValidate
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
                 const form = event.currentTarget;
-                const next = saveCompany(values);
+                const next = await saveCompany(values);
                 setErrors(next);
+                setLogoError(next.logo ?? "");
                 if (Object.keys(next).length) {
                   toast.error("Vui lòng kiểm tra thông tin công ty.");
                   requestAnimationFrame(() => {
@@ -207,11 +217,18 @@ export function CompanyForm() {
                 } else {
                   setSaved(true);
                   toast.success(
-                    "Đã lưu thông tin công ty trong phiên xem trước.",
+                    apiMode
+                      ? "Đã lưu thông tin công ty."
+                      : "Đã lưu thông tin công ty trong phiên xem trước.",
                   );
                 }
               }}
             >
+              {errors.form && (
+                <p role="alert" className="ep-field-error">
+                  {errors.form}
+                </p>
+              )}
               <div className="ep-form-body">
                 <div className="ep-logo-row">
                   <span className="ep-form-logo">
@@ -424,10 +441,16 @@ export function CompanyForm() {
                   {dirty
                     ? "Có thay đổi chưa lưu"
                     : saved
-                      ? "Đã lưu thông tin trong phiên xem trước"
+                      ? apiMode
+                        ? "Đã lưu thông tin"
+                        : "Đã lưu thông tin trong phiên xem trước"
                       : "Thông tin công ty hiện tại"}
                 </span>
-                <button className="ep-button ep-button-primary" type="submit">
+                <button
+                  className="ep-button ep-button-primary"
+                  type="submit"
+                  disabled={pending}
+                >
                   <Save size={16} aria-hidden="true" />
                   Lưu thông tin công ty
                 </button>

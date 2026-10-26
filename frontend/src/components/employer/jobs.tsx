@@ -26,10 +26,10 @@ import {
 } from "@/modules/cores/shadcn/components/ui/alert-dialog";
 
 function StatusAction({ job }: { job: EmployerJob }) {
-  const { changeJobStatus, today } = useEmployer();
+  const { changeJobStatus, today, apiMode, pending } = useEmployer();
   const [open, setOpen] = useState(false);
   const status = effectiveJobStatus(job, today);
-  if (status === "expired")
+  if (status === "expired" && job.deadline < today)
     return (
       <Link href={`/employer/jobs/${job.id}/edit`} className="ep-text-link">
         Gia hạn tin
@@ -60,13 +60,22 @@ function StatusAction({ job }: { job: EmployerJob }) {
         <AlertDialogFooter>
           <AlertDialogCancel>Hủy</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              const error = changeJobStatus(
+            disabled={pending}
+            onClick={async (event) => {
+              event.preventDefault();
+              const error = await changeJobStatus(
                 job.id,
                 status === "active" ? "closed" : "active",
               );
               if (error) toast.error(error);
-              else toast.success("Đã cập nhật tin trong phiên xem trước.");
+              else {
+                toast.success(
+                  apiMode
+                    ? "Đã cập nhật trạng thái tin."
+                    : "Đã cập nhật tin trong phiên xem trước.",
+                );
+                setOpen(false);
+              }
             }}
           >
             Xác nhận

@@ -82,6 +82,7 @@ export interface EmployerConversation {
   application_id: number;
 }
 export interface EmployerMessage {
+  image_url?: string;
   id: string;
   conversation_id: number;
   sender_id: number;
@@ -99,6 +100,7 @@ export interface EmployerNotification {
   created_at: string;
 }
 export interface EmployerData {
+  mode?: "mock" | "api";
   user: AuthUser;
   today: string;
   company: EmployerCompany;

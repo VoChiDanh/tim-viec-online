@@ -57,7 +57,8 @@ const EmployerShellContext = createContext(false);
 export const useInEmployerShell = () => useContext(EmployerShellContext);
 
 export function EmployerShell({ children }: { children: ReactNode }) {
-  const { company, user, notifications } = useEmployer();
+  const { company, user, notifications, apiMode, loadError, refresh } =
+    useEmployer();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -253,12 +254,25 @@ export function EmployerShell({ children }: { children: ReactNode }) {
           </div>
           <div className="ep-content-slot">
             <EmployerShellContext.Provider value>
+              {loadError && (
+                <div role="alert" className="ep-panel">
+                  <p>{loadError}</p>
+                  <button
+                    type="button"
+                    className="ep-button"
+                    onClick={() => void refresh()}
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              )}
               {children}
             </EmployerShellContext.Provider>
           </div>
           <p className="ep-preview-note">
-            Dữ liệu mẫu · Thay đổi chỉ giữ trong phiên xem trước. Tin nhắn chưa
-            gửi đến ứng viên.
+            {apiMode
+              ? "Dữ liệu được đồng bộ với hệ thống tuyển dụng."
+              : "Dữ liệu mẫu · Thay đổi chỉ giữ trong phiên xem trước. Tin nhắn chưa gửi đến ứng viên."}
           </p>
         </main>
       </div>

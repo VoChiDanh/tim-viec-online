@@ -209,3 +209,8 @@
     margin-left: auto;
   }
 }
+@media (min-width: 901px) {
+  .ep-metrics[data-api="true"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

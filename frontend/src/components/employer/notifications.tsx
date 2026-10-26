@@ -56,7 +56,7 @@ export function EmployerNotifications() {
         : heading.current;
     next?.focus({ preventScroll: true });
   }, [state.notifications]);
-  function markRead(source: HTMLButtonElement, id?: number) {
+  async function markRead(source: HTMLButtonElement, id?: number) {
     if (document.activeElement === source) {
       const actions = Array.from(
         list.current?.querySelectorAll<HTMLButtonElement>(
@@ -68,7 +68,12 @@ export function EmployerNotifications() {
         index: id === undefined ? -1 : actions.indexOf(source),
       };
     }
-    state.markRead(id);
+    const error = await state.markRead(id);
+    if (error) {
+      readFocus.current = null;
+      toast.error(error);
+    }
+    return !error;
   }
   const params = useSearchParams();
   const filter =
@@ -138,10 +143,10 @@ export function EmployerNotifications() {
                 variant="outline"
                 size="sm"
                 aria-label="Đánh dấu tất cả đã đọc"
-                disabled={!unread}
-                onClick={(event) => {
-                  markRead(event.currentTarget);
-                  toast.success(`Đã đánh dấu ${unread} thông báo là đã đọc.`);
+                disabled={!unread || state.pending}
+                onClick={async (event) => {
+                  if (await markRead(event.currentTarget))
+                    toast.success(`Đã đánh dấu ${unread} thông báo là đã đọc.`);
                 }}
               >
                 <CheckCheck aria-hidden="true" />
@@ -272,6 +277,7 @@ export function EmployerNotifications() {
                         <button
                           type="button"
                           data-notification-read=""
+                          disabled={state.pending}
                           onClick={(event) =>
                             markRead(event.currentTarget, item.id)
                           }
@@ -283,7 +289,10 @@ export function EmployerNotifications() {
                       <Link
                         className="ep-text-link"
                         href={href}
-                        onClick={() => state.markRead(item.id)}
+                        onClick={async () => {
+                          const error = await state.markRead(item.id);
+                          if (error) toast.error(error);
+                        }}
                       >
                         {item.type === "new_message"
                           ? "Xem tin nhắn"

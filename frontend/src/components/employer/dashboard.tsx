@@ -18,7 +18,8 @@ import { effectiveJobStatus } from "@/features/employer/rules";
 import { EmployerJobs } from "./jobs";
 import "./employer-overview.css";
 export function EmployerDashboard() {
-  const { company, jobs, applications, notifications, today } = useEmployer();
+  const { company, jobs, applications, notifications, today, apiMode } =
+    useEmployer();
   const companyChecks = [
     { label: "Tên công ty", complete: !!company.name.trim() },
     { label: "Giới thiệu công ty", complete: !!company.description.trim() },
@@ -46,17 +47,21 @@ export function EmployerDashboard() {
       note: `${applications.filter((app) => app.status === "applied").length} hồ sơ chưa xem`,
       icon: Files,
     },
-    {
-      label: "CV phù hợp từ 80%",
-      value: applications.filter(
-        (app) =>
-          app.analysis &&
-          app.analysis.match_score >= 80 &&
-          app.status !== "withdrawn",
-      ).length,
-      note: "Dựa trên kết quả phân tích CV mẫu",
-      icon: ScanText,
-    },
+    ...(!apiMode
+      ? [
+          {
+            label: "CV phù hợp từ 80%",
+            value: applications.filter(
+              (app) =>
+                app.analysis &&
+                app.analysis.match_score >= 80 &&
+                app.status !== "withdrawn",
+            ).length,
+            note: "Dựa trên kết quả phân tích CV mẫu",
+            icon: ScanText,
+          },
+        ]
+      : []),
     {
       label: "Hồ sơ trúng tuyển",
       value: applications.filter((app) => app.status === "accepted").length,
@@ -111,7 +116,11 @@ export function EmployerDashboard() {
           <ArrowRight className="ep-icon" aria-hidden="true" />
         </Link>
       </section>
-      <section className="ep-metrics" aria-label="Thống kê tuyển dụng">
+      <section
+        className="ep-metrics"
+        data-api={apiMode}
+        aria-label="Thống kê tuyển dụng"
+      >
         {metrics.map(({ label, value, note, icon: Icon }) => (
           <article key={label} className="ep-metric">
             <div className="ep-metric-top">
@@ -126,72 +135,77 @@ export function EmployerDashboard() {
       <div className="ep-workspace">
         <div>
           <EmployerJobs compact />
-          <section className="ep-panel ep-candidates">
-            <div className="ep-panel-heading">
-              <div>
-                <h2>Hồ sơ đáng chú ý</h2>
-                <p>Ứng viên đã ứng tuyển với độ phù hợp CV cao.</p>
-              </div>
-              <Link className="ep-text-link" href="/employer/candidates">
-                Xem tất cả
-                <ArrowRight className="ep-icon" />
-              </Link>
-            </div>
-            {featured.map((app) => (
-              <article className="ep-candidate" key={app.id}>
-                <span className="ep-avatar">
-                  {app.name
-                    .split(" ")
-                    .slice(-2)
-                    .map((word) => word[0])
-                    .join("")}
-                </span>
-                <div className="ep-candidate-info">
-                  <strong>{app.name}</strong>
-                  <p>{app.title}</p>
-                  <Link
-                    className="ep-featured-job"
-                    href={`/employer/candidates?job_id=${app.job_id}`}
-                  >
-                    <BriefcaseBusiness className="ep-icon" aria-hidden="true" />
-                    Ứng tuyển:{" "}
-                    {jobs.find((job) => job.id === app.job_id)?.title ??
-                      "Tin tuyển dụng"}{" "}
-                    · #{app.job_id}
-                  </Link>
+          {!apiMode && (
+            <section className="ep-panel ep-candidates">
+              <div className="ep-panel-heading">
+                <div>
+                  <h2>Hồ sơ đáng chú ý</h2>
+                  <p>Ứng viên đã ứng tuyển với độ phù hợp CV cao.</p>
                 </div>
-                <span
-                  className="ep-score"
-                  data-score-tone={
-                    app.analysis!.match_score >= 80
-                      ? "high"
-                      : app.analysis!.match_score >= 60
-                        ? "medium"
-                        : "low"
-                  }
-                  aria-label={`Điểm phù hợp với tin #${app.job_id}: ${app.analysis!.match_score}%`}
-                >
-                  {app.analysis!.match_score}%
-                </span>
-                <Link
-                  className="ep-text-link"
-                  href={`/employer/candidates/${app.id}`}
-                >
-                  Xem hồ sơ
+                <Link className="ep-text-link" href="/employer/candidates">
+                  Xem tất cả
                   <ArrowRight className="ep-icon" />
                 </Link>
-              </article>
-            ))}
-            {!featured.length && (
-              <div className="ep-empty">
-                <strong>Chưa có hồ sơ được phân tích</strong>
-                <p>Các hồ sơ có kết quả phù hợp CV sẽ xuất hiện tại đây.</p>
-                <Link className="ep-button" href="/employer/candidates">
-                  Xem hồ sơ ứng viên
-                </Link>
               </div>
-            )}
-          </section>
+              {featured.map((app) => (
+                <article className="ep-candidate" key={app.id}>
+                  <span className="ep-avatar">
+                    {app.name
+                      .split(" ")
+                      .slice(-2)
+                      .map((word) => word[0])
+                      .join("")}
+                  </span>
+                  <div className="ep-candidate-info">
+                    <strong>{app.name}</strong>
+                    <p>{app.title}</p>
+                    <Link
+                      className="ep-featured-job"
+                      href={`/employer/candidates?job_id=${app.job_id}`}
+                    >
+                      <BriefcaseBusiness
+                        className="ep-icon"
+                        aria-hidden="true"
+                      />
+                      Ứng tuyển:{" "}
+                      {jobs.find((job) => job.id === app.job_id)?.title ??
+                        "Tin tuyển dụng"}{" "}
+                      · #{app.job_id}
+                    </Link>
+                  </div>
+                  <span
+                    className="ep-score"
+                    data-score-tone={
+                      app.analysis!.match_score >= 80
+                        ? "high"
+                        : app.analysis!.match_score >= 60
+                          ? "medium"
+                          : "low"
+                    }
+                    aria-label={`Điểm phù hợp với tin #${app.job_id}: ${app.analysis!.match_score}%`}
+                  >
+                    {app.analysis!.match_score}%
+                  </span>
+                  <Link
+                    className="ep-text-link"
+                    href={`/employer/candidates/${app.id}`}
+                  >
+                    Xem hồ sơ
+                    <ArrowRight className="ep-icon" />
+                  </Link>
+                </article>
+              ))}
+              {!featured.length && (
+                <div className="ep-empty">
+                  <strong>Chưa có hồ sơ được phân tích</strong>
+                  <p>Các hồ sơ có kết quả phù hợp CV sẽ xuất hiện tại đây.</p>
+                  <Link className="ep-button" href="/employer/candidates">
+                    Xem hồ sơ ứng viên
+                  </Link>
+                </div>
+              )}
+            </section>
+          )}
         </div>
         <aside className="ep-aside">
           <section className="ep-panel ep-company">

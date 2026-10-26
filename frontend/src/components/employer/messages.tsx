@@ -1,7 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLiveRefresh } from "@/features/api/live";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -62,7 +64,7 @@ function resizeComposer(node: HTMLTextAreaElement | null) {
 
 export function EmployerMessages() {
   const state = useEmployer();
-  const { markConversationRead } = state;
+  const { markConversationRead, loadConversation } = state;
   const router = useRouter();
   const requested = useSearchParams().get("conversation");
   const conversations = state.conversations.filter(
@@ -93,6 +95,10 @@ export function EmployerMessages() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState<{ id: number; text: string } | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [attachment, setAttachment] = useState<{
+    conversationId: number;
+    file: File;
+  } | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -107,6 +113,22 @@ export function EmployerMessages() {
       return;
     if (activeId !== undefined && hasUnread) markConversationRead(activeId);
   }, [activeId, hasUnread, markConversationRead, requested]);
+  useEffect(() => {
+    if (
+      activeId === undefined ||
+      (requested === null && window.matchMedia("(max-width: 760px)").matches)
+    )
+      return;
+    void loadConversation(activeId);
+  }, [activeId, requested, loadConversation]);
+  const refreshActive = async () => {
+    if (
+      activeId !== undefined &&
+      (requested !== null || !window.matchMedia("(max-width: 760px)").matches)
+    )
+      await loadConversation(activeId);
+  };
+  useLiveRefresh(refreshActive, state.apiMode);
   useLayoutEffect(
     () => resizeComposer(composer.current),
     [draft, activeId, requested],
@@ -133,13 +155,21 @@ export function EmployerMessages() {
     setError(null);
     setAnnouncement("");
   };
-  const send = () => {
-    if (!conversation) return;
-    const issue = state.sendMessage(conversation.id);
+  const send = async () => {
+    if (!conversation || state.pending) return;
+    const issue = await state.sendMessage(
+      conversation.id,
+      attachment?.conversationId === conversation.id ? attachment.file : null,
+    );
     setError(issue ? { id: conversation.id, text: issue } : null);
     if (!issue) {
+      setAttachment(null);
       scrollBottom();
-      setAnnouncement("Tin nhắn đã được thêm vào bản xem trước.");
+      setAnnouncement(
+        state.apiMode
+          ? "Đã gửi tin nhắn."
+          : "Tin nhắn đã được thêm vào bản xem trước.",
+      );
     }
     composer.current?.focus({ preventScroll: true });
   };
@@ -400,7 +430,27 @@ export function EmployerMessages() {
                           <span className="sr-only">
                             {outgoing ? "Bạn" : application.name}
                           </span>
-                          <p>{message.message}</p>
+                          {message.image_url && (
+                            <a
+                              href={message.image_url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <Image
+                                src={message.image_url}
+                                alt="Ảnh đính kèm trong hội thoại"
+                                width={240}
+                                height={180}
+                                unoptimized
+                                style={{
+                                  objectFit: "contain",
+                                  maxWidth: "100%",
+                                  height: "auto",
+                                }}
+                              />
+                            </a>
+                          )}
+                          {message.message && <p>{message.message}</p>}
                           <small>
                             <time
                               dateTime={message.created_at}
@@ -435,6 +485,50 @@ export function EmployerMessages() {
                 }}
               >
                 <Field data-invalid={!!activeError}>
+                  {state.apiMode && (
+                    <div>
+                      <label htmlFor="em-attachment">
+                        Ảnh đính kèm (tối đa 5 MB)
+                      </label>
+                      <input
+                        id="em-attachment"
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        disabled={state.pending}
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          event.currentTarget.value = "";
+                          if (!file || !conversation) return;
+                          if (
+                            !/^image\/(jpeg|png|gif|webp)$/.test(file.type) ||
+                            file.size > 5 * 1024 * 1024
+                          ) {
+                            setError({
+                              id: conversation.id,
+                              text: "Chọn ảnh JPEG, PNG, GIF hoặc WebP tối đa 5 MB.",
+                            });
+                            return;
+                          }
+                          setAttachment({
+                            conversationId: conversation.id,
+                            file,
+                          });
+                          setError(null);
+                        }}
+                      />
+                      {attachment?.conversationId === conversation.id && (
+                        <span>
+                          {attachment.file.name}{" "}
+                          <button
+                            type="button"
+                            onClick={() => setAttachment(null)}
+                          >
+                            Bỏ ảnh
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <FieldLabel htmlFor="em-message" className="sr-only">
                     Tin nhắn của bạn
                   </FieldLabel>
@@ -456,7 +550,12 @@ export function EmployerMessages() {
                         handleMessageComposerKeyDown(event, updateDraft)
                       }
                     />
-                    <Button type="submit" size="icon" aria-label="Gửi tin nhắn">
+                    <Button
+                      disabled={state.pending}
+                      type="submit"
+                      size="icon"
+                      aria-label="Gửi tin nhắn"
+                    >
                       <Send size={18} aria-hidden="true" />
                     </Button>
                   </div>
