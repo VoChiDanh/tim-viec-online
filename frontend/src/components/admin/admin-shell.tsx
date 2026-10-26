@@ -1,6 +1,12 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -45,6 +51,15 @@ export function AdminShell({ children, user }: AdminShellProps) {
   const { db } = useAdminData();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  // Keep cached pages from retaining a portal or document scroll lock.
+  useLayoutEffect(
+    () => () => {
+      setMobileOpen(false);
+      setAccountOpen(false);
+    },
+    [pathname],
+  );
   const logoutForm = useRef<HTMLFormElement>(null);
   const mainId = useId();
   const reportedCount = db.jobs.filter((job) => job.is_reported).length;
@@ -172,7 +187,11 @@ export function AdminShell({ children, user }: AdminShellProps) {
             Trang chủ
             <ArrowUpRight className="ap-icon" aria-hidden="true" />
           </Link>
-          <DropdownMenu modal={false}>
+          <DropdownMenu
+            modal={false}
+            open={accountOpen}
+            onOpenChange={setAccountOpen}
+          >
             <DropdownMenuTrigger asChild>
               <button
                 type="button"

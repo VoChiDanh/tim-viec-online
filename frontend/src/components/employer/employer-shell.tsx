@@ -1,5 +1,12 @@
 "use client";
-import { useId, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -46,10 +53,23 @@ const icons = [
   SquarePen,
 ];
 
+const EmployerShellContext = createContext(false);
+export const useInEmployerShell = () => useContext(EmployerShellContext);
+
 export function EmployerShell({ children }: { children: ReactNode }) {
   const { company, user, notifications } = useEmployer();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  // Browser history can change a route without selecting a navigation item.
+  // Also dismiss portals when App Router hides the workspace with Activity.
+  useLayoutEffect(
+    () => () => {
+      setMobileOpen(false);
+      setAccountOpen(false);
+    },
+    [pathname],
+  );
   const logoutId = useId();
   const unreadId = useId();
   const unread = notifications.filter((item) => !item.read_at).length;
@@ -137,7 +157,11 @@ export function EmployerShell({ children }: { children: ReactNode }) {
               </>
             )}
           </Link>
-          <DropdownMenu modal={false}>
+          <DropdownMenu
+            modal={false}
+            open={accountOpen}
+            onOpenChange={setAccountOpen}
+          >
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
@@ -227,7 +251,11 @@ export function EmployerShell({ children }: { children: ReactNode }) {
               </span>
             )}
           </div>
-          <div className="ep-content-slot">{children}</div>
+          <div className="ep-content-slot">
+            <EmployerShellContext.Provider value>
+              {children}
+            </EmployerShellContext.Provider>
+          </div>
           <p className="ep-preview-note">
             Dữ liệu mẫu · Thay đổi chỉ giữ trong phiên xem trước. Tin nhắn chưa
             gửi đến ứng viên.

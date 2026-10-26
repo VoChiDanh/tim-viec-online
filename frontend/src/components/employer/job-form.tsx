@@ -621,9 +621,17 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
               <p>Thay đổi chỉ được lưu trong phiên xem trước hiện tại.</p>
             </div>
             <div className="ep-form-actions">
-              <Link href="/employer/jobs" className="ep-button">
+              <button
+                type="button"
+                className="ep-button"
+                onClick={() => {
+                  setValues(initialValues(existing));
+                  setErrors({});
+                  router.push("/employer/jobs");
+                }}
+              >
                 Hủy
-              </Link>
+              </button>
               <button type="submit" className="ep-button ep-button-primary">
                 {existing ? "Lưu thay đổi" : "Đăng tin tuyển dụng"}
               </button>

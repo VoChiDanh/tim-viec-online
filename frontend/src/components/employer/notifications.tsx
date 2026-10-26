@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -33,6 +33,43 @@ const date = (value: string, includeTime = false) =>
 
 export function EmployerNotifications() {
   const state = useEmployer();
+  const list = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const readFocus = useRef<{ source: HTMLButtonElement; index: number } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    const pending = readFocus.current;
+    readFocus.current = null;
+    if (
+      !pending ||
+      (document.activeElement !== pending.source &&
+        document.activeElement !== document.body)
+    )
+      return;
+    const remaining = list.current?.querySelectorAll<HTMLButtonElement>(
+      "[data-notification-read]",
+    );
+    const next =
+      pending.index >= 0 && remaining?.length
+        ? remaining[Math.min(pending.index, remaining.length - 1)]
+        : heading.current;
+    next?.focus({ preventScroll: true });
+  }, [state.notifications]);
+  function markRead(source: HTMLButtonElement, id?: number) {
+    if (document.activeElement === source) {
+      const actions = Array.from(
+        list.current?.querySelectorAll<HTMLButtonElement>(
+          "[data-notification-read]",
+        ) ?? [],
+      );
+      readFocus.current = {
+        source,
+        index: id === undefined ? -1 : actions.indexOf(source),
+      };
+    }
+    state.markRead(id);
+  }
   const params = useSearchParams();
   const filter =
     params.get("read") === "unread"
@@ -77,12 +114,15 @@ export function EmployerNotifications() {
       </div>
       <div className="em-not-layout">
         <section
+          ref={list}
           className="ep-panel em-not-panel"
           aria-labelledby="em-not-title"
         >
           <div className="em-not-heading">
             <div>
-              <h2 id="em-not-title">Thông báo của bạn</h2>
+              <h2 ref={heading} tabIndex={-1} id="em-not-title">
+                Thông báo của bạn
+              </h2>
               <p role="status">
                 {unread
                   ? `${unread} thông báo chưa đọc`
@@ -99,8 +139,8 @@ export function EmployerNotifications() {
                 size="sm"
                 aria-label="Đánh dấu tất cả đã đọc"
                 disabled={!unread}
-                onClick={() => {
-                  state.markRead();
+                onClick={(event) => {
+                  markRead(event.currentTarget);
                   toast.success(`Đã đánh dấu ${unread} thông báo là đã đọc.`);
                 }}
               >
@@ -231,7 +271,10 @@ export function EmployerNotifications() {
                       {!item.read_at && (
                         <button
                           type="button"
-                          onClick={() => state.markRead(item.id)}
+                          data-notification-read=""
+                          onClick={(event) =>
+                            markRead(event.currentTarget, item.id)
+                          }
                         >
                           Đánh dấu đã đọc
                         </button>

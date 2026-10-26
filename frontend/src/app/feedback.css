@@ -3,6 +3,33 @@
   box-shadow: 0 24px 80px -20px
     color-mix(in srgb, var(--footer-background) 30%, transparent);
 }
+.recovery-page {
+  min-height: min(65dvh, 640px);
+  display: grid;
+  align-items: center;
+}
+.recovery-card {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  color: var(--foreground);
+}
+.recovery-card > h1 {
+  color: var(--brand-navy);
+  font-size: 36px;
+  line-height: 1.2;
+}
+.recovery-card > h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
 .dialog-surface [data-slot="dialog-header"] {
   padding-right: 24px;
 }

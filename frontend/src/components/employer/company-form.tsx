@@ -6,6 +6,7 @@ import {
   createContext,
   useContext,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -126,6 +127,14 @@ export function CompanyForm() {
     values.city,
   ].filter((value) => value.trim()).length;
   const logoRequest = useRef(0);
+  // Activity preserves this form when hidden. Invalidate file reads before
+  // they can update the shared company logo after the user leaves the page.
+  useLayoutEffect(
+    () => () => {
+      logoRequest.current += 1;
+    },
+    [],
+  );
   const logoInput = useRef<HTMLInputElement>(null);
   const logoUrl = useFileUrl(logo);
   const preview = logoUrl || company.logo;

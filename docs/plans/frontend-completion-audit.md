@@ -1,5 +1,7 @@
 # Rà soát hoàn thiện frontend ứng viên và nhà tuyển dụng
 
+Đợt rà soát tiếp theo ngày 26/10/2026 mở rộng thêm các trang admin và kiểm chứng Firefox: [Rà soát UI/UX trước tích hợp develop](frontend-ui-ux-review.md). Nội dung dưới đây giữ lại phạm vi và kết quả của đợt trước.
+
 Phạm vi theo SRS FR-01–FR-08, FR-10, NFR-07/08; đối chiếu các trang hiện có và các kế hoạch triển khai. Không triển khai backend hoặc admin. Theo yêu cầu người dùng ngày 20/10/2026, **đánh giá AI chỉ hiển thị cho nhà tuyển dụng, ứng viên không được xem**; quyết định này ưu tiên hơn mô tả cũ trong SRS.
 
 ## Phạm vi đã có giao diện

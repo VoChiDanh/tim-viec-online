@@ -156,6 +156,7 @@ export function SearchableSelectionField({
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const tabbingOut = useRef(false);
   const typeahead = useRef({ text: "", time: 0 });
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -174,6 +175,7 @@ export function SearchableSelectionField({
   }
 
   function changeOpen(next: boolean) {
+    if (next) tabbingOut.current = false;
     if (controlledOpen === undefined) setInternalOpen(next);
     onOpenChange?.(next);
     setSearch("");
@@ -228,6 +230,27 @@ export function SearchableSelectionField({
           sideOffset={6}
           collisionPadding={12}
           aria-label={label}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Tab" &&
+              !event.altKey &&
+              !event.ctrlKey &&
+              !event.metaKey &&
+              trigger.current
+            ) {
+              // The popup lives in a portal. Resume native Tab navigation from
+              // its trigger, rather than the end of the document or a popup loop.
+              tabbingOut.current = true;
+              trigger.current.focus({ preventScroll: true });
+              changeOpen(false);
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            if (tabbingOut.current) {
+              event.preventDefault();
+              tabbingOut.current = false;
+            }
+          }}
           onOpenAutoFocus={
             searchLabel
               ? undefined

@@ -1,4 +1,5 @@
 "use client";
+import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCheck, FileCheck, MessageSquare } from "lucide-react";
@@ -13,6 +14,43 @@ import { WorkspaceEmpty, WorkspaceTitle } from "./workspace-ui";
 
 export function CandidateNotifications() {
   const state = useWorkspace();
+  const list = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const readFocus = useRef<{ source: HTMLButtonElement; index: number } | null>(
+    null,
+  );
+  useLayoutEffect(() => {
+    const pending = readFocus.current;
+    readFocus.current = null;
+    if (
+      !pending ||
+      (document.activeElement !== pending.source &&
+        document.activeElement !== document.body)
+    )
+      return;
+    const remaining = list.current?.querySelectorAll<HTMLButtonElement>(
+      "[data-notification-read]",
+    );
+    const next =
+      pending.index >= 0 && remaining?.length
+        ? remaining[Math.min(pending.index, remaining.length - 1)]
+        : heading.current;
+    next?.focus({ preventScroll: true });
+  }, [state.notifications]);
+  function markRead(source: HTMLButtonElement, id?: number) {
+    if (document.activeElement === source) {
+      const actions = Array.from(
+        list.current?.querySelectorAll<HTMLButtonElement>(
+          "[data-notification-read]",
+        ) ?? [],
+      );
+      readFocus.current = {
+        source,
+        index: id === undefined ? -1 : actions.indexOf(source),
+      };
+    }
+    state.markRead(id);
+  }
   const params = useSearchParams();
   const filter = ["read", "unread"].includes(params.get("read") ?? "")
     ? params.get("read")!
@@ -33,15 +71,21 @@ export function CandidateNotifications() {
         <Button
           variant="ghost"
           type="button"
-          onClick={() => state.markRead()}
+          onClick={(event) => markRead(event.currentTarget)}
           disabled={!unread}
         >
           <CheckCheck aria-hidden="true" />
           Đánh dấu tất cả đã đọc
         </Button>
       </WorkspaceTitle>
-      <section className="cu-card" aria-label="Thông báo ứng tuyển và tin nhắn">
-        <h2 className="cu-notification-heading">Ứng tuyển & tin nhắn</h2>
+      <section
+        ref={list}
+        className="cu-card"
+        aria-label="Thông báo ứng tuyển và tin nhắn"
+      >
+        <h2 ref={heading} tabIndex={-1} className="cu-notification-heading">
+          Ứng tuyển & tin nhắn
+        </h2>
         <div
           className="cu-notification-filters"
           aria-label="Lọc trạng thái đọc"
@@ -103,7 +147,8 @@ export function CandidateNotifications() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => state.markRead(item.id)}
+                  data-notification-read=""
+                  onClick={(event) => markRead(event.currentTarget, item.id)}
                 >
                   Đánh dấu đã đọc
                 </Button>

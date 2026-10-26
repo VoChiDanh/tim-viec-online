@@ -20,6 +20,7 @@ import type {
 } from "@/features/auth/types";
 import { INITIAL_AUTH_STATE } from "@/features/auth/types";
 import { validateAuthValues } from "@/features/auth/validation";
+import { safeJobReturnPath } from "@/lib/return-path";
 import { BirthDateField } from "./birth-date-field";
 import {
   Field,
@@ -74,6 +75,10 @@ export function AuthForm({
   returnTo = "/jobs",
   preview = false,
 }: Props) {
+  const destination = safeJobReturnPath(returnTo);
+  const publicReturnTo = /^\/jobs(?:\/\d+)?(?:\?|$)/.test(destination)
+    ? destination
+    : "/jobs";
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const submitPointer = useRef(false);
@@ -426,7 +431,7 @@ export function AuthForm({
             Chưa có tài khoản?{" "}
             <Link href={`/register?role=${role}`}>Đăng ký ngay</Link>
           </p>
-          <Link className="auth-return" href={returnTo}>
+          <Link className="auth-return" href={publicReturnTo}>
             Quay lại xem việc làm
           </Link>
         </>
