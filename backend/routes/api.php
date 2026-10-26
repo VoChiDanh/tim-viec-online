@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\JobReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SkillController;
+use App\Http\Controllers\Api\WorkspaceBootstrapController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +50,8 @@ Route::get('/jobs/{id}', [JobController::class, 'show']);
 
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/workspace/bootstrap', WorkspaceBootstrapController::class)->middleware('role:candidate,employer,admin');
+
     // Auth profile & password
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
