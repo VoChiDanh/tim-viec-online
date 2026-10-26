@@ -6,9 +6,11 @@ use App\Mail\ResetPasswordMail;
 use App\Mail\WelcomeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 use Tests\TestCase;
 
 class MailDeliveryTest extends TestCase
@@ -21,6 +23,24 @@ class MailDeliveryTest extends TestCase
         $this->assertLessThan(10, config('mail.mailers.smtp.timeout'));
         $this->assertArrayHasKey('scheme', config('mail.mailers.smtp'));
         $this->assertTrue(config('mail.mailers.smtp.require_tls'));
+    }
+
+    public function test_empty_mail_url_does_not_override_the_smtp_transport(): void
+    {
+        $environment = Env::getRepository();
+        $previous = $environment->get('MAIL_URL');
+        try {
+            $environment->set('MAIL_URL', '');
+            $settings = (require config_path('mail.php'))['mailers']['smtp'];
+            $settings['host'] = '127.0.0.1';
+            $settings['username'] = null;
+            $settings['password'] = null;
+            config(['mail.mailers.smtp' => $settings]);
+            // Construct only; never connects or sends to the configured provider.
+            $this->assertInstanceOf(EsmtpTransport::class, Mail::mailer('smtp')->getSymfonyTransport());
+        } finally {
+            $previous === null ? $environment->clear('MAIL_URL') : $environment->set('MAIL_URL', $previous);
+        }
     }
 
     public function test_reset_mail_contains_html_and_plain_text_with_the_configured_frontend_link(): void
