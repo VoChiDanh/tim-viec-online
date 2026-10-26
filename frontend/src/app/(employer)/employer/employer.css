@@ -172,7 +172,7 @@ body:has(.employer-page) {
   place-items: center;
   border: 2px solid var(--ep-white);
   border-radius: 999px;
-  background: var(--ep-blue);
+  background: var(--destructive);
   color: var(--ep-white);
   font-size: 10px;
   font-weight: 700;

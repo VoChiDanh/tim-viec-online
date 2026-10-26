@@ -621,9 +621,9 @@ body:has(.header-notifications[data-state="closed"])
   min-width: 17px;
   height: 17px;
   padding-inline: 3px;
-  background: var(--card);
-  color: var(--brand-navy);
-  border: 1px solid var(--brand-blue);
+  background: var(--destructive);
+  color: #fff;
+  border: 1px solid var(--card);
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
