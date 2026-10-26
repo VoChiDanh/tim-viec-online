@@ -4,6 +4,7 @@ export type AuthApiKind =
   | "login"
   | "register"
   | "forgot-password"
+  | "verify-reset-token"
   | "reset-password"
   | "logout"
   | "user"
@@ -13,6 +14,7 @@ export type AuthApiPath =
   | "/login"
   | "/register"
   | "/forgot-password"
+  | "/verify-reset-token"
   | "/reset-password"
   | "/logout"
   | "/user"
@@ -111,6 +113,7 @@ const allowedFields: Record<AuthApiKind, readonly string[]> = {
     "dob",
   ],
   "forgot-password": ["email"],
+  "verify-reset-token": ["email", "token"],
   "reset-password": ["email", "token", "password", "password_confirmation"],
   logout: [],
   user: [],
@@ -126,7 +129,7 @@ export function mapAuthApiError(
     record(body) && typeof body.code === "string" ? body.code : undefined;
   if (
     status === 400 &&
-    kind === "reset-password" &&
+    (kind === "reset-password" || kind === "verify-reset-token") &&
     code === "invalid_reset_token"
   ) {
     return new AuthApiError(

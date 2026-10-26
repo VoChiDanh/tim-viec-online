@@ -17,6 +17,7 @@ export type AuthActionState = {
   status: "idle" | "error" | "success" | "preview";
   message?: string;
   errors?: FieldErrors;
+  code?: string;
 };
 
 export const INITIAL_AUTH_STATE: AuthActionState = { status: "idle" };

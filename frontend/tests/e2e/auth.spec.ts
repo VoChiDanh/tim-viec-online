@@ -395,6 +395,13 @@ test("reset-password rejects expired tokens and returns to login after a valid r
     await page.goto(
       `/reset-password?email=candidate%40example.test&token=${token}`,
     );
+    if (token === "invalid-reset-token") {
+      await expect(
+        page.getByRole("link", { name: "Yêu cầu liên kết mới", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByLabel(/^Mật khẩu mới/)).toHaveCount(0);
+      continue;
+    }
     await page.getByLabel(/^Mật khẩu mới/).fill(password);
     await page.getByLabel(/^Xác nhận mật khẩu/).fill(password);
     await page
@@ -402,14 +409,25 @@ test("reset-password rejects expired tokens and returns to login after a valid r
         name: /Đặt lại mật khẩu|Lưu mật khẩu|Cập nhật mật khẩu/,
       })
       .click();
-    if (token === "invalid-reset-token")
-      await expect(
-        page.getByText("Liên kết xác thực đã hết hạn hoặc không hợp lệ", {
-          exact: false,
-        }),
-      ).toBeVisible();
-    else await expect(page).toHaveURL(/\/login\?.*notice=reset/);
+    await expect(page).toHaveURL(/\/login\?.*notice=reset/);
   }
+});
+
+test("reset link verification distinguishes service outages from expired links", async ({
+  page,
+}) => {
+  await page.goto(
+    "/reset-password?email=candidate%40example.test&token=unavailable-reset-token",
+  );
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Chưa thể kiểm tra liên kết",
+  );
+  await expect(
+    page.getByText("Liên kết xác thực đã hết hạn hoặc không hợp lệ", {
+      exact: false,
+    }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel(/^Mật khẩu mới/)).toHaveCount(0);
 });
 
 test("changing a password requires a session and verifies the current password", async ({

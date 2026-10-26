@@ -5,7 +5,13 @@ import type { AuthKind } from "@/features/auth/types";
 import { validateAuthValues } from "@/features/auth/validation";
 import { vietnamToday } from "@/features/jobs/formatters";
 import { safeJobReturnPath } from "@/lib/return-path";
-import { authEnabled, authMockEnabled } from "@/services/auth-mode";
+import { AuthApiError } from "@/features/auth/api-contract";
+import {
+  authEnabled,
+  authMockEnabled,
+  authApiEnabled,
+} from "@/services/auth-mode";
+import { authRequest } from "@/services/auth-request";
 import { getCurrentUser, roleLanding } from "@/services/auth-session";
 import {
   changePasswordAction,
@@ -63,8 +69,18 @@ export async function AuthScreen({
     typeof params.email === "string" && params.email.length <= 100
       ? params.email
       : "";
-  const resetLinkInvalid =
+  let resetLinkInvalid =
     !token || !!validateAuthValues("forgot", { email }, vietnamToday()).email;
+  let resetLinkUnavailable = false;
+  if (kind === "reset" && !resetLinkInvalid && authApiEnabled()) {
+    try {
+      await authRequest("/verify-reset-token", { body: { email, token } });
+    } catch (error) {
+      if (error instanceof AuthApiError && error.code === "invalid_reset_token")
+        resetLinkInvalid = true;
+      else resetLinkUnavailable = true;
+    }
+  }
   const actions = {
     login: loginAction.bind(null, returnTo),
     register: registerAction,
@@ -87,7 +103,12 @@ export async function AuthScreen({
           {notice}
         </p>
       )}
-      {kind === "reset" && resetLinkInvalid ? (
+      {kind === "reset" && resetLinkUnavailable ? (
+        <div className="auth-status" role="alert">
+          Chưa thể kiểm tra liên kết. Vui lòng tải lại trang sau ít phút.{" "}
+          <Link href="/forgot-password">Yêu cầu liên kết mới</Link>
+        </div>
+      ) : kind === "reset" && resetLinkInvalid ? (
         <div className="auth-status" role="alert">
           Liên kết xác thực đã hết hạn hoặc không hợp lệ.{" "}
           <Link href="/forgot-password">Yêu cầu liên kết mới</Link>

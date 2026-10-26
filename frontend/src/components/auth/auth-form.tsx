@@ -399,6 +399,12 @@ export function AuthForm({
             {Object.values(clientErrors).some(Boolean)
               ? "Vui lòng kiểm tra lại thông tin đã nhập."
               : previewMessage || state.message}
+            {kind === "reset" && state.code === "invalid_reset_token" && (
+              <>
+                {" "}
+                <Link href="/forgot-password">Yêu cầu liên kết mới</Link>
+              </>
+            )}
           </div>
         )}
       <Button

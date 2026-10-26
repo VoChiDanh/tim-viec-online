@@ -25,6 +25,7 @@ function failure(error: unknown): AuthActionState {
   if (error instanceof AuthApiError)
     return {
       status: "error",
+      code: error.code,
       message: Object.keys(error.fieldErrors).length
         ? "Vui lòng kiểm tra lại thông tin đã nhập."
         : error.message,

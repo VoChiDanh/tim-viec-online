@@ -233,6 +233,12 @@ const server = createServer(async (request, response) => {
       return send(response, 201);
     }
     if (path === "/api/forgot-password") return sendVoid(response);
+    if (path === "/api/verify-reset-token") {
+      if (body.token === "unavailable-reset-token") return send(response, 503);
+      return body.token === "valid-reset-token"
+        ? send(response, 200, { email: body.email })
+        : send(response, 400, null, "invalid_reset_token");
+    }
     if (path === "/api/reset-password") {
       return body.token === "valid-reset-token"
         ? send(response, 200)

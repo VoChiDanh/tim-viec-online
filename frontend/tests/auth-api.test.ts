@@ -141,3 +141,17 @@ test("API errors map authentication, throttling, unavailable routes and transpor
     "service_unavailable",
   );
 });
+
+test("reset token verification maps expired links without exposing upstream messages", () => {
+  const error = mapAuthApiError(
+    400,
+    { code: "invalid_reset_token", message: "private token" },
+    "verify-reset-token",
+  );
+  assert.equal(error.code, "invalid_reset_token");
+  assert.equal(error.message, "Liên kết xác thực đã hết hạn hoặc không hợp lệ");
+  assert.equal(
+    mapAuthApiError(503, {}, "verify-reset-token").code,
+    "service_unavailable",
+  );
+});

@@ -16,6 +16,7 @@ const routes: Record<
   "/login": { kind: "login", method: "POST" },
   "/register": { kind: "register", method: "POST" },
   "/forgot-password": { kind: "forgot-password", method: "POST" },
+  "/verify-reset-token": { kind: "verify-reset-token", method: "POST" },
   "/reset-password": { kind: "reset-password", method: "POST" },
   "/logout": { kind: "logout", method: "POST" },
   "/user": { kind: "user", method: "GET" },
