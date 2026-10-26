@@ -18,6 +18,71 @@ const identities = {
   },
 };
 
+// Minimal contract records keep auth tests independent of production/mock seeds.
+const company = {
+  id: 1,
+  name: "Auth contract company",
+  city: "Hà Nội",
+  address: "",
+  description: "",
+  company_size: "",
+  website: null,
+  active_jobs_count: 1,
+};
+const job = {
+  id: 1,
+  company_id: 1,
+  category_id: 1,
+  title: "Auth contract job",
+  job_level: "Junior",
+  quantity: 1,
+  description: "Contract job description",
+  requirements: "Contract requirements",
+  benefits: "Contract benefits",
+  salary_min: null,
+  salary_max: null,
+  is_negotiable: true,
+  job_type: "full_time",
+  city: "Hà Nội",
+  address: "",
+  deadline: "2099-12-31",
+  status: "active",
+  is_reported: false,
+  created_at: "2026-10-26",
+  updated_at: "2026-10-26",
+  skills: [],
+  company,
+  applications_count: 0,
+};
+
+function sendList(response, data = []) {
+  response.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(
+    JSON.stringify({
+      success: true,
+      data,
+      meta: {
+        current_page: 1,
+        page: 1,
+        per_page: 100,
+        total: data.length,
+        last_page: 1,
+      },
+    }),
+  );
+}
+
+function sendVoid(response) {
+  response.writeHead(200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify({ success: true, message: "OK" }));
+}
+
 function send(response, status, data = null, code, errors) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -63,6 +128,82 @@ const server = createServer(async (request, response) => {
       status: "active",
     });
   }
+  if (request.method === "GET") {
+    if (path === "/api/jobs") return sendList(response, [job]);
+    if (path === "/api/jobs/1") return send(response, 200, job);
+    if (path === "/api/categories")
+      return sendList(response, [
+        { id: 1, name: "Contract category", jobs_count: 1 },
+      ]);
+    if (path === "/api/skills") return sendList(response);
+    if (path === "/api/companies") return sendList(response, [company]);
+    if (path === "/api/companies/1")
+      return send(response, 200, { ...company, jobs: [job] });
+    if (path === "/api/locations/cities")
+      return send(response, 200, ["Hà Nội"]);
+    const entry = Object.entries(identities).find(
+      ([, user]) => token === `test-${user.role}-token`,
+    );
+    if (!entry || revokedTokens.has(token))
+      return send(response, 401, null, "unauthenticated");
+    if (
+      (path.startsWith("/api/admin/") && entry[1].role !== "admin") ||
+      (path.startsWith("/api/employer/") && entry[1].role !== "employer") ||
+      (path.startsWith("/api/candidate/") && entry[1].role !== "candidate")
+    )
+      return send(response, 403, null, "forbidden");
+    if (path === "/api/candidate/profile")
+      return send(response, 200, {
+        user: {
+          ...entry[1],
+          email: entry[0],
+          status: "active",
+          dob: "2000-05-20",
+          phone: "",
+        },
+        profile: {
+          title: "",
+          city: "",
+          address: "",
+          bio: "",
+          experience_years: 0,
+          skills: [],
+          cv_url: null,
+          avatar_url: null,
+          social_links: {},
+        },
+      });
+    if (path === "/api/employer/company")
+      return send(response, 200, { ...company, user_id: 2 });
+    if (path === "/api/admin/stats")
+      return send(response, 200, {
+        users_count: 0,
+        total_candidates: 0,
+        total_employers: 0,
+        total_jobs: 0,
+        active_jobs: 0,
+        total_applications: 0,
+        reported_jobs: 0,
+        trends: [],
+      });
+    if (path === "/api/admin/jobs/1") return send(response, 200, job);
+    if (
+      [
+        "/api/candidate/saved-jobs",
+        "/api/candidate/applications",
+        "/api/conversations",
+        "/api/notifications",
+        "/api/employer/my-jobs",
+        "/api/employer/applications",
+        "/api/admin/users",
+        "/api/admin/jobs",
+        "/api/admin/categories",
+        "/api/admin/skills",
+      ].includes(path)
+    )
+      return sendList(response);
+    return send(response, 404);
+  }
   if (
     request.method !== "POST" &&
     !(request.method === "PUT" && path === "/api/user/change-password")
@@ -91,7 +232,7 @@ const server = createServer(async (request, response) => {
         });
       return send(response, 201);
     }
-    if (path === "/api/forgot-password") return send(response, 200);
+    if (path === "/api/forgot-password") return sendVoid(response);
     if (path === "/api/reset-password") {
       return body.token === "valid-reset-token"
         ? send(response, 200)
@@ -99,14 +240,14 @@ const server = createServer(async (request, response) => {
     }
     if (path === "/api/logout") {
       if (token) revokedTokens.add(token);
-      return send(response, 200);
+      return sendVoid(response);
     }
     if (path === "/api/user/change-password") {
       if (!token || revokedTokens.has(token))
         return send(response, 401, null, "unauthenticated");
       if (body.current_password === "WrongPass1!")
         return send(response, 400, null, "invalid_current_password");
-      return send(response, 200);
+      return sendVoid(response);
     }
     return send(response, 404);
   } catch {

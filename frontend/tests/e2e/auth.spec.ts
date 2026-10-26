@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 const password = "SafeFixture1!";
 
-test("candidate workspace previews are blocked in API mode and real routes enforce roles", async ({
+test("candidate routes enforce roles and render empty API workspace without mock records", async ({
   page,
   context,
 }) => {
@@ -30,10 +30,8 @@ test("candidate workspace previews are blocked in API mode and real routes enfor
       await expect(
         page.getByRole("link", { name: "Đổi mật khẩu", exact: true }),
       ).toHaveAttribute("href", "/account/security");
-    } else
-      await expect(
-        page.getByRole("main").getByRole("heading", { level: 2 }),
-      ).toContainText("hiện chưa khả dụng");
+    }
+    await expect(page.getByText(/hiện chưa khả dụng/)).toHaveCount(0);
     await expect(page.getByText("Nguyễn Minh An", { exact: true })).toHaveCount(
       0,
     );
@@ -47,7 +45,7 @@ test("candidate workspace previews are blocked in API mode and real routes enfor
   }
 });
 
-test("profile preview is unavailable in API mode and candidate profile enforces the authenticated role", async ({
+test("profile preview enforces authentication and profile uses the API identity", async ({
   page,
   context,
 }) => {
@@ -63,14 +61,18 @@ test("profile preview is unavailable in API mode and candidate profile enforces 
   await login(page);
   await expect(page).toHaveURL(/\/jobs$/);
   await page.goto("/account/profile");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Hồ sơ của",
-  );
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Nguyễn Minh Anh",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     page.getByText("Hồ sơ hiện chưa khả dụng. Vui lòng quay lại sau.", {
       exact: true,
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await context.clearCookies();
   await login(page, "employer@example.test");
   await expect(page).toHaveURL(/\/employer$/);
@@ -141,7 +143,7 @@ test("unsafe external return URL is rejected", async ({ page }) => {
   await expect(page).toHaveURL(/\/jobs$/);
 });
 
-test("authenticated candidates get honest pending job actions instead of a login loop", async ({
+test("authenticated candidate actions use API workspace and failed writes do not create a login loop", async ({
   page,
 }) => {
   await login(page, "candidate@example.test", "/jobs/1");
@@ -150,17 +152,20 @@ test("authenticated candidates get honest pending job actions instead of a login
     .getByRole("button", { name: "Ứng tuyển ngay", exact: true })
     .click();
   await expect(
-    page.getByText("Hiện chưa thể nộp hồ sơ. Vui lòng thử lại sau.", {
-      exact: true,
-    }),
+    page.getByRole("dialog", { name: "Nộp hồ sơ ứng tuyển" }),
   ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Đóng", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Lưu việc làm", exact: true })
     .first()
     .click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "Hiện chưa thể lưu việc làm.",
+  await expect(page.locator("[data-sonner-toast]")).toContainText(
+    "Request rejected",
   );
+  await expect(page).toHaveURL(/\/jobs\/1$/);
   await expect(
     page.getByRole("link", { name: "Đến trang đăng nhập", exact: true }),
   ).toHaveCount(0);
@@ -261,7 +266,7 @@ test("admin login follows the backend role", async ({ page }) => {
   await expect(page).toHaveURL(/\/admin$/);
 });
 
-test("API admin routes never substitute mock fixtures or enable preview mutations", async ({
+test("API admin routes and legacy preview URLs render API records without demo reset controls", async ({
   page,
 }) => {
   await login(page, "admin@example.test", "/admin/jobs/1");
@@ -281,20 +286,16 @@ test("API admin routes never substitute mock fixtures or enable preview mutation
     "/admin/jobs/preview",
     "/admin/jobs/1/preview",
   ]) {
-    const response = await page.goto(path);
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(
-      page.getByRole("heading", {
-        name: "Dữ liệu quản trị chưa được kết nối",
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      page.locator(".admin-page, .ap-table, .ap-preview"),
+      page.getByText("Dữ liệu quản trị chưa được kết nối", { exact: true }),
     ).toHaveCount(0);
+    await expect(page.locator(".ap-preview")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: /Khóa|Xóa|Thêm|Khôi phục/ }),
+      page.getByRole("button", { name: "Khôi phục mẫu", exact: true }),
     ).toHaveCount(0);
-    const html = await response!.text();
+    const html = await page.content();
     expect(html).not.toContain("admin@timviec.vn");
     expect(html).not.toContain("employer@timviec.vn");
     expect(html).not.toContain("candidate@timviec.vn");

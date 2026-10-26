@@ -8,6 +8,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: "list",
+  outputDir: "test-results/auth-browser",
   use: { baseURL: "http://localhost:3119", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
