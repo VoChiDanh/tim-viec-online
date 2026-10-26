@@ -23,12 +23,13 @@ class NotificationController extends Controller
 
         $userId = $request->user()->id;
 
-        $unreadCount = Notification::where('user_id', $userId)
-            ->whereNull('read_at')
-            ->count();
+        $counts = Notification::where('user_id', $userId)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread')
+            ->first();
+        $unreadCount = (int) $counts->unread;
 
         $query = Notification::where('user_id', $userId)
-            ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc')->orderBy('id', 'desc');
 
         // Lọc theo trạng thái đã đọc / chưa đọc (FR-10.3)
         if ($request->query('status') === 'unread') {
@@ -47,7 +48,8 @@ class NotificationController extends Controller
 
         $notifications = $query->paginate($perPage);
 
-        $formatted = $notifications->map(function ($notify) {
+        $formatted = $notifications->map(function ($notify) use ($request) {
+            $notify->setRelation('user', $request->user());
             $isRead = $notify->isRead();
 
             return [
@@ -71,6 +73,8 @@ class NotificationController extends Controller
             'success' => true,
             'message' => 'Lấy danh sách thông báo thành công',
             'unread_count' => $unreadCount, // FR-10.3: Hiển thị badge chuông trên thanh điều hướng
+            'total_count' => (int) $counts->total,
+            'read_count' => (int) $counts->total - $unreadCount,
             'data' => $formatted,
             'meta' => [
                 'current_page' => $notifications->currentPage(),
@@ -88,7 +92,7 @@ class NotificationController extends Controller
     {
         $notification = Notification::where('user_id', $request->user()->id)->find($id);
 
-        if (!$notification) {
+        if (! $notification) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy thông báo',
@@ -96,6 +100,7 @@ class NotificationController extends Controller
         }
 
         $notification->markAsRead();
+        $notification->setRelation('user', $request->user());
 
         $unreadCount = Notification::where('user_id', $request->user()->id)
             ->whereNull('read_at')
@@ -140,7 +145,7 @@ class NotificationController extends Controller
     {
         $notification = Notification::where('user_id', $request->user()->id)->find($id);
 
-        if (!$notification) {
+        if (! $notification) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy thông báo',

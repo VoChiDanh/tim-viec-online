@@ -1,5 +1,8 @@
 <?php
 
+$broadcastTimeout = max(0.1, (float) env('BROADCAST_HTTP_TIMEOUT', 0.75));
+$connectTimeout = min($broadcastTimeout, max(0.05, (float) env('BROADCAST_CONNECT_TIMEOUT', 0.25)));
+
 return [
 
     /*
@@ -40,9 +43,12 @@ return [
                 'port' => env('REVERB_PORT', 443),
                 'scheme' => env('REVERB_SCHEME', 'https'),
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+                'timeout' => $broadcastTimeout,
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Pusher supplies its own request timeout; bound both layers.
+                'connect_timeout' => $connectTimeout,
+                'timeout' => $broadcastTimeout,
             ],
         ],
 
@@ -58,9 +64,11 @@ return [
                 'scheme' => env('PUSHER_SCHEME', 'https'),
                 'encrypted' => true,
                 'useTLS' => env('PUSHER_SCHEME', 'https') === 'https',
+                'timeout' => $broadcastTimeout,
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                'connect_timeout' => $connectTimeout,
+                'timeout' => $broadcastTimeout,
             ],
         ],
 

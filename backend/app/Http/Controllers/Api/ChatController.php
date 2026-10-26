@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Events\MessageSent;
 use App\Events\MessagesRead;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ChatHistoryRequest;
 use App\Http\Requests\StartConversationRequest;
 use App\Models\Application;
 use App\Models\Conversation;
@@ -14,9 +15,9 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
@@ -30,19 +31,24 @@ class ChatController extends Controller
         $conversations = Conversation::where('candidate_id', $userId)
             ->orWhere('employer_id', $userId)
             ->with([
-                'candidate.candidateProfile',
-                'employer.company',
-                'job',
-                'messages' => function ($q) {
-                    $q->latest()->limit(1);
-                },
+                'candidate:id,name,role',
+                'candidate.candidateProfile:id,user_id,avatar',
+                'employer:id,name,role',
+                'employer.company:id,user_id,name,logo',
+                'job:id,title,status,deadline',
+                'latestMessage',
             ])
+            ->withCount(['messages as unread_count' => fn ($query) => $query
+                ->where('sender_id', '!=', $userId)->where('is_read', false)])
             ->orderBy('last_message_at', 'desc')
             ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->get();
 
         $applications = Application::whereIn('job_id', $conversations->pluck('job_id'))
-            ->with('candidateProfile')->get()
+            ->whereHas('candidateProfile', fn ($query) => $query->whereIn('user_id', $conversations->pluck('candidate_id')))
+            ->select(['id', 'job_id', 'candidate_id'])
+            ->with('candidateProfile:id,user_id')->get()
             ->keyBy(fn ($application) => $application->job_id.':'.$application->candidateProfile?->user_id);
 
         $data = $conversations->map(function ($conv) use ($userId, $applications) {
@@ -53,16 +59,10 @@ class ChatController extends Controller
                 : $conv->candidate?->name;
 
             $partnerAvatar = $isCandidate
-                ? ($conv->employer?->company?->logo ? asset('storage/' . $conv->employer->company->logo) : null)
-                : ($conv->candidate?->candidateProfile?->avatar ? asset('storage/' . $conv->candidate->candidateProfile->avatar) : null);
+                ? ($conv->employer?->company?->logo ? asset('storage/'.$conv->employer->company->logo) : null)
+                : ($conv->candidate?->candidateProfile?->avatar ? asset('storage/'.$conv->candidate->candidateProfile->avatar) : null);
 
-            $lastMsg = $conv->messages->first();
-
-            // Đếm số tin nhắn chưa đọc từ đối phương
-            $unreadCount = Message::where('conversation_id', $conv->id)
-                ->where('sender_id', '!=', $userId)
-                ->where('is_read', 0)
-                ->count();
+            $lastMsg = $conv->latestMessage;
 
             // FR-04.6 & FR-08.6: Duy trì liên lạc khi tin đóng kèm nhãn thông báo phụ
             $isClosed = $conv->job?->status === 'closed';
@@ -85,7 +85,7 @@ class ChatController extends Controller
                 'is_closed' => $isClosed,
                 'is_expired' => $isExpired,
                 'job_notice' => $jobNotice,
-                'unread_count' => $unreadCount,
+                'unread_count' => (int) $conv->unread_count,
                 'partner' => [
                     'id' => $partner?->id,
                     'name' => $partnerName,
@@ -124,7 +124,7 @@ class ChatController extends Controller
 
         $job = Job::with('company.user')->find($request->job_id);
 
-        if (!$job) {
+        if (! $job) {
             return response()->json([
                 'success' => false,
                 'message' => 'Công việc không tồn tại',
@@ -136,7 +136,7 @@ class ChatController extends Controller
             $employerId = (int) ($request->partner_id ?? $job->company?->user_id);
 
             // Kiểm tra partner_id có phải là NTD sở hữu tin này không
-            if (!$job->company || (int) $job->company->user_id !== $employerId) {
+            if (! $job->company || (int) $job->company->user_id !== $employerId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Nhà tuyển dụng không quản lý tin tuyển dụng này',
@@ -144,7 +144,7 @@ class ChatController extends Controller
             }
 
             $candidateProfile = $user->candidateProfile;
-            if (!$candidateProfile) {
+            if (! $candidateProfile) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vui lòng hoàn thiện hồ sơ ứng viên trước khi nhắn tin',
@@ -157,7 +157,7 @@ class ChatController extends Controller
                 ->where('status', '!=', 'withdrawn')
                 ->exists();
 
-            if (!$hasApplication) {
+            if (! $hasApplication) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này',
@@ -168,7 +168,7 @@ class ChatController extends Controller
             $candidateId = (int) $request->partner_id;
 
             // Kiểm tra NTD có phải là chủ sở hữu tin này không
-            if (!$job->company || (int) $job->company->user_id !== $employerId) {
+            if (! $job->company || (int) $job->company->user_id !== $employerId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn không có quyền quản lý tin tuyển dụng này',
@@ -176,7 +176,7 @@ class ChatController extends Controller
             }
 
             $candidateUser = User::with('candidateProfile')->find($candidateId);
-            if (!$candidateUser || !$candidateUser->isCandidate() || !$candidateUser->candidateProfile) {
+            if (! $candidateUser || ! $candidateUser->isCandidate() || ! $candidateUser->candidateProfile) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không tìm thấy hồ sơ của ứng viên',
@@ -189,7 +189,7 @@ class ChatController extends Controller
                 ->where('status', '!=', 'withdrawn')
                 ->exists();
 
-            if (!$hasApplication) {
+            if (! $hasApplication) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Phòng trò chuyện chỉ được tạo khi ứng viên đã nộp hồ sơ vào tin tuyển dụng này',
@@ -223,12 +223,12 @@ class ChatController extends Controller
     /**
      * Xem lịch sử tin nhắn trong phòng chat (FR-08.4, FR-08.5, FR-08.6)
      */
-    public function messages(Request $request, $id): JsonResponse
+    public function messages(ChatHistoryRequest $request, $id): JsonResponse
     {
         $userId = $request->user()->id;
-        $conversation = Conversation::with(['job', 'candidate.candidateProfile', 'employer.company'])->find($id);
+        $conversation = Conversation::with('job:id,title,status,deadline')->find($id);
 
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cuộc trò chuyện không tồn tại',
@@ -260,18 +260,48 @@ class ChatController extends Controller
             }
         }
 
-        $perPage = (int) $request->input('per_page', 50);
-        $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 50;
-
-        $messages = Message::where('conversation_id', $conversation->id)
-            ->with(['sender.candidateProfile', 'sender.company'])
-            ->orderBy('created_at', 'asc')
-            ->paginate($perPage);
+        $perPage = (int) $request->validated('per_page', 50);
+        $query = Message::where('conversation_id', $conversation->id)
+            ->with(['sender:id,name,role', 'sender.candidateProfile:id,user_id,avatar', 'sender.company:id,user_id,logo']);
+        $cursorWindow = $request->boolean('latest') || $request->hasAny(['after_id', 'before_id']);
+        if ($cursorWindow) {
+            $newer = $request->has('after_id');
+            if ($newer) {
+                $query->where('id', '>', (int) $request->validated('after_id'));
+            } elseif ($request->has('before_id')) {
+                $query->where('id', '<', (int) $request->validated('before_id'));
+            }
+            $window = $query->orderBy('id', $newer ? 'asc' : 'desc')->limit($perPage + 1)->get();
+            $hasMore = $window->count() > $perPage;
+            $messages = $window->take($perPage);
+            if (! $newer) {
+                $messages = $messages->reverse();
+            }
+            $messages = $messages->values();
+            $meta = [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => $perPage,
+                'total' => $messages->count(),
+                'has_more' => $hasMore,
+                'oldest_id' => $messages->first()?->id,
+                'newest_id' => $messages->last()?->id,
+            ];
+        } else {
+            // Preserve legacy ascending page navigation for existing API clients.
+            $messages = $query->orderBy('created_at')->orderBy('id')->paginate($perPage);
+            $meta = [
+                'current_page' => $messages->currentPage(),
+                'last_page' => $messages->lastPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+            ];
+        }
 
         $formatted = $messages->map(function ($msg) {
             $senderAvatar = $msg->sender?->isCandidate()
-                ? ($msg->sender?->candidateProfile?->avatar ? asset('storage/' . $msg->sender->candidateProfile->avatar) : null)
-                : ($msg->sender?->company?->logo ? asset('storage/' . $msg->sender->company->logo) : null);
+                ? ($msg->sender?->candidateProfile?->avatar ? asset('storage/'.$msg->sender->candidateProfile->avatar) : null)
+                : ($msg->sender?->company?->logo ? asset('storage/'.$msg->sender->company->logo) : null);
 
             return [
                 'id' => $msg->id,
@@ -311,12 +341,7 @@ class ChatController extends Controller
                 'is_expired' => $isExpired,
                 'job_notice' => $jobNotice, // FR-08.6: Kèm nhãn thông báo phụ
             ],
-            'meta' => [
-                'current_page' => $messages->currentPage(),
-                'last_page' => $messages->lastPage(),
-                'per_page' => $messages->perPage(),
-                'total' => $messages->total(),
-            ],
+            'meta' => $meta,
         ], 200);
     }
 
@@ -328,7 +353,7 @@ class ChatController extends Controller
         $user = $request->user();
         $conversation = Conversation::find($id);
 
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cuộc trò chuyện không tồn tại',
@@ -353,7 +378,7 @@ class ChatController extends Controller
         if ($request->hasFile('image')) {
             $file = $request->file('image');
             $allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
-            if (!in_array($file->getMimeType(), $allowedMimes) || $file->getSize() > 5 * 1024 * 1024) {
+            if (! in_array($file->getMimeType(), $allowedMimes) || $file->getSize() > 5 * 1024 * 1024) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Hình ảnh đính kèm phải có định dạng JPEG, PNG, GIF hoặc WEBP và dung lượng không quá 5MB',
@@ -366,7 +391,7 @@ class ChatController extends Controller
         $trimmed = $rawMessage !== null ? trim((string) $rawMessage) : '';
 
         // Không có ảnh và tin nhắn rỗng toàn khoảng trắng/enter (FR-08.2)
-        if (!$imagePath && mb_strlen($trimmed) === 0) {
+        if (! $imagePath && mb_strlen($trimmed) === 0) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nội dung tin nhắn không được để trống hoặc chỉ chứa khoảng trắng',
@@ -421,7 +446,7 @@ class ChatController extends Controller
         try {
             Notification::create([
                 'user_id' => $receiverId,
-                'title' => 'Tin nhắn mới từ ' . $user->name,
+                'title' => 'Tin nhắn mới từ '.$user->name,
                 'content' => mb_substr($previewText, 0, 100),
                 'type' => 'new_message',
                 'data' => [
@@ -463,7 +488,7 @@ class ChatController extends Controller
         $userId = $request->user()->id;
         $conversation = Conversation::find($id);
 
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cuộc trò chuyện không tồn tại',
@@ -507,7 +532,7 @@ class ChatController extends Controller
     public function downloadMessageImage(Request $request, $conversationId, $messageId)
     {
         $conversation = Conversation::find($conversationId);
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['success' => false, 'message' => 'Cuộc trò chuyện không tồn tại'], 404);
         }
 
@@ -517,12 +542,12 @@ class ChatController extends Controller
         }
 
         $message = Message::where('conversation_id', $conversation->id)->find($messageId);
-        if (!$message || !$message->image_path) {
+        if (! $message || ! $message->image_path) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy hình ảnh'], 404);
         }
 
         $disk = Storage::disk('private')->exists($message->image_path) ? 'private' : 'public';
-        if (!Storage::disk($disk)->exists($message->image_path)) {
+        if (! Storage::disk($disk)->exists($message->image_path)) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy hình ảnh'], 404);
         }
 

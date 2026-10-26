@@ -42,15 +42,19 @@ class AdminController extends Controller
         $totalApplications = Application::count();
 
         // Xu hướng (trends) theo số ngày yêu cầu (mặc định 7 ngày gần nhất)
+        $end = Carbon::today()->addDay();
+        $start = $end->copy()->subDays($days);
+        $dailyJobs = Job::where('created_at', '>=', $start)->where('created_at', '<', $end)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')->groupByRaw('DATE(created_at)')->pluck('total', 'day');
+        $dailyApplications = Application::where('created_at', '>=', $start)->where('created_at', '<', $end)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')->groupByRaw('DATE(created_at)')->pluck('total', 'day');
         $trends = [];
         for ($i = $days - 1; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i)->toDateString();
-            $jobsOnDate = Job::whereDate('created_at', $date)->count();
-            $appsOnDate = Application::whereDate('created_at', $date)->count();
+            $date = $end->copy()->subDays($i + 1)->toDateString();
             $trends[] = [
                 'date' => $date,
-                'jobs_count' => $jobsOnDate,
-                'applications_count' => $appsOnDate,
+                'jobs_count' => (int) ($dailyJobs[$date] ?? 0),
+                'applications_count' => (int) ($dailyApplications[$date] ?? 0),
             ];
         }
 
@@ -105,8 +109,8 @@ class AdminController extends Controller
             $keyword = trim($request->keyword);
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('email', 'like', "%{$keyword}%")
-                  ->orWhere('phone', 'like', "%{$keyword}%");
+                    ->orWhere('email', 'like', "%{$keyword}%")
+                    ->orWhere('phone', 'like', "%{$keyword}%");
             });
         }
 
@@ -144,7 +148,7 @@ class AdminController extends Controller
             'candidateProfile.applications.job',
         ])->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy người dùng.',
@@ -165,7 +169,7 @@ class AdminController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy người dùng',
@@ -219,7 +223,7 @@ class AdminController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy người dùng',
@@ -308,7 +312,7 @@ class AdminController extends Controller
     {
         $job = Job::with(['company.user', 'category', 'skills', 'applications.candidateProfile.user'])->withCount('applications')->find($id);
 
-        if (!$job) {
+        if (! $job) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy tin tuyển dụng.',
@@ -358,7 +362,7 @@ class AdminController extends Controller
         ]);
 
         $job = Job::find($id);
-        if (!$job) {
+        if (! $job) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy tin tuyển dụng'], 404);
         }
 
@@ -393,7 +397,7 @@ class AdminController extends Controller
 
         $job = Job::with('company.user')->find($id);
 
-        if (!$job) {
+        if (! $job) {
             return response()->json([
                 'success' => false,
                 'message' => 'Không tìm thấy tin tuyển dụng',
@@ -505,11 +509,11 @@ class AdminController extends Controller
     public function updateCategory(Request $request, $id): JsonResponse
     {
         $category = Category::find($id);
-        if (!$category) {
+        if (! $category) {
             return response()->json(['success' => false, 'message' => 'Danh mục không tồn tại.'], 404);
         }
 
-        $request->validate(['name' => 'required|string|max:150|unique:categories,name,' . $id]);
+        $request->validate(['name' => 'required|string|max:150|unique:categories,name,'.$id]);
         $category->update(['name' => trim($request->name)]);
 
         return response()->json([
@@ -522,12 +526,13 @@ class AdminController extends Controller
     public function destroyCategory($id): JsonResponse
     {
         $category = Category::find($id);
-        if (!$category) {
+        if (! $category) {
             return response()->json(['success' => false, 'message' => 'Danh mục không tồn tại.'], 404);
         }
 
         try {
             $category->delete();
+
             return response()->json(['success' => true, 'message' => 'Xóa danh mục ngành nghề thành công.']);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Không thể xóa danh mục đang có tin tuyển dụng liên kết.'], 400);
@@ -608,11 +613,11 @@ class AdminController extends Controller
     public function updateSkill(Request $request, $id): JsonResponse
     {
         $skill = Skill::find($id);
-        if (!$skill) {
+        if (! $skill) {
             return response()->json(['success' => false, 'message' => 'Kỹ năng không tồn tại.'], 404);
         }
 
-        $request->validate(['name' => 'required|string|max:100|unique:skills,name,' . $id]);
+        $request->validate(['name' => 'required|string|max:100|unique:skills,name,'.$id]);
         $skill->update(['name' => trim($request->name)]);
 
         return response()->json([
@@ -625,11 +630,12 @@ class AdminController extends Controller
     public function destroySkill($id): JsonResponse
     {
         $skill = Skill::find($id);
-        if (!$skill) {
+        if (! $skill) {
             return response()->json(['success' => false, 'message' => 'Kỹ năng không tồn tại.'], 404);
         }
 
         $skill->delete();
+
         return response()->json(['success' => true, 'message' => 'Xóa kỹ năng thành công.']);
     }
 }
