@@ -1,18 +1,117 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-test("legacy company directory URLs lead to the shared home section", async ({
+test("company directory paginates all companies without repeating cards", async ({
   page,
 }) => {
-  for (const path of [
-    "/companies",
-    "/companies?keyword=FPT&sector=retail&page=3",
-  ]) {
-    await page.goto(path);
-    await expect(page).toHaveURL(/\/#top-companies$/);
-    await expect(page.locator("#top-companies")).toBeVisible();
-    await expect(page.locator(".company-search")).toHaveCount(0);
+  await page.goto("/");
+  await expect(page.locator("#top-companies .home-company-card")).toHaveCount(
+    6,
+  );
+  await page
+    .locator("#top-companies")
+    .getByRole("link", { name: "Xem Tất Cả", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/companies$/);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Khám phá doanh nghiệp tuyển dụng",
+      exact: true,
+    }),
+  ).toBeVisible();
+  const cards = page.locator(".company-directory-card");
+  await expect(cards).toHaveCount(12);
+  await expect(page.locator(".company-directory-range")).toHaveText(
+    "Hiển thị 1–12 / 17",
+  );
+  const firstPageLinks = await cards.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("href")),
+  );
+  const pagination = page.getByRole("navigation", {
+    name: "Phân trang doanh nghiệp",
+    exact: true,
+  });
+  await pagination.getByRole("link", { name: "Trang 2", exact: true }).click();
+  await expect(page).toHaveURL(/\/companies\?page=2$/);
+  await expect(cards).toHaveCount(5);
+  await expect(page.locator(".company-directory-range")).toHaveText(
+    "Hiển thị 13–17 / 17",
+  );
+  const secondPageLinks = await cards.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("href")),
+  );
+  expect(new Set([...firstPageLinks, ...secondPageLinks]).size).toBe(17);
+  await expect(
+    pagination.getByRole("link", { name: "Trang 2", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await pagination
+    .getByRole("link", { name: "Trang đầu", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/companies$/);
+  await expect(cards).toHaveCount(12);
+});
+
+test("company search resets pagination and opens the matching profile", async ({
+  page,
+}) => {
+  await page.goto("/companies?page=2");
+  const search = page.getByRole("search", { name: "Tìm kiếm doanh nghiệp" });
+  await search.getByLabel("Tên công ty hoặc từ khóa").fill("FPT");
+  await search.getByRole("button", { name: "Tìm doanh nghiệp" }).click();
+  const query = new URL(page.url()).searchParams;
+  expect(query.get("keyword")).toBe("FPT");
+  expect(query.has("page")).toBe(false);
+  await expect(page.locator(".company-directory-card")).toHaveCount(1);
+  await expect(page.locator(".company-directory-card")).toContainText(
+    "FPT Software",
+  );
+  await expect(
+    page.getByRole("navigation", { name: "Phân trang doanh nghiệp" }),
+  ).toHaveCount(0);
+  await page.locator('.company-directory-card[href="/companies/1"]').click();
+  await expect(page).toHaveURL(/\/companies\/1$/);
+  await page
+    .getByRole("navigation", { name: "Đường dẫn" })
+    .getByRole("link", { name: "Doanh nghiệp tuyển dụng" })
+    .click();
+  await expect(page).toHaveURL(/\/companies$/);
+});
+
+test("company search has a recoverable empty state and bounds invalid pages", async ({
+  page,
+}) => {
+  await page.goto("/companies?keyword=company-that-does-not-exist&page=3");
+  await expect(
+    page.getByRole("heading", {
+      name: "Không tìm thấy doanh nghiệp phù hợp",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".company-directory-card")).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Phân trang doanh nghiệp" }),
+  ).toHaveCount(0);
+  await page
+    .locator(".empty-state")
+    .getByRole("link", { name: "Xóa bộ lọc" })
+    .click();
+  await expect(page).toHaveURL(/\/companies$/);
+  await expect(page.getByLabel("Tên công ty hoặc từ khóa")).toHaveValue("");
+  await expect(
+    page.getByLabel("Tỉnh / Thành phố", { exact: true }),
+  ).toHaveValue("");
+  await expect(page.locator(".company-directory-card")).toHaveCount(12);
+  for (const invalidPage of ["0", "-1", "invalid"]) {
+    await page.goto(`/companies?page=${invalidPage}`);
+    await expect(page.locator(".company-directory-range")).toHaveText(
+      "Hiển thị 1–12 / 17",
+    );
   }
+  await page.goto("/companies?page=9999");
+  await expect(page.locator(".company-directory-range")).toHaveText(
+    "Hiển thị 13–17 / 17",
+  );
 });
 
 test("each featured company has its own profile and consistent open-job count", async ({
@@ -87,7 +186,7 @@ test("company vacancies exclude closed jobs and link to the correct job and comp
   ).toBeFocused();
 });
 
-test("company discovery uses the shared home and sharing copies the profile URL", async ({
+test("company discovery opens the directory and sharing copies the profile URL", async ({
   page,
   context,
 }) => {
@@ -98,8 +197,10 @@ test("company discovery uses the shared home and sharing copies the profile URL"
   await page
     .getByRole("link", { name: "Khám phá doanh nghiệp", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/#top-companies$/);
-  await page.locator('#top-companies a[href="/companies/1"]').click();
+  await expect(page).toHaveURL(/\/companies$/);
+  await page.getByLabel("Tên công ty hoặc từ khóa").fill("FPT");
+  await page.getByRole("button", { name: "Tìm doanh nghiệp" }).click();
+  await page.locator('.company-directory-card[href="/companies/1"]').click();
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page
     .getByRole("button", { name: "Chia sẻ hồ sơ", exact: true })
@@ -143,7 +244,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    for (const path of ["/companies/1", "/companies/201"]) {
+    for (const path of ["/companies", "/companies/1", "/companies/201"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(

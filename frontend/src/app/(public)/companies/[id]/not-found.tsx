@@ -11,7 +11,7 @@ export default function NotFound() {
           <h1>Không tìm thấy doanh nghiệp</h1>
           <p>Hồ sơ không tồn tại hoặc chưa được công khai.</p>
           <Button asChild className="h-11">
-            <Link href="/#top-companies">Khám phá doanh nghiệp</Link>
+            <Link href="/companies">Khám phá doanh nghiệp</Link>
           </Button>
         </div>
       </div>

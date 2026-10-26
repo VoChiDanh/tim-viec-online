@@ -5,6 +5,7 @@ type PaginationProps = {
   page: number;
   lastPage: number;
   label?: string;
+  prefetch?: boolean;
 } & (
   | { pageUrl: (page: number) => string; onPageChange?: never }
   | { pageUrl?: never; onPageChange: (page: number) => void }
@@ -16,6 +17,7 @@ export function Pagination({
   pageUrl,
   onPageChange,
   label = "Phân trang",
+  prefetch,
 }: PaginationProps) {
   if (lastPage <= 1) return null;
   const control = (
@@ -28,6 +30,7 @@ export function Pagination({
       <Link
         key={name}
         href={pageUrl(number)}
+        prefetch={prefetch}
         aria-label={name}
         aria-current={current ? "page" : undefined}
       >

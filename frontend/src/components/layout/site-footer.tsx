@@ -44,7 +44,7 @@ export function SiteFooter() {
         <nav aria-label="Việc làm theo ngành">
           <h2>Khám phá việc làm</h2>
           <Link href="/jobs">Tất cả việc làm</Link>
-          <Link href="/#top-companies">Doanh nghiệp tuyển dụng</Link>
+          <Link href="/companies">Doanh nghiệp tuyển dụng</Link>
           <Suspense fallback={null}>
             <IndustryLinks />
           </Suspense>

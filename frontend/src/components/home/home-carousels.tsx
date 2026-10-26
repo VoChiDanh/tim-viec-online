@@ -77,7 +77,11 @@ export function FeaturedJobs({
               <div className="home-job-body">
                 <div className="home-job-title">
                   <h3>
-                    <Link href={`/jobs/${job.id}`} title={job.title}>
+                    <Link
+                      href={`/jobs/${job.id}`}
+                      title={job.title}
+                      prefetch={false}
+                    >
                       {job.title}
                     </Link>
                   </h3>
@@ -147,6 +151,7 @@ export function TopCompanies({ companies }: { companies: HomeCompany[] }) {
           <Link
             key={company.id}
             href={`/companies/${company.id}`}
+            prefetch={false}
             className="home-company-card"
             title={company.name}
           >
@@ -256,6 +261,7 @@ export function KeyCategories({ categories }: { categories: HomeCategory[] }) {
             <Link
               key={category.name}
               href={category.href}
+              prefetch={false}
               className="home-category-card"
             >
               <span className="home-category-icon">

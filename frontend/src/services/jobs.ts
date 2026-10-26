@@ -52,27 +52,13 @@ export const getHomeContent = cache(async function getHomeContent(): Promise<{
   companies: HomeCompany[];
 }> {
   if (authApiEnabled()) {
-    const [listing, categoryResponse, companyRows] = await Promise.all([
-      backendRequest<unknown[]>("/jobs?per_page=12", {}, false),
+    const [jobs, categoryResponse, companyResponse] = await Promise.all([
+      getFeaturedHomeJobs(),
       backendRequest<unknown[]>("/categories", {}, false),
-      backendAll<unknown>("/companies", false),
+      backendRequest<unknown[]>("/companies?per_page=18", {}, false),
     ]);
     return {
-      jobs: listing.data.map(mapJob).map((job) => ({
-        id: job.id,
-        title: job.title,
-        company: job.company.name,
-        salary: formatSalary(job),
-        city: job.city,
-        logo: job.company.logo,
-        mark: job.company.name
-          .split(/\s+/)
-          .map((w) => w[0])
-          .slice(0, 3)
-          .join(""),
-        brand: "generic",
-        featured: false,
-      })),
+      jobs,
       categories: categoryResponse.data.map((value) => {
         const category = record(value);
         return {
@@ -82,7 +68,7 @@ export const getHomeContent = cache(async function getHomeContent(): Promise<{
           href: `/jobs?category_ids=${Number(category.id)}`,
         };
       }),
-      companies: companyRows.map(mapCompanyProfile).map((company) => ({
+      companies: companyResponse.data.map(mapCompanyProfile).map((company) => ({
         id: company.id,
         name: company.name,
         mark: company.mark,
@@ -129,6 +115,31 @@ export const getHomeContent = cache(async function getHomeContent(): Promise<{
       count: active.filter((job) => job.company_id === company.id).length,
     })),
   };
+});
+
+// The shared header needs only job suggestions, not the homepage company catalog.
+export const getFeaturedHomeJobs = cache(async (): Promise<HomeJobCard[]> => {
+  if (!authApiEnabled()) return (await getHomeContent()).jobs;
+  const listing = await backendRequest<unknown[]>(
+    "/jobs?per_page=12",
+    {},
+    false,
+  );
+  return listing.data.map(mapJob).map((job) => ({
+    id: job.id,
+    title: job.title,
+    company: job.company.name,
+    salary: formatSalary(job),
+    city: job.city,
+    logo: job.company.logo,
+    mark: job.company.name
+      .split(/\s+/)
+      .map((word) => word[0])
+      .slice(0, 3)
+      .join(""),
+    brand: "generic",
+    featured: false,
+  }));
 });
 
 export async function listJobs(query: JobQuery) {

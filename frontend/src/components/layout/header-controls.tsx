@@ -189,7 +189,7 @@ export function HeaderControls({
           <div>
             <h2>Công ty</h2>
             <Link
-              href="/#top-companies"
+              href="/companies"
               onClick={() => setCategoriesOpen(false)}
             >
               Khám phá doanh nghiệp

@@ -35,6 +35,7 @@ export async function HomeHero() {
               <Link
                 key={keyword}
                 href={`/jobs?${new URLSearchParams({ keyword })}`}
+                prefetch={false}
               >
                 {keyword}
               </Link>
@@ -62,7 +63,7 @@ export async function HomeContent() {
               Việc Làm Tốt Nhất
             </h2>
           </div>
-          <Link className="home-section-link" href="/jobs">
+          <Link className="home-section-link" href="/jobs" prefetch={false}>
             Xem Tất Cả
             <ChevronRight size={13} aria-hidden="true" />
           </Link>
@@ -70,16 +71,25 @@ export async function HomeContent() {
         <FeaturedJobs jobs={content.jobs} viewerRole={user?.role} />
       </section>
       <KeyCategories categories={content.categories} />
-      <section aria-labelledby="home-companies-title" id="top-companies">
+      <section
+        className="home-featured"
+        aria-labelledby="home-companies-title"
+        id="top-companies"
+      >
         <div className="home-section-heading">
-          <div>
+          <div className="home-ribbon">
             <h2 id="home-companies-title" className="home-section-title">
               Top Doanh Nghiệp Hàng Đầu
             </h2>
-            <p className="home-section-description">
-              Tìm hiểu doanh nghiệp và khám phá cơ hội nghề nghiệp
-            </p>
           </div>
+          <Link
+            className="home-section-link"
+            href="/companies"
+            prefetch={false}
+          >
+            Xem Tất Cả
+            <ChevronRight size={13} aria-hidden="true" />
+          </Link>
         </div>
         <TopCompanies companies={content.companies} />
       </section>

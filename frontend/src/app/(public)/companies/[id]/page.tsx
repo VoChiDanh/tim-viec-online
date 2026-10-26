@@ -56,7 +56,7 @@ async function Profile({ params }: Props) {
   return (
     <div className="companies-container company-profile-content">
       <nav className="company-breadcrumbs" aria-label="Đường dẫn">
-        <Link href="/#top-companies">
+        <Link href="/companies">
           <ArrowLeft size={14} aria-hidden="true" />
           Doanh nghiệp tuyển dụng
         </Link>
