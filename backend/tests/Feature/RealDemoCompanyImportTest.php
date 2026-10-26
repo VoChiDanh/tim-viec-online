@@ -70,6 +70,11 @@ class RealDemoCompanyImportTest extends TestCase
         $company->update(['description' => 'Nội dung người dùng đã chỉnh sửa']);
         $this->assertSame(6, $service->import()['skipped']);
         $this->assertSame('Nội dung người dùng đã chỉnh sửa', $company->fresh()->description);
+        $sources = $company->fresh()->reference_sources;
+        $sources['logo_sha256'] = str_repeat('0', 64);
+        DB::table('companies')->where('id', $company->id)->update(['reference_sources' => json_encode($sources)]);
+        $this->assertSame(1, $service->import()['updated']);
+        $this->assertSame('Nội dung người dùng đã chỉnh sửa', $company->fresh()->description);
         $response = $this->getJson('/api/companies/'.$company->id)->assertOk();
         $this->assertSame($response->json('data.logo'), $response->json('data.avatar'));
         $response->assertJsonPath('data.is_demo', true);

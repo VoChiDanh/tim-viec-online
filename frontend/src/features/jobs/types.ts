@@ -32,6 +32,9 @@ export interface Company {
   id: number;
   name: string;
   logo?: string | null;
+  avatar?: string | null;
+  is_demo?: boolean;
+  reference_sources?: { profile_url: string; collected_at: string } | null;
   company_size: string;
   website: string | null;
   address: string;

@@ -18,7 +18,21 @@ export function mapCompany(value: unknown): Company {
   return {
     id,
     name: text(dto.name),
-    logo: typeof dto.logo === "string" ? dto.logo : null,
+    logo:
+      typeof dto.avatar === "string"
+        ? dto.avatar
+        : typeof dto.logo === "string"
+          ? dto.logo
+          : null,
+    avatar: typeof dto.avatar === "string" ? dto.avatar : null,
+    is_demo: dto.is_demo === true,
+    reference_sources:
+      typeof record(dto.reference_sources).profile_url === "string"
+        ? {
+            profile_url: text(record(dto.reference_sources).profile_url),
+            collected_at: text(record(dto.reference_sources).collected_at),
+          }
+        : null,
     company_size: text(dto.company_size ?? dto.size),
     website: typeof dto.website === "string" ? dto.website : null,
     address: text(dto.address),

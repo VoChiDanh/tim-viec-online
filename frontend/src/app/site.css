@@ -166,6 +166,31 @@
 main {
   flex: 1;
 }
+.company-reference-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-block: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.company-reference-notice > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.company-reference-notice p {
+  margin: 0;
+}
+.company-reference-notice a {
+  color: var(--brand-blue);
+  text-decoration: underline;
+}
+
 .surface {
   background: var(--card);
   border: 1px solid var(--border);

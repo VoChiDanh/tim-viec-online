@@ -175,7 +175,7 @@ export function TopCompanies({ companies }: { companies: HomeCompany[] }) {
             </span>
             <h3>{company.name}</h3>
             <p>{company.count} việc làm</p>
-            <span>{company.location}</span>
+            <span>{company.location || "Địa điểm chưa cập nhật"}</span>
           </Link>
         ))}
       </div>

@@ -69,12 +69,20 @@ final class DemoCompanyImportService
                 $skipped = 0;
                 foreach ($targets as [$company, $profile]) {
                     $sources = $company->reference_sources ? json_decode($company->reference_sources, true) : [];
+                    $path = 'company_logos/real/'.$profile['key'].'.png';
                     if (($sources['catalog_key'] ?? null) === $profile['key']) {
+                        if (($sources['logo_sha256'] ?? null) !== $profile['sources']['logo_sha256'] && $company->avatar === $path) {
+                            DB::table('companies')->where('id', $company->id)->update([
+                                'reference_sources' => json_encode(['catalog_key' => $profile['key'], ...$profile['sources']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                            ]);
+                            $updated++;
+
+                            continue;
+                        }
                         $skipped++;
 
                         continue;
                     }
-                    $path = 'company_logos/real/'.$profile['key'].'.png';
                     DB::table('companies')->where('id', $company->id)->update([
                         'name' => $profile['name'], 'website' => $profile['website'],
                         'logo' => $path, 'avatar' => $path,

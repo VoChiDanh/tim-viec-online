@@ -13,7 +13,13 @@ Yêu cầu: thay toàn bộ 121 công ty hiện có bằng doanh nghiệp có ho
 
 ## Kiểm chứng
 
-- [ ] Đủ 121 tên duy nhất, website/ảnh nguồn kiểm tra truy cập, tất cả ảnh local hợp lệ.
-- [ ] Migration/API/upload giữ tương thích; test ownership và không thay đổi quan hệ nghiệp vụ.
-- [ ] Backup database local, áp dụng migration và cập nhật đúng bộ demo; xác minh counts/IDs giữ nguyên.
-- [ ] Xem trang chủ, directory, hồ sơ công ty trên trình duyệt; commit code/tài liệu, không commit bí mật.
+- [x] Đủ 121 tên duy nhất, website/ảnh nguồn kiểm tra truy cập, tất cả ảnh local hợp lệ.
+- [x] Migration/API/upload giữ tương thích; test ownership và không thay đổi quan hệ nghiệp vụ.
+- [x] Backup database local, áp dụng migration và cập nhật đúng bộ demo; xác minh counts/IDs giữ nguyên.
+- [x] Xem trang chủ, directory, hồ sơ công ty trên trình duyệt; commit code/tài liệu, không commit bí mật.
+
+## Kết quả
+
+- Catalog 121 tên/ảnh duy nhất, 24 nhóm ngành, 65 địa chỉ công khai có nguồn; các trường chưa xác minh để null. Ảnh PNG chuẩn hóa có checksum, logo nguồn trắng được đặt trên nền tối để giữ khả năng nhận diện.
+- Đã áp dụng vào `tim_viec_online`, sao lưu trước thay đổi trong disk private. Khôi phục bản sao lưu vào DB so sánh riêng trên cổng 33063 để đối chiếu: counts các bảng không đổi (trừ migration mới), ID/chủ sở hữu công ty, ID/quan hệ tin, đơn/CV, hội thoại và nội dung chat giữ nguyên. Chạy lại bỏ qua đủ 121 hồ sơ.
+- Backend: 68 tests, 890 assertions; frontend: 95 unit + 10 server tests; 21 browser tests trang chủ/công ty. Build, lint và format đạt. Browser dùng API thật xác nhận ảnh local, nguồn hồ sơ và nhãn minh họa ở trang chi tiết việc làm, không tràn ngang ở 360/1440px.

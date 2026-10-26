@@ -15,6 +15,7 @@ import { companyWebsite } from "@/features/companies/query";
 import { CompanyAvatar } from "@/components/companies/company-avatar";
 import { CompanyJobCard } from "@/components/companies/company-job-card";
 import { CompanyShare } from "@/components/companies/company-share";
+import { CompanyReferenceNotice } from "@/components/companies/company-reference-notice";
 import { CompaniesSkeleton } from "@/components/companies/companies-skeleton";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { authApiEnabled } from "@/services/auth-mode";
@@ -63,6 +64,7 @@ async function Profile({ params }: Props) {
         <span aria-hidden="true">/</span>
         <span>{company.short_name}</span>
       </nav>
+      <CompanyReferenceNotice company={company} />
       <div className="company-cover" aria-hidden="true" />
       <section
         className="company-profile-heading"
@@ -76,11 +78,13 @@ async function Profile({ params }: Props) {
             <div className="company-profile-facts">
               <span>
                 <Users aria-hidden="true" />
-                Quy mô: <strong>{company.company_size}</strong>
+                Quy mô:{" "}
+                <strong>{company.company_size || "Chưa xác minh"}</strong>
               </span>
               <span>
                 <MapPin aria-hidden="true" />
-                Trụ sở: <strong>{company.city}</strong>
+                {company.is_demo ? "Địa điểm:" : "Trụ sở:"}{" "}
+                <strong>{company.city || "Chưa cập nhật"}</strong>
               </span>
               {website && (
                 <a
@@ -165,6 +169,9 @@ async function Profile({ params }: Props) {
                 ? "Các chi nhánh chính"
                 : "Địa chỉ công ty"}
             </h3>
+            {!company.locations.length && (
+              <p>Chưa xác minh được địa chỉ từ nguồn công khai.</p>
+            )}
             <ul>
               {company.locations.map((location) => (
                 <li key={`${location.city}-${location.address}`}>
