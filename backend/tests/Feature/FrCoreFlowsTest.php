@@ -30,6 +30,7 @@ class FrCoreFlowsTest extends TestCase
 
         config(['broadcasting.default' => 'log']);
         Storage::fake('private');
+        Storage::fake('public');
         Mail::fake();
     }
 
@@ -243,8 +244,8 @@ class FrCoreFlowsTest extends TestCase
         $sequence++;
 
         $user = User::create([
-            'name' => ucfirst($role) . ' Test ' . $sequence,
-            'email' => $email ?? strtolower($role) . $sequence . '@example.test',
+            'name' => ucfirst($role).' Test '.$sequence,
+            'email' => $email ?? strtolower($role).$sequence.'@example.test',
             'password' => 'SecurePass1!',
             'dob' => '1990-01-01',
             'role' => $role,
@@ -256,7 +257,7 @@ class FrCoreFlowsTest extends TestCase
         } elseif ($role === 'employer') {
             Company::create([
                 'user_id' => $user->id,
-                'name' => 'Công ty ' . $sequence,
+                'name' => 'Công ty '.$sequence,
                 'description' => 'Mô tả công ty phục vụ kiểm thử.',
                 'address' => 'Quận 1',
                 'city' => 'Hồ Chí Minh',

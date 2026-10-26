@@ -16,7 +16,13 @@ class AnalyzeApplicationCv implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
     public int $timeout = 60;
+
+    public function backoff(): array
+    {
+        return [10, 30];
+    }
 
     public function __construct(public int $applicationId)
     {
@@ -26,26 +32,27 @@ class AnalyzeApplicationCv implements ShouldQueue
     public function handle(GeminiService $service): void
     {
         $application = Application::with(['job.skills', 'candidateProfile.skills'])->find($this->applicationId);
-        if (!$application) {
+        if (! $application) {
             return;
         }
         if ($application->aiAnalysis) {
             $application->update(['ai_analysis_status' => 'completed', 'ai_analysis_error' => null]);
+
             return;
         }
 
         try {
             $service->analyze($application);
-            $application->update(['ai_analysis_status' => 'completed']);
+            $application->update(['ai_analysis_status' => 'completed', 'ai_analysis_error' => null]);
         } catch (\Throwable $exception) {
             $scanError = 'File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn';
-            $safeError = str_contains($exception->getMessage(), 'dạng ảnh scan')
+            $safeError = str_contains($exception->getMessage(), 'Unreadable CV text')
                 ? $scanError
                 : 'Không thể phân tích CV lúc này. Vui lòng thử lại sau.';
             $application->update(['ai_analysis_status' => 'failed', 'ai_analysis_error' => $safeError]);
             Log::error('Application CV analysis failed', [
                 'application_id' => $application->id,
-                'exception' => $exception->getMessage(),
+                'exception_type' => $exception::class,
             ]);
             throw $exception;
         }

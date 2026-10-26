@@ -60,7 +60,7 @@ class AuthController extends Controller
 
         try {
             Mail::raw(
-                "Xin chào {$user->name},\n\nTài khoản TimViecOnline của bạn đã được tạo thành công. Email này không chứa mật khẩu.\n\nĐăng nhập tại: " . rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/') . '/login',
+                "Xin chào {$user->name},\n\nTài khoản TimViecOnline của bạn đã được tạo thành công. Email này không chứa mật khẩu.\n\nĐăng nhập tại: ".rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/').'/login',
                 fn ($message) => $message->to($user->email)->subject('Tài khoản TimViecOnline đã được tạo')
             );
         } catch (\Throwable $exception) {
@@ -85,7 +85,7 @@ class AuthController extends Controller
         $user = User::where('email', strtolower($request->email))->first();
 
         // FR-02.2: Kiểm tra user có tồn tại
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Email hoặc mật khẩu không chính xác',
@@ -117,7 +117,7 @@ class AuthController extends Controller
         }
 
         // Kiểm tra mật khẩu
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             $user->increment('failed_attempts');
 
             // FR-02.3 & FR-02.4: Sau 5 lần đăng nhập sai liên tiếp, tạm khóa 15 phút
@@ -180,11 +180,14 @@ class AuthController extends Controller
     {
         $user = User::where('email', strtolower($request->email))->first();
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy tài khoản với email này',
-            ], 404);
+        // Never disclose account existence or the bearer secret used to reset it.
+        $response = [
+            'success' => true,
+            'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
+        ];
+
+        if (! $user) {
+            return response()->json($response, 200);
         }
 
         // Tạo mã token ngẫu nhiên bảo mật
@@ -201,19 +204,16 @@ class AuthController extends Controller
 
         // Tạo liên kết đặt lại mật khẩu gửi về email
         $frontendUrl = config('app.frontend_url') ?: env('FRONTEND_URL', 'http://localhost:3000');
-        $resetUrl = rtrim($frontendUrl, '/') . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+        $resetUrl = rtrim($frontendUrl, '/').'/reset-password?token='.$token.'&email='.urlencode($user->email);
 
         try {
             Mail::to($user->email)->send(new ResetPasswordMail($user, $resetUrl, $token));
         } catch (\Throwable $e) {
-            Log::error('Gửi email đặt lại mật khẩu thất bại: ' . $e->getMessage());
+            // Transport exceptions can contain the message body and reset URL.
+            Log::error('Password reset email could not be sent', ['user_id' => $user->id]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
-            'data' => ['token' => $token],
-        ], 200);
+        return response()->json($response, 200);
     }
 
     /**
@@ -224,7 +224,7 @@ class AuthController extends Controller
         $email = $request->query('email') ?? $request->input('email');
         $token = $request->query('token') ?? $request->input('token');
 
-        if (!$email || !$token) {
+        if (! $email || ! $token) {
             return response()->json([
                 'success' => false,
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
@@ -235,7 +235,7 @@ class AuthController extends Controller
             ->where('email', strtolower($email))
             ->first();
 
-        if (!$record || !hash_equals($record->token, hash('sha256', $token))) {
+        if (! $record || ! hash_equals($record->token, hash('sha256', $token))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
@@ -276,18 +276,20 @@ class AuthController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (!$record || !hash_equals($record->token, hash('sha256', $request->token))) {
+            if (! $record || ! hash_equals($record->token, hash('sha256', $request->token))) {
                 return null;
             }
 
             if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
                 DB::table('password_reset_tokens')->where('email', $email)->delete();
+
                 return null;
             }
 
             $user = User::where('email', $email)->lockForUpdate()->first();
-            if (!$user) {
+            if (! $user) {
                 DB::table('password_reset_tokens')->where('email', $email)->delete();
+
                 return null;
             }
 
@@ -302,7 +304,7 @@ class AuthController extends Controller
             return $user;
         });
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
@@ -313,7 +315,7 @@ class AuthController extends Controller
             Notification::create([
                 'user_id' => $user->id,
                 'title' => 'Đặt lại mật khẩu thành công',
-                'content' => 'Mật khẩu tài khoản của bạn đã được đặt lại thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
+                'content' => 'Mật khẩu tài khoản của bạn đã được đặt lại thành công vào lúc '.now()->format('H:i d/m/Y').'.',
                 'type' => 'security',
             ]);
         } catch (\Throwable $exception) {
@@ -375,7 +377,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         // Kiểm tra mật khẩu hiện tại
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Mật khẩu hiện tại không chính xác',
@@ -409,7 +411,7 @@ class AuthController extends Controller
             Notification::create([
                 'user_id' => $user->id,
                 'title' => 'Đổi mật khẩu thành công',
-                'content' => 'Mật khẩu của bạn đã được cập nhật thành công vào lúc ' . now()->format('H:i d/m/Y') . '.',
+                'content' => 'Mật khẩu của bạn đã được cập nhật thành công vào lúc '.now()->format('H:i d/m/Y').'.',
                 'type' => 'security',
             ]);
         } catch (\Throwable $exception) {

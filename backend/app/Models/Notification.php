@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Events\NotificationSent;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -63,9 +62,10 @@ class Notification extends Model
 
     public function getTimeAgoAttribute(): string
     {
-        if (!$this->created_at) {
+        if (! $this->created_at) {
             return '';
         }
+
         return $this->created_at->locale('vi')->diffForHumans();
     }
 
@@ -77,17 +77,18 @@ class Notification extends Model
     public function getRedirectUrlAttribute(): string
     {
         $data = $this->data ?? [];
+        $workspace = $this->user?->isEmployer() ? '/employer' : '/account';
 
         return match ($this->type) {
-            'new_application', 'new_applicant' => isset($data['job_id'])
-                ? '/employer/jobs/' . $data['job_id'] . '/applications'
-                : '/employer/my-jobs',
-            'app_status_changed', 'application_accepted', 'application_rejected', 'application_waiting' => '/candidate/applications',
+            'new_application', 'new_applicant' => isset($data['application_id'])
+                ? '/employer/candidates/'.(int) $data['application_id']
+                : '/employer/candidates'.(isset($data['job_id']) ? '?job_id='.(int) $data['job_id'] : ''),
+            'app_status_changed', 'application_accepted', 'application_rejected', 'application_waiting' => '/account/jobs',
             'new_message', 'chat' => isset($data['conversation_id'])
-                ? '/messages/' . $data['conversation_id']
-                : '/messages',
-            'security' => '/user/settings',
-            default => '/notifications',
+                ? $workspace.'/messages?conversation='.(int) $data['conversation_id']
+                : $workspace.'/messages',
+            'security' => '/account/security',
+            default => $workspace.'/notifications',
         };
     }
 

@@ -79,7 +79,7 @@ Legacy CV/chat ảnh conversion: `php artisan storage:secure-legacy-cvs` copies 
 | `GET /api/employer/applications/{id}` | Nhà tuyển dụng chủ sở hữu | ID | Chi tiết; lần xem đầu tiên chuyển trạng thái sang waiting và ghi thời điểm xem xét. |
 | `PATCH /api/employer/applications/{id}/status` | Nhà tuyển dụng chủ sở hữu | JSON `status=waiting|accepted|rejected` | Cập nhật trạng thái và thông báo cho ứng viên; kiểm tra chuyển trạng thái và tính an toàn khi gọi lặp. |
 | `GET /api/applications/{id}/cv` | Ứng viên chủ sở hữu, tin tuyển dụng nhà tuyển dụng, admin | ID | Trả nội dung PDF hồ sơ sau khi kiểm tra quyền; không đủ quyền nhận 403/404. |
-| `POST /api/applications/{id}/ai-analyze` | hồ sơ ứng tuyển chủ sở hữu/ứng viên, tin tuyển dụng nhà tuyển dụng, admin | ID | Đưa phân tích vào hàng đợi hoặc dùng lại kết quả; đang chờ xử lý trả 202. |
+| `POST /api/applications/{id}/ai-analyze` | employer sở hữu tin hoặc admin; candidate bị từ chối | ID | Đưa phân tích vào hàng đợi hoặc dùng lại kết quả; đang xử lý trả 202. Candidate không nhận trường đánh giá AI trong apply/history. |
 | `GET /api/applications/{id}/ai-analysis` | giống nhau | ID | 200 hoàn tất; 202 đang chờ xử lý; 422 thất bại; xác minh no nhà cung cấp chi tiết leak. |
 
 `ai_analysis_status=pending|completed|failed`; tiến trình xử lý nền command `php artisan queue:work --tries=2 --timeout=60`. Without tiến trình xử lý nền, hàng đợi lưu trong cơ sở dữ liệu remains đang chờ xử lý. Gemini is external; cơ chế dự phòng dựa trên heuristic must be kiểm traed separately and is not an employment decision.

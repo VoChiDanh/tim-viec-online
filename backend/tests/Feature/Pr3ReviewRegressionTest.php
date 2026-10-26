@@ -9,9 +9,11 @@ use App\Models\CandidateProfile;
 use App\Models\Category;
 use App\Models\Company;
 use App\Models\Job;
+use App\Models\Notification;
 use App\Models\User;
 use App\Services\GeminiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +21,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/** Maintainer regression probes for exact PR #3 head; expected to fail until fixed. */
+/** Regression coverage for the issues found while reviewing PR #3. */
 class Pr3ReviewRegressionTest extends TestCase
 {
     use RefreshDatabase;
@@ -33,14 +35,6 @@ class Pr3ReviewRegressionTest extends TestCase
         Mail::fake();
         Http::preventStrayRequests();
         Bus::fake();
-    }
-
-    protected function beforeRefreshingDatabase(): void
-    {
-        // RefreshDatabase invokes this hook before migrations can reset tables.
-        $this->assertSame('mysql', config('database.default'));
-        $this->assertSame('pr3_review_test', config('database.connections.mysql.database'));
-        $this->assertSame('33063', (string) config('database.connections.mysql.port'));
     }
 
     public function test_recovery_response_cannot_replace_password_without_mailbox_access(): void
@@ -97,6 +91,77 @@ class Pr3ReviewRegressionTest extends TestCase
         $this->fixture();
         Bus::assertNotDispatchedSync(AnalyzeApplicationCv::class);
         Bus::assertDispatched(AnalyzeApplicationCv::class);
+    }
+
+    public function test_queue_failure_preserves_successfully_submitted_application(): void
+    {
+        Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Queue unavailable'));
+        [, , $application] = $this->fixture();
+        $this->assertSame('applied', $application->status);
+        $this->assertSame('failed', $application->ai_analysis_status);
+        Storage::disk('private')->assertExists($application->cv_path);
+        $this->assertDatabaseCount('applications', 1);
+    }
+
+    public function test_profile_replacement_preserves_exact_application_snapshot(): void
+    {
+        [$candidate, $employer, $application] = $this->fixture();
+        $profilePath = $candidate->candidateProfile->cv_file_path;
+        $contents = Storage::disk('private')->get($application->cv_path);
+        $this->assertNotSame($profilePath, $application->cv_path);
+        $this->actingAs($candidate, 'sanctum')->post('/api/candidate/cv', [
+            'cv_file' => UploadedFile::fake()->create('replacement.pdf', 20, 'application/pdf'),
+        ], ['Accept' => 'application/json'])->assertOk();
+        $this->assertSame($contents, Storage::disk('private')->get($application->cv_path));
+        Storage::disk('private')->assertMissing($profilePath);
+        $this->actingAs($employer, 'sanctum')->get("/api/applications/{$application->id}/cv")->assertOk();
+    }
+
+    public function test_legacy_application_reference_survives_profile_deletion(): void
+    {
+        [$candidate, $employer, $application] = $this->fixture();
+        $profilePath = $candidate->candidateProfile->cv_file_path;
+        $application->update(['cv_path' => $profilePath]);
+        $this->actingAs($candidate, 'sanctum')->deleteJson('/api/candidate/cv')->assertOk();
+        Storage::disk('private')->assertExists($profilePath);
+        $this->actingAs($employer, 'sanctum')->get("/api/applications/{$application->id}/cv")->assertOk();
+    }
+
+    public function test_candidate_and_outsider_cv_requests_do_not_mark_reviewed(): void
+    {
+        [$candidate, , $application] = $this->fixture();
+        $this->actingAs($candidate, 'sanctum')->get("/api/applications/{$application->id}/cv")->assertOk();
+        $outsider = User::factory()->create(['role' => 'employer', 'status' => 'active']);
+        $this->actingAs($outsider, 'sanctum')->getJson("/api/applications/{$application->id}/cv")->assertForbidden();
+        $this->assertSame('applied', $application->fresh()->status);
+        $this->assertNull($application->fresh()->reviewed_at);
+    }
+
+    public function test_employer_cv_view_blocks_later_withdrawal(): void
+    {
+        [$candidate, $employer, $application] = $this->fixture();
+        $this->actingAs($employer, 'sanctum')->get("/api/applications/{$application->id}/cv")->assertOk();
+        $this->actingAs($candidate, 'sanctum')
+            ->deleteJson("/api/candidate/applications/{$application->id}/withdraw")->assertStatus(400);
+        $this->assertSame('waiting', $application->fresh()->status);
+    }
+
+    public function test_notification_destinations_use_existing_role_specific_frontend_routes(): void
+    {
+        $employer = User::factory()->create(['role' => 'employer']);
+        $candidate = User::factory()->create(['role' => 'candidate']);
+        foreach ([
+            [$employer, 'new_application', ['application_id' => 7, 'job_id' => 3], '/employer/candidates/7'],
+            [$employer, 'new_application', ['job_id' => 3], '/employer/candidates?job_id=3'],
+            [$candidate, 'app_status_changed', [], '/account/jobs'],
+            [$candidate, 'new_message', ['conversation_id' => 4], '/account/messages?conversation=4'],
+            [$employer, 'new_message', ['conversation_id' => 4], '/employer/messages?conversation=4'],
+            [$employer, 'security', [], '/account/security'],
+        ] as [$user, $type, $data, $destination]) {
+            $notification = new Notification(['user_id' => $user->id, 'type' => $type, 'data' => $data]);
+            $notification->setRelation('user', $user);
+            $this->assertSame($destination, $notification->redirect_url);
+        }
     }
 
     public function test_direct_employer_cv_view_marks_application_reviewed(): void

@@ -1,5 +1,7 @@
 # Review tiếp nhận backend — PR #3
 
+> Cập nhật sau review: maintainer đã bổ sung bản sửa cho các lỗi bên dưới, kèm 37 test / 185 assertions đạt cục bộ, Composer audit sạch và CI cho PR từ fork. Nội dung còn lại lưu bằng chứng review bản gốc `c5ce29b`; xem [kế hoạch và kết quả sửa](plans/backend-pr-3-fixes.md) để theo dõi trạng thái mới. Chưa coi kết quả test fake là đã nghiệm thu Gemini/SMTP/realtime thật.
+
 Đã review commit `c5ce29b9a817e973d5408b40441fa06565caa333` của `VoChiDanh:vcd-dev-api`.
 
 Backend đã có phạm vi đáng kể: API xác thực, hồ sơ/CV riêng tư, tuyển dụng, ứng tuyển, chat, thông báo, quản trị, migrations và tài liệu kiểm thử. Cần sửa các điểm bên dưới trước khi nhận vào nhánh tích hợp. Review này giữ PR mở để tác giả cập nhật trực tiếp trên fork; không squash hoặc chép code làm mất lịch sử đóng góp.

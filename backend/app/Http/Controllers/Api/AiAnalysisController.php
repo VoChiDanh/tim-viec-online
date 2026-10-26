@@ -20,30 +20,29 @@ class AiAnalysisController extends Controller
 
         // 1. Tìm đơn ứng tuyển kèm thông tin tin tuyển dụng và hồ sơ ứng viên
         $application = Application::with(['job.company', 'candidateProfile.user', 'aiAnalysis'])->find($applicationId);
-        if (!$application) {
+        if (! $application) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy hồ sơ ứng tuyển.'
+                'message' => 'Không tìm thấy hồ sơ ứng tuyển.',
             ], 404);
         }
 
-        // 2. Phân quyền: Nhà tuyển dụng sở hữu tin, Admin hoặc chính ứng viên nộp đơn mới được phân tích
-        $isOwnerCandidate = $user->role === 'candidate' && $application->candidateProfile && $application->candidateProfile->user_id === $user->id;
+        // Assessment is private to the owning employer and administrators.
         $isOwnerEmployer = $user->role === 'employer' && $application->job && $application->job->company && $application->job->company->user_id === $user->id;
         $isAdmin = $user->role === 'admin';
 
-        if (!$isOwnerCandidate && !$isOwnerEmployer && !$isAdmin) {
+        if (! $isOwnerEmployer && ! $isAdmin) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền thực hiện phân tích AI cho đơn ứng tuyển này.'
+                'message' => 'Bạn không có quyền thực hiện phân tích AI cho đơn ứng tuyển này.',
             ], 403);
         }
 
         // 3. Kiểm tra file CV có tồn tại không
-        if (!$application->cv_path) {
+        if (! $application->cv_path) {
             return response()->json([
                 'success' => false,
-                'message' => 'Đơn ứng tuyển này chưa có file CV để phân tích.'
+                'message' => 'Đơn ứng tuyển này chưa có file CV để phân tích.',
             ], 400);
         }
 
@@ -72,6 +71,7 @@ class AiAnalysisController extends Controller
                 'application_id' => $application->id,
                 'exception' => $exception->getMessage(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Không thể đưa CV vào hàng đợi phân tích',
@@ -96,37 +96,37 @@ class AiAnalysisController extends Controller
         // Tìm đơn ứng tuyển
         $application = Application::with(['job.company', 'candidateProfile.user', 'aiAnalysis'])->find($applicationId);
 
-        if (!$application) {
+        if (! $application) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy hồ sơ ứng tuyển.'
+                'message' => 'Không tìm thấy hồ sơ ứng tuyển.',
             ], 404);
         }
 
         // Kiểm tra quyền
-        $isOwnerCandidate = $user->role === 'candidate' && $application->candidateProfile && $application->candidateProfile->user_id === $user->id;
         $isOwnerEmployer = $user->role === 'employer' && $application->job && $application->job->company && $application->job->company->user_id === $user->id;
         $isAdmin = $user->role === 'admin';
 
-        if (!$isOwnerCandidate && !$isOwnerEmployer && !$isAdmin) {
+        if (! $isOwnerEmployer && ! $isAdmin) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền xem kết quả phân tích AI của đơn này.'
+                'message' => 'Bạn không có quyền xem kết quả phân tích AI của đơn này.',
             ], 403);
         }
 
         $analysis = $application->aiAnalysis;
 
-        if (!$analysis) {
+        if (! $analysis) {
             if ($application->ai_analysis_status === 'pending') {
                 return response()->json(['success' => true, 'message' => 'Phân tích CV đang được xử lý', 'data' => ['status' => 'pending']], 202);
             }
             if ($application->ai_analysis_status === 'failed') {
                 return response()->json(['success' => false, 'message' => 'Không thể phân tích CV', 'data' => ['status' => 'failed', 'error' => $application->ai_analysis_error]], 422);
             }
+
             return response()->json([
                 'success' => false,
-                'message' => 'Hồ sơ này chưa được AI phân tích hoặc đang trong quá trình xử lý.'
+                'message' => 'Hồ sơ này chưa được AI phân tích hoặc đang trong quá trình xử lý.',
             ], 404);
         }
 
@@ -144,7 +144,7 @@ class AiAnalysisController extends Controller
                 'missing_skills' => $analysis->missing_skills,
                 'recommendations' => $analysis->recommendations,
                 'analyzed_at' => $analysis->created_at,
-            ]
+            ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }

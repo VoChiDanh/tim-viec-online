@@ -4,7 +4,7 @@ Tài liệu này mô tả mã backend hiện tại và đối chiếu với [SRS
 
 ## 1. Kết luận A–Z
 
-- Laravel 11 / PHP 8.2+, Sanctum, MySQL, hàng đợi lưu trong cơ sở dữ liệu và Reverb tùy cấu hình. Các tuyến API nằm tại `backend/routes/api.php`; kiểm tra dữ liệu tại `app/Http/Requests`; xử lý nghiệp vụ tại `app/Http/Controllers/Api`; mô hình/tài nguyên phản hồi tại `app/Models` và `app/Http/Resources`.
+- Laravel 12.70.1 / PHP 8.2+, Sanctum, MySQL, hàng đợi lưu trong cơ sở dữ liệu và Reverb tùy cấu hình. Framework được nâng từ 11 trong đợt sửa PR #3 để khắc phục dependency advisories. Các tuyến API nằm tại `backend/routes/api.php`; kiểm tra dữ liệu tại `app/Http/Requests`; xử lý nghiệp vụ tại `app/Http/Controllers/Api`; mô hình/tài nguyên phản hồi tại `app/Models` và `app/Http/Resources`.
 - Migrations tạo schema nghiệp vụ; hàng đợi dùng `queue_jobs`, tách bảng `jobs` tuyển dụng. SQL dump bao gồm `job_reports`, trạng thái AI và chat ảnh/đọc columns.
 - CV và chat ảnh mới lưu riêng tư. Ứng viên CV, hồ sơ ứng tuyển CV và chat ảnh được stream qua endpoint có quyền truy cập. CV/chat ảnh cũ còn trong công khai cần chạy lệnh chuyển đổi rồi mới xóa công khai source.
 - Đã có submit/review báo cáo, async AI, xác thực giới hạn tần suất, đặt lại-mật khẩu anti-enumeration. Đã chạy migration/seed trên MySQL thử nghiệm riêng; còn cần xác minh email SMTP thật, Gemini thật, dữ liệu tệp trên môi trường vận hành, tải/hiệu năng triển khai và quy trình sao lưu/khôi phục. Reverb đã được kiểm tra phát sự kiện đầu-cuối trên loopback.
@@ -66,7 +66,7 @@ Tin tuyển dụng yêu cầu thông tin công ty đầy đủ, danh mục hợp
 
 ### AI
 
-`AnalyzeApplicationCv` chạy qua hàng đợi và cập nhật `ai_analysis_status=pending|completed|failed`. GET analysis: `202` đang chờ xử lý, `422` thất bại, `200` hoàn tất. Gemini cấu hình `GEMINI_API_KEY`/`GEMINI_MODEL`, có timeout. Khi khóa API/nhà cung cấp gặp lỗi, cơ chế dự phòng dựa trên heuristic dùng văn bản trích xuất từ PDF và thông tin kỹ năng/kinh nghiệm; đây là gợi ý, không phải quyết định tuyển dụng. PDF dạng ảnh/không trích xuất được sẽ báo lỗi. Cần kiểm thử chất lượng, quota và độ trễ riêng.
+`AnalyzeApplicationCv` chạy qua hàng đợi và cập nhật `ai_analysis_status=pending|completed|failed`. Chỉ employer sở hữu tin và admin được xem/kích hoạt phân tích; candidate không nhận điểm, đánh giá hoặc trạng thái AI trong response. GET analysis: `202` đang xử lý, `422` thất bại, `200` hoàn tất. Cần cấu hình cả `GEMINI_API_KEY` và `GEMINI_MODEL` hợp lệ cho tài khoản nhà cung cấp; không chọn cứng model đã ngừng hỗ trợ. Khi thiếu cấu hình, PDF không đọc được, lỗi HTTP hoặc JSON sai schema, job ghi `failed` và thông báo an toàn; không tạo điểm heuristic giả. Có thể thử lại sau khi khắc phục cấu hình/dịch vụ. Cần kiểm thử chất lượng, quota và độ trễ riêng với dịch vụ thật.
 
 ### Bảo vệ quyền riêng tư CV và ảnh trò chuyện
 
@@ -90,7 +90,7 @@ Người dùng đã đăng nhập gửi báo cáo tin tại `POST /api/jobs/{id}
 | FR-04 | thêm/xem/sửa/xóa công ty/tin, quyền sở hữu, lương/hạn nộp | giao diện nhà tuyển dụng chưa có; đã hết hạn mở lại cần hạn nộp mới |
 | FR-05 | bộ lọc, nhóm lương, API lưu/bỏ lưu tin | UI/tìm kiếm page chưa có; thiếu chuyển tự chuyên biệt/đo hiệu năng |
 | FR-06 | API ứng tuyển/chống trùng/rút hồ sơ/xem xét/trạng thái/thông báo | giao diện flow chưa có; kiểm thử đồng thời/hàng đợi |
-| FR-07 | hàng đợi analysis/result/fallback | giao diện loading/result giao diện chưa có; Gemini thật/chất lượng/độ trễ |
+| FR-07 | hàng đợi analysis/result/failed, quyền employer/admin | Gemini thật/chất lượng/độ trễ cần kiểm chứng khi tích hợp |
 | FR-08 | xác thực thành viên, văn bản/ảnh/xác nhận đã đọc | giao diện chat chưa có; chưa kiểm thử đầu-cuối Reverb/chưa đo mốc dưới 1 giây |
 | FR-09 | API kiểm duyệt/danh mục/báo cáo dành cho admin | giao diện admin chưa có; phiên bản này xử lý báo cáo, không duyệt trước khi đăng |
 | FR-10 | thêm/xem/sửa/xóa thông báo/đánh dấu đã đọc/phát sự kiện | giao diện bell/list chưa có; chưa kiểm thử mức bao phủ Reverb/sự kiện |

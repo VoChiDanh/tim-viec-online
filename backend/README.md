@@ -1,6 +1,6 @@
 ﻿# TimViecOnline Backend API
 
-Laravel 11 API for the job-search coursework project. This repository contains backend routes and business logic; see the root [SRS](../docs/SRS.md), [Backend Guide](../BACKEND_GUIDE.md), [Testing Guide](../BACKEND_TESTING_GUIDE.md), and [API Checklist](../API_CHECKLIST.md).
+Laravel 12 API (PHP 8.2+) for the job-search coursework project. PR #3 maintainer fixes upgrade the framework from 11 to 12.70.1 to address dependency advisories; Sanctum, Reverb and the existing API routes remain in use. See the root [SRS](../docs/SRS.md), [Backend Guide](../BACKEND_GUIDE.md), [Testing Guide](../BACKEND_TESTING_GUIDE.md), and [API Checklist](../API_CHECKLIST.md).
 
 ## Current implementation status
 

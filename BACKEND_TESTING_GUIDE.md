@@ -23,11 +23,34 @@ composer validate --no-check-publish
 `php artisan test` hiện chạy 10 kiểm thử nghiệp vụ mới cùng 2 bài mẫu. Xem kết quả phía trên để phân biệt bài đạt với cảnh báo deprecated.
 ## 2. Chuẩn bị môi trường kiểm thử riêng biệt
 
-1. Tạo database MySQL riêng, ví dụ `tim_viec_online_test`; không dùng thông tin đăng nhập hay dữ liệu vận hành.
+1. Tạo database MySQL riêng `tim_viec_online_test` và user chỉ có quyền trên database này; không dùng thông tin đăng nhập hay dữ liệu vận hành. Migrations dùng collation MySQL nên không thay bằng SQLite để suy ra kết quả tương đương.
 2. Dùng `MAIL_MAILER=array`, `QUEUE_CONNECTION=sync` hoặc queue riêng, `BROADCAST_CONNECTION=log`, `FILESYSTEM_DISK=local`; không cấu hình khóa Gemini thật.
 3. Chỉ chạy `migrate:fresh --seed` sau khi xác minh rõ ràng rằng `DB_DATABASE` là database thử nghiệm có thể xóa.
 4. Dùng tài khoản, công ty, tin, CV giả lập; cô lập tệp bằng `Storage::fake` và email bằng `Mail::fake`. Không gửi email thật hoặc dùng CV cá nhân.
 5. Lưu yêu cầu đã loại bí mật, phản hồi, mã trạng thái, thay đổi dữ liệu và nhật ký cho từng trường hợp.
+
+`backend/phpunit.xml` mặc định chọn MySQL và `tim_viec_online_test`. Base `Tests\TestCase` kiểm tra cấu hình trước khi Laravel chạy `RefreshDatabase`: môi trường phải là `testing`, tên database phải khớp `TEST_DB_NAME` và kết thúc bằng `_test`, không được dùng `DB_URL`. Sai cấu hình sẽ dừng trước khi reset bảng. Giữ cấu hình chưa cache khi chạy test; không dùng tài khoản DB có quyền trên database cần giữ. Guard này áp dụng cho PHPUnit, không bảo vệ thao tác `artisan migrate:fresh` chạy thủ công.
+
+Ví dụ PowerShell cho MySQL cục bộ (thông tin xác thực lấy từ user test riêng):
+
+```powershell
+cd backend
+$env:APP_ENV = 'testing'
+$env:DB_CONNECTION = 'mysql'
+$env:DB_HOST = '127.0.0.1'
+$env:DB_PORT = '3306'
+$env:DB_DATABASE = 'tim_viec_online_test'
+$env:TEST_DB_NAME = 'tim_viec_online_test'
+$env:DB_USERNAME = 'test_runner'
+# Đặt DB_PASSWORD trong phiên terminal; không commit thông tin này.
+Remove-Item Env:DB_URL -ErrorAction SilentlyContinue
+php artisan config:clear
+php artisan test
+```
+
+Để dùng database review riêng, đặt cả `DB_DATABASE` và `TEST_DB_NAME` thành cùng một tên kết thúc bằng `_test` (ví dụ `pr3_review_test`), cùng host/port của MySQL thử nghiệm. Chỉ thay các biến trong phiên terminal hoặc `.env.testing` không được theo dõi bởi Git. Các bài kiểm thử tệp phải fake cả disk `private` lẫn `public`.
+
+Workflow [backend.yml](.github/workflows/backend.yml) chạy trên PR từ fork bằng sự kiện `pull_request`, quyền đọc repository, MySQL dùng một lần và PHP 8.2. Workflow không sử dụng secrets hay `pull_request_target`; chạy Composer validate/install/audit và PHPUnit. Kết quả CI xác nhận môi trường cô lập, không thay thế kiểm thử tích hợp Gemini, SMTP hoặc Reverb thật.
 
 ## 3. Ma trận kiểm tra theo FR
 

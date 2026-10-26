@@ -23,7 +23,7 @@
 | Nhóm | Quyền hạn |
 |---|---|
 | **Khách** | Xem trang chủ, tìm kiếm và lọc việc làm, xem chi tiết tin tuyển dụng và thông tin công ty, đăng ký tài khoản. |
-| **Ứng viên** | Toàn bộ quyền của Khách, kèm theo: Cập nhật hồ sơ cá nhân, tải lên CV PDF, lưu việc làm yêu thích, nộp hồ sơ ứng tuyển, xem kết quả AI phân tích CV, nhắn tin realtime với nhà tuyển dụng của tin đã nộp. |
+| **Ứng viên** | Toàn bộ quyền của Khách, kèm theo: Cập nhật hồ sơ cá nhân, tải lên CV PDF, lưu việc làm yêu thích, nộp hồ sơ ứng tuyển, nhắn tin realtime với nhà tuyển dụng của tin đã nộp. Không được xem hoặc kích hoạt đánh giá AI. |
 | **Nhà tuyển dụng** | Toàn bộ quyền của Khách, kèm theo: Cập nhật thông tin công ty, đăng tin tuyển dụng, đóng/mở tin, xem danh sách ứng viên đã nộp, xem trước và tải CV, cập nhật trạng thái duyệt hồ sơ, nhắn tin realtime với ứng viên. |
 | **Quản trị viên** | Xem dashboard thống kê, kiểm tra và xử lý tin tuyển dụng bị báo cáo, khóa hoặc mở khóa tài khoản người dùng, quản lý danh mục ngành nghề và kỹ năng. Tin mới được đăng ở trạng thái `active` theo FR-04.5; quy trình phê duyệt trước khi đăng không thuộc phiên bản này. |
 
@@ -114,7 +114,8 @@
 | FR-07.2 | Thuật toán đánh giá của AI dựa trên 4 tiêu chí trọng số định lượng:<br>- **Kỹ năng chuyên môn (Trọng số 40%):** Mức độ trùng khớp giữa kỹ năng CV có và kỹ năng JD yêu cầu.<br>- **Kinh nghiệm làm việc (Trọng số 30%):** Số năm kinh nghiệm và vị trí công việc tương đương.<br>- **Học vấn & Chứng chỉ (Trọng số 15%):** Chuyên ngành đào tạo và các chứng chỉ nghề nghiệp liên quan.<br>- **Định hướng & Trình độ ngôn ngữ (Trọng số 15%):** Trình độ ngoại ngữ và mục tiêu nghề nghiệp phù hợp với vị trí. |
 | FR-07.3 | Điểm số tương thích (Match Score) trả về là số nguyên từ **0 đến 100**. |
 | FR-07.4 | Kết quả phân tích phải trả về: Điểm Match Score, từ **2 đến 4 điểm mạnh**, từ **0 đến 4 kỹ năng còn thiếu** (mảng rỗng nếu CV đáp ứng đủ kỹ năng JD), và **1 đoạn đánh giá tổng quan dưới 80 từ**.|
-| FR-07.5 | Kết quả phân tích được lưu trữ vĩnh viễn vào hệ thống ứng với lần nộp hồ sơ đó, giúp Nhà tuyển dụng và Ứng viên xem lại tức thì mà không bị trễ thời gian gọi lại AI. |
+| FR-07.5 | Kết quả phân tích được lưu trữ ứng với lần nộp hồ sơ đó, chỉ Nhà tuyển dụng sở hữu tin và Quản trị viên được xem hoặc yêu cầu phân tích lại khi lỗi. API dành cho Ứng viên không trả điểm, nhận xét, trạng thái hay lỗi xử lý AI. |
+| FR-07.6 | Phân tích chạy qua hàng đợi sau khi đơn được lưu. File mất hoặc không đọc được, thiếu cấu hình, lỗi dịch vụ hay kết quả sai cấu trúc phải được ghi nhận là thất bại với thông báo an toàn; không tạo điểm giả thay thế. Lỗi dịch vụ có thể thử lại và không làm mất đơn đã nộp. |
 
 
 ### FR-08. Nhắn tin thời gian thực (Real-time Chat)
