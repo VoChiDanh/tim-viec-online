@@ -89,6 +89,19 @@ Các tài khoản tiếp theo tăng số đệm 5 chữ số: `candidate.00002@d
 
 ## Chạy lại và xử lý sự cố
 
+### Database đã import từ SQL cũ
+
+Nếu `migrate` báo `candidate_profiles already exists`, database có thể đã import các bảng nghiệp vụ nhưng chưa có lịch sử migration domain. Không chạy `migrate:fresh` và không tự đánh dấu migration cũ đã chạy. Sao lưu, đối chiếu schema trước; với bản import thiếu các cột AI của applications, ảnh/read_at của messages và bảng job_reports, có thể áp dụng migration bổ sung riêng:
+
+```bash
+php artisan migrate --path=database/migrations/2026_10_26_000002_complete_imported_domain_schema.php
+php artisan migrate --path=database/migrations/2026_10_26_000001_create_demo_seed_runs_table.php
+```
+
+Migration bổ sung giữ nguyên dữ liệu, chỉ thêm các thành phần còn thiếu nêu trên; không phải công cụ chuyển đổi mọi schema cũ. Đây là migration chỉ nâng cấp: rollback không xóa cột/bảng có thể đang chứa dữ liệu. Migration domain ban đầu vẫn có thể hiện pending trong lịch sử của database import; không chạy lệnh migrate tổng quát trên database đó cho đến khi hoàn tất đối chiếu/baseline lịch sử. Database tạo mới bằng migrations không cần hai lệnh chọn đường dẫn này.
+
+### Chạy lại bộ dữ liệu
+
 `demo_seed_runs` lưu cấu hình và số lượng lúc tạo. Chạy lại **cùng preset và tùy chọn** trả về kết quả cũ, không tạo trùng hoặc ghi đè dữ liệu bạn đã sửa. Đổi mật khẩu trong `.env` rồi chạy lại cũng không đổi mật khẩu các tài khoản đã tạo.
 
 Đổi preset hoặc thêm/bỏ tùy chọn sau lần seed đầu sẽ bị từ chối. Dùng database demo riêng nếu muốn thử một bộ khác. Seeder cũng dừng nếu phát hiện tài khoản thuộc `demo.timviec.test` nhưng không có manifest, tránh chiếm dụng tài khoản đã tồn tại. Không xóa manifest để ép chạy lại.
@@ -99,4 +112,4 @@ Dữ liệu database được ghi trong transaction và có khóa chống hai l�
 
 Đợt kiểm tra 26/10/2026 chạy trên MariaDB và storage riêng, không áp dụng bộ seed vào database phát triển của người dùng. Preset `large` với hai tùy chọn hoàn thành khoảng 119 giây, PHP peak memory 58 MB trên máy kiểm thử. Đây là thời gian tạo dữ liệu, không phải kết quả kiểm thử tải ứng dụng.
 
-Bộ kiểm thử backend sau thay đổi đạt **63 tests, 369 assertions**. Regression kiểm tra quy mô, chạy lại, giữ dữ liệu có sẵn, ownership CV, đăng nhập, phân quyền AI, fixtures vận hành, từ chối cấu hình không hợp lệ và không gọi dịch vụ ngoài. Kiểm tra trực tiếp bộ large không thiếu CV/avatar/logo; các API jobs, companies, candidate applications, employer applications và admin stats đều trả 200. Hướng dẫn kiểm thử backend và cấu hình database riêng tại [Backend Testing Guide](../BACKEND_TESTING_GUIDE.md).
+Bộ kiểm thử backend sau thay đổi đạt **64 tests, 375 assertions**, bao gồm migration bổ sung cho SQL import cũ. Regression kiểm tra quy mô, chạy lại, giữ dữ liệu có sẵn, ownership CV, đăng nhập, phân quyền AI, fixtures vận hành, từ chối cấu hình không hợp lệ và không gọi dịch vụ ngoài. Kiểm tra trực tiếp bộ large không thiếu CV/avatar/logo; các API jobs, companies, candidate applications, employer applications và admin stats đều trả 200. Hướng dẫn kiểm thử backend và cấu hình database riêng tại [Backend Testing Guide](../BACKEND_TESTING_GUIDE.md).
