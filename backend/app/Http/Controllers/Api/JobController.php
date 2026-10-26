@@ -8,6 +8,7 @@ use App\Http\Requests\SearchJobRequest;
 use App\Http\Resources\JobResource;
 use App\Models\Job;
 use App\Models\SavedJob;
+use App\Services\JobDiscoveryOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,7 +34,7 @@ class JobController extends Controller
     /**
      * Danh sách việc làm & Tìm kiếm, Lọc đa tiêu chí (FR-05)
      */
-    public function index(SearchJobRequest $request): JsonResponse
+    public function index(SearchJobRequest $request, JobDiscoveryOrder $discovery): JsonResponse
     {
         $query = Job::query()
             ->active()
@@ -137,12 +138,16 @@ class JobController extends Controller
                 .'CASE WHEN EXISTS (SELECT 1 FROM companies WHERE companies.id = jobs.company_id AND companies.name LIKE ?) THEN 1 ELSE 0 END) DESC',
                 [$keyword, $keyword, $keyword]);
         }
-        match ($sort) {
-            'salary_desc' => $query->orderBy('is_negotiable')->orderByRaw('COALESCE(salary_max, salary_min, 0) DESC'),
-            'newest' => $query->orderByDesc('created_at'),
-            default => $query->orderByDesc('updated_at'),
-        };
-        $query->orderByDesc('id');
+        if ($sort === 'default' || ($sort === 'relevance' && ! $request->filled('keyword'))) {
+            $discovery->apply($query);
+        } else {
+            match ($sort) {
+                'salary_desc' => $query->orderBy('is_negotiable')->orderByRaw('COALESCE(salary_max, salary_min, 0) DESC'),
+                'newest' => $query->orderByDesc('created_at'),
+                default => $query->orderByDesc('updated_at'),
+            };
+            $query->orderByDesc('id');
+        }
 
         $perPage = (int) $request->input('per_page', 10);
         $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 10;
