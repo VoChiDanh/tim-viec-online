@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\DemoSeedNoOp;
 use App\Models\User;
 use Database\Seeders\Demo\DemoDataset;
 use Database\Seeders\Demo\DemoOptions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Queue\CallQueuedHandler;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -117,9 +119,9 @@ class LargeDemoSeedTest extends TestCase
         $this->assertSame(0, DB::table('queue_jobs')->where('queue', '!=', 'demo-fixtures')->count());
         $this->assertSame(User::class, DB::table('personal_access_tokens')->value('tokenable_type'));
         $payload = json_decode(DB::table('queue_jobs')->value('payload'), true);
-        $this->assertSame(\Illuminate\Queue\CallQueuedHandler::class.'@call', $payload['job']);
-        $noop = unserialize($payload['data']['command'], ['allowed_classes' => [\App\Jobs\DemoSeedNoOp::class]]);
-        $this->assertInstanceOf(\App\Jobs\DemoSeedNoOp::class, $noop);
+        $this->assertSame(CallQueuedHandler::class.'@call', $payload['job']);
+        $noop = unserialize($payload['data']['command'], ['allowed_classes' => [DemoSeedNoOp::class]]);
+        $this->assertInstanceOf(DemoSeedNoOp::class, $noop);
         $noop->handle();
         $this->assertSame(0, DB::table('ai_cv_analyses')->where('summary', 'not like', '%MINH HỌA%')->count());
     }
@@ -137,5 +139,32 @@ class LargeDemoSeedTest extends TestCase
         $this->app->detectEnvironment(fn () => 'production');
         $this->expectException(\RuntimeException::class);
         app(DemoDataset::class)->seed(DemoOptions::preset('tiny'), 'DemoPassword1!');
+    }
+
+    public function test_missing_password_or_unknown_preset_does_not_write_data(): void
+    {
+        config(['demo.seed_password' => '']);
+        $this->artisan('demo:seed')->assertFailed();
+        $this->artisan('demo:seed', ['--preset' => 'unknown', '--dry-run' => true])->assertFailed();
+        config(['demo.seed_password' => 'weak']);
+        $this->artisan('demo:seed')->assertFailed();
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('demo_seed_runs', 0);
+        $this->assertEmpty(Storage::disk('private')->allFiles());
+    }
+
+    public function test_existing_demo_namespace_without_manifest_is_preserved(): void
+    {
+        $existing = User::factory()->create(['email' => 'candidate.00001@demo.timviec.test']);
+        try {
+            app(DemoDataset::class)->seed(DemoOptions::preset('tiny'), 'DemoPassword1!');
+            $this->fail('An existing demo account must not be adopted or overwritten.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('namespace', $exception->getMessage());
+        }
+        $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseCount('demo_seed_runs', 0);
+        $this->assertSame($existing->password, $existing->fresh()->password);
+        $this->assertEmpty(Storage::disk('private')->allFiles());
     }
 }

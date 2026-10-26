@@ -14,8 +14,14 @@ Phạm vi đã chốt: 1.500 ứng viên, 120 công ty, 1.440 tin, 22.500 đơn;
 
 ## Thực hiện và kiểm tra
 
-- [ ] Regression test preset/count, idempotency, không sửa dữ liệu ngoài seed, ownership và thời gian, assets, role/private CV, không có side effects.
-- [ ] Catalog, cấu hình preset, sinh PDF/PNG, pipeline batch insert theo quan hệ.
-- [ ] Runtime/AI opt-in, command dry-run và report, guard môi trường/mật khẩu.
-- [ ] Chạy trên DB riêng: test nhỏ rồi full large, đếm và kiểm tra SQL invariants, smoke API.
-- [ ] Tài liệu lệnh/tài khoản/số liệu; commit thường xuyên, không tự push/merge hoặc chạy DB phát triển.
+- [x] Regression test preset/count, idempotency, không sửa dữ liệu ngoài seed, ownership và thời gian, assets, role/private CV, không có side effects.
+- [x] Catalog, cấu hình preset, sinh PDF/PNG, pipeline batch insert theo quan hệ.
+- [x] Runtime/AI opt-in, command dry-run và report, guard môi trường/mật khẩu.
+- [x] Chạy trên DB riêng: test nhỏ rồi full large, đếm và kiểm tra SQL invariants, smoke API.
+- [x] Tài liệu lệnh/tài khoản/số liệu; commit thường xuyên, không tự push/merge hoặc chạy DB phát triển.
+
+## Kết quả kiểm chứng
+
+Backend regression: 63 tests, 369 assertions đạt; Pint và git diff --check đạt.
+
+Ngày 26/10/2026, preset large + AI/runtime fixtures chạy trên database MariaDB và storage riêng: 118,75 giây, PHP peak 58 MB. Có dữ liệu ở cả 25 bảng (bao gồm migrations do Laravel quản lý). Kiểm tra 25.620 file CV/avatar/logo không thiếu file; các kiểm tra thời gian nộp, ownership hội thoại, sender, last_message_at, report flags, token hết hạn và queue riêng đều đạt. API jobs, companies, candidate applications, employer applications và admin stats trả 200; API ứng viên không chứa match_score. Chạy lại cùng cấu hình là no-op khoảng 0,01 giây. Hướng dẫn sử dụng tại [demo-data.md](../demo-data.md).

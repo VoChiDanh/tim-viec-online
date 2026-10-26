@@ -59,6 +59,10 @@ tim-viec-online/
 
 ---
 
+## Dữ liệu demo quy mô lớn
+
+Bộ seed riêng có 1.500 ứng viên, 120 công ty, 1.440 tin tuyển dụng và 22.500 đơn, kèm CV PDF, chat, thông báo và báo cáo kiểm duyệt. Xem [hướng dẫn dữ liệu demo](docs/demo-data.md) để chọn quy mô, cấu hình mật khẩu và chạy `php artisan demo:seed`. Lệnh chỉ dùng local/testing, không reset database; AI minh họa và fixtures hạ tầng là tùy chọn.
+
 ## 2. Phân vai người dùng & Ma trận chức năng chi tiết
 
 ### 2.1. Khách vãng lai (Guest — Chưa đăng nhập)
