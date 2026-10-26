@@ -14,7 +14,9 @@ class ResetPasswordMail extends Mailable
     use Queueable, SerializesModels;
 
     public User $user;
+
     public string $resetUrl;
+
     public string $token;
 
     public function __construct(User $user, string $resetUrl, string $token)
@@ -34,7 +36,8 @@ class ResetPasswordMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.reset_password',
+            view: 'emails.password-reset',
+            text: 'emails.reset_password_text',
         );
     }
 

@@ -8,22 +8,24 @@ use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
-use App\Mail\ResetPasswordMail;
+use App\Http\Requests\VerifyResetTokenRequest;
+use App\Mail\WelcomeMail;
 use App\Models\CandidateProfile;
 use App\Models\Company;
 use App\Models\Notification;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Services\PasswordRecoveryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    public function __construct(private PasswordRecoveryService $passwordRecovery) {}
+
     /**
      * Đăng ký tài khoản mới (FR-01)
      */
@@ -59,10 +61,7 @@ class AuthController extends Controller
         });
 
         try {
-            Mail::raw(
-                "Xin chào {$user->name},\n\nTài khoản TimViecOnline của bạn đã được tạo thành công. Email này không chứa mật khẩu.\n\nĐăng nhập tại: ".rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/').'/login',
-                fn ($message) => $message->to($user->email)->subject('Tài khoản TimViecOnline đã được tạo')
-            );
+            Mail::to($user->email)->send(new WelcomeMail($user, rtrim(config('app.frontend_url'), '/').'/login'));
         } catch (\Throwable $exception) {
             Log::warning('Registration confirmation email could not be sent', ['user_id' => $user->id]);
         }
@@ -178,40 +177,13 @@ class AuthController extends Controller
      */
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $user = User::where('email', strtolower($request->email))->first();
-
         // Never disclose account existence or the bearer secret used to reset it.
         $response = [
             'success' => true,
             'message' => 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email đó.',
         ];
 
-        if (! $user) {
-            return response()->json($response, 200);
-        }
-
-        // Tạo mã token ngẫu nhiên bảo mật
-        $token = Str::random(64);
-
-        // Lưu vào bảng password_reset_tokens với hiệu lực 15 phút
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $user->email],
-            [
-                'token' => hash('sha256', $token),
-                'created_at' => now(),
-            ]
-        );
-
-        // Tạo liên kết đặt lại mật khẩu gửi về email
-        $frontendUrl = config('app.frontend_url') ?: env('FRONTEND_URL', 'http://localhost:3000');
-        $resetUrl = rtrim($frontendUrl, '/').'/reset-password?token='.$token.'&email='.urlencode($user->email);
-
-        try {
-            Mail::to($user->email)->send(new ResetPasswordMail($user, $resetUrl, $token));
-        } catch (\Throwable $e) {
-            // Transport exceptions can contain the message body and reset URL.
-            Log::error('Password reset email could not be sent', ['user_id' => $user->id]);
-        }
+        $this->passwordRecovery->sendLink($request->validated('email'));
 
         return response()->json($response, 200);
     }
@@ -219,36 +191,13 @@ class AuthController extends Controller
     /**
      * Kiểm tra tính hợp lệ của liên kết đặt lại mật khẩu (FR-02.8)
      */
-    public function verifyResetToken(Request $request): JsonResponse
+    public function verifyResetToken(VerifyResetTokenRequest $request): JsonResponse
     {
-        $email = $request->query('email') ?? $request->input('email');
-        $token = $request->query('token') ?? $request->input('token');
-
-        if (! $email || ! $token) {
+        $email = strtolower($request->validated('email'));
+        if (! $this->passwordRecovery->isValid($email, $request->validated('token'))) {
             return response()->json([
                 'success' => false,
-                'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
-            ], 400);
-        }
-
-        $record = DB::table('password_reset_tokens')
-            ->where('email', strtolower($email))
-            ->first();
-
-        if (! $record || ! hash_equals($record->token, hash('sha256', $token))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
-            ], 400);
-        }
-
-        // Kiểm tra hiệu lực trong 15 phút (FR-02.7 & FR-02.8)
-        $createdAt = Carbon::parse($record->created_at);
-        if ($createdAt->addMinutes(15)->isPast()) {
-            DB::table('password_reset_tokens')->where('email', strtolower($email))->delete();
-
-            return response()->json([
-                'success' => false,
+                'code' => 'invalid_reset_token',
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
             ], 400);
         }
@@ -257,7 +206,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Liên kết xác thực hợp lệ',
             'data' => [
-                'email' => $record->email,
+                'email' => $email,
             ],
         ], 200);
     }
@@ -270,43 +219,12 @@ class AuthController extends Controller
         $email = strtolower($request->email);
         $newPassword = $request->password ?? $request->new_password;
 
-        $user = DB::transaction(function () use ($email, $request, $newPassword) {
-            $record = DB::table('password_reset_tokens')
-                ->where('email', $email)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $record || ! hash_equals($record->token, hash('sha256', $request->token))) {
-                return null;
-            }
-
-            if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
-                DB::table('password_reset_tokens')->where('email', $email)->delete();
-
-                return null;
-            }
-
-            $user = User::where('email', $email)->lockForUpdate()->first();
-            if (! $user) {
-                DB::table('password_reset_tokens')->where('email', $email)->delete();
-
-                return null;
-            }
-
-            $user->update([
-                'password' => Hash::make($newPassword),
-                'failed_attempts' => 0,
-                'locked_until' => null,
-            ]);
-            $user->tokens()->delete();
-            DB::table('password_reset_tokens')->where('email', $email)->delete();
-
-            return $user;
-        });
+        $user = $this->passwordRecovery->reset($email, $request->validated('token'), $newPassword);
 
         if (! $user) {
             return response()->json([
                 'success' => false,
+                'code' => 'invalid_reset_token',
                 'message' => 'Liên kết xác thực đã hết hạn hoặc không hợp lệ',
             ], 400);
         }

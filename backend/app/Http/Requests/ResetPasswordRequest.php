@@ -15,12 +15,12 @@ class ResetPasswordRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('new_password') && !$this->has('password')) {
+        if ($this->has('new_password') && ! $this->has('password')) {
             $this->merge([
                 'password' => $this->input('new_password'),
             ]);
         }
-        if ($this->has('new_password_confirmation') && !$this->has('password_confirmation')) {
+        if ($this->has('new_password_confirmation') && ! $this->has('password_confirmation')) {
             $this->merge([
                 'password_confirmation' => $this->input('new_password_confirmation'),
             ]);
@@ -30,8 +30,8 @@ class ResetPasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'token' => ['required', 'string'],
-            'email' => ['required', 'string', 'email'],
+            'token' => ['required', 'string', 'max:512'],
+            'email' => ['required', 'string', 'email', 'max:254'],
             'password' => [
                 'required',
                 'string',

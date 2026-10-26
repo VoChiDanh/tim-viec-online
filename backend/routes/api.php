@@ -21,13 +21,13 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Authentication (Public)
-Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,15');
-Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,15');
-Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken'])->middleware('throttle:20,1');
-Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
-Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1,register:');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1,login:')->name('login');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-recovery');
+Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-recovery');
+Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken'])->middleware('throttle:password-token');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
+Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
 // Reports require an authenticated account to discourage anonymous spam.
 Route::middleware('auth:sanctum')->post('/jobs/{id}/report', [JobReportController::class, 'store']);
