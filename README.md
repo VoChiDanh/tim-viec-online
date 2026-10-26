@@ -55,6 +55,8 @@ tim-viec-online/
    npm run dev
    ```
 
+3. **Email đăng ký và quên mật khẩu:** Cấu hình Gmail SMTP hoặc nhà cung cấp của bạn theo [hướng dẫn email](docs/mail-setup.md). Chạy `php artisan mail:check` trong `backend/` để kiểm tra cấu hình; chỉ dùng `--to=...` khi muốn gửi thư thử. Mailer `log` mặc định không giao thư đến hộp thư thật.
+
 ---
 
 ## 2. Phân vai người dùng & Ma trận chức năng chi tiết

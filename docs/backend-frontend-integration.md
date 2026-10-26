@@ -16,7 +16,7 @@ Các trang public, xác thực, ứng viên, nhà tuyển dụng và admin dùng
    ```
 
    `AUTH_APP_URL` phải khớp origin trình duyệt, gồm cả cổng; không trộn `localhost` và `127.0.0.1`. Sau đó chạy `npm run dev` trong `frontend/`. Với bản production, dùng HTTPS, `npm run build` rồi `npm run start`.
-4. Đăng ký tài khoản ứng viên/nhà tuyển dụng qua giao diện. Tài khoản demo `candidate@example.test`/`employer@example.test` thuộc mock mode, không tự xuất hiện trong database API. Admin được tạo bằng seeder với `ADMIN_EMAIL`/`ADMIN_PASSWORD` trong môi trường riêng. Khôi phục mật khẩu cần cấu hình mail Laravel để nhận liên kết qua email.
+4. Đăng ký tài khoản ứng viên/nhà tuyển dụng qua giao diện. Tài khoản demo `candidate@example.test`/`employer@example.test` thuộc mock mode, không tự xuất hiện trong database API. Admin được tạo bằng seeder với `ADMIN_EMAIL`/`ADMIN_PASSWORD` trong môi trường riêng. Email đăng ký/khôi phục đã triển khai; cấu hình Gmail/SMTP và kiểm tra nhận thư theo [hướng dẫn email](mail-setup.md).
 
 ## Chat và thông báo
 
@@ -41,6 +41,6 @@ Lớp đọc server nằm ở `frontend/src/services/`; ánh xạ dữ liệu �
 
 Trong `frontend/`: `npm run test`, `npm run test:mock-auth`, `npm run lint`, `npm run build`; `npm run test:e2e` kiểm tra demo và `npm run test:auth` kiểm tra hợp đồng xác thực qua fixture HTTP.
 
-`npm run test:backend` chạy trình duyệt với Laravel/Reverb thật. Cần MySQL/MariaDB thử nghiệm riêng ở `127.0.0.1:33063`, account có quyền tạo database **`frontend_api_e2e_test`**. Có thể đặt `FRONTEND_E2E_DB_USER`/`FRONTEND_E2E_DB_PASSWORD`; mặc định phục vụ instance local thử nghiệm. Script chỉ reset đúng database tên/cổng này, tách storage và config cache vào `backend/storage/framework/testing/frontend-e2e`, không dùng `.env` database phát triển. Các cổng `8127`, `8128`, `3127` phải trống.
+`npm run test:backend` chạy trình duyệt với Laravel/Reverb và SMTP sink thật. Cần MySQL/MariaDB thử nghiệm riêng ở `127.0.0.1:33063`, account có quyền tạo database **`frontend_api_e2e_test`**. Có thể đặt `FRONTEND_E2E_DB_USER`/`FRONTEND_E2E_DB_PASSWORD`; mặc định phục vụ instance local thử nghiệm. Script chỉ reset đúng database tên/cổng này, tách storage và config cache vào `backend/storage/framework/testing/frontend-e2e`, không dùng `.env` database phát triển. Các cổng `8127`, `8128`, `8129`, `3127` phải trống.
 
-Build frontend trước với key `frontend-e2e-public-key`, host `127.0.0.1`, port `8128`, scheme `http` cho Reverb thử nghiệm. Đây là credentials công khai của fixture local, không dùng triển khai thật. Khi kết thúc, build lại với cấu hình triển khai của bạn. Bộ kiểm thử dùng tài khoản `*@frontend-e2e.test`, mail array và AI tắt, không gửi SMTP/Gemini thật. Các báo cáo/traces nằm trong `frontend/test-results/` và không được commit.
+Build frontend trước với key `frontend-e2e-public-key`, host `127.0.0.1`, port `8128`, scheme `http` cho Reverb thử nghiệm. Đây là credentials công khai của fixture local, không dùng triển khai thật. Khi kết thúc, build lại với cấu hình triển khai của bạn. Bộ kiểm thử dùng tài khoản `*@frontend-e2e.test`, SMTP sink loopback và AI tắt, không giao thư ra ngoài hoặc gọi Gemini. Các báo cáo/traces nằm trong `frontend/test-results/` và không được commit.

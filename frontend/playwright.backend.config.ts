@@ -20,6 +20,12 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
+      command: "node tests/fixtures/smtp-server.mjs",
+      port: 8129,
+      reuseExistingServer: false,
+      timeout: 15_000,
+    },
+    {
       command: "php ../backend/scripts/frontend-e2e-server.php",
       url: "http://127.0.0.1:8127/up",
       reuseExistingServer: false,
