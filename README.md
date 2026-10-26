@@ -1,6 +1,6 @@
 # KẾ HOẠCH DỰ ÁN CUỐI KỲ: WEB TÌM VIỆC LÀM ONLINE
 
-> **Trạng thái implementation (26/10/2026):** Backend PR #3 đã được nhận vào `develop`, gồm các bản sửa bảo mật, vòng đời hồ sơ và CI. Frontend có các trang công khai, xác thực, ứng viên, nhà tuyển dụng và admin theo [báo cáo UI/UX](docs/plans/frontend-ui-ux-review.md). Phần lớn dữ liệu nghiệp vụ frontend vẫn dùng mock; gộp mã nguồn chưa đồng nghĩa đã ghép API/realtime/email/AI thật. Hợp đồng và kiểm thử backend nằm tại [API Checklist](API_CHECKLIST.md), [Backend Guide](BACKEND_GUIDE.md) và [Backend Testing Guide](BACKEND_TESTING_GUIDE.md). Các mục phân công phía dưới giữ lại kế hoạch ban đầu.
+> **Trạng thái implementation (26/10/2026):** Backend PR #3 đã được nhận vào `develop`. Nhánh `feature/backend-frontend-api` đã kết nối API cho public, xác thực, ứng viên, nhà tuyển dụng và admin, cùng chat/thông báo Reverb; đã kiểm thử tích hợp trên Laravel và database riêng. AI tắt mặc định và sẽ triển khai sau; ứng viên không được xem đánh giá AI. Cấu hình và phạm vi tại [hướng dẫn ghép frontend/backend](docs/backend-frontend-integration.md). Hợp đồng backend tại [API Checklist](API_CHECKLIST.md), [Backend Guide](BACKEND_GUIDE.md) và [Backend Testing Guide](BACKEND_TESTING_GUIDE.md). Các mục phân công phía dưới giữ kế hoạch ban đầu.
 
 ## 1. Công nghệ & Kiến trúc hệ thống
 
@@ -82,9 +82,7 @@ Bao gồm tất cả quyền của Khách, kèm theo:
   * [ ] **Nộp hồ sơ ứng tuyển (Apply):** Chọn CV đã có hoặc upload file CV mới, viết thư giới thiệu (Cover Letter) để ứng tuyển vào công việc.
   * [ ] **Hủy ứng tuyển (Rút hồ sơ):** Chỉ rút hồ sơ `applied` chưa được nhà tuyển dụng xem. Mỗi ứng viên chỉ nộp một lần cho một tin, kể cả sau khi rút.
   * [ ] **Lịch sử ứng tuyển:** Backend hiện dùng `applied`, `waiting`, `accepted`, `rejected`, `withdrawn`; cần hoàn thiện UI để xem và theo dõi.
-* **Tính năng AI phân tích:**
-  * [ ] **AI CV Match Score:** Xem điểm số đánh giá mức độ phù hợp giữa CV của mình và công việc (thang điểm 0 - 100%).
-  * [ ] **Gợi ý từ AI:** Xem danh sách kỹ năng còn thiếu và các khuyến nghị của AI để cải thiện hồ sơ phù hợp hơn với vị trí ứng tuyển.
+* **Đánh giá AI:** Không hiển thị cho ứng viên theo yêu cầu cập nhật. Phân tích dành cho nhà tuyển dụng được hoãn ở đợt tích hợp hiện tại.
 * **Nhắn tin Realtime (Chat):**
   * [ ] Khung chat trực tiếp 1-1 với Nhà tuyển dụng của các công việc mình đã ứng tuyển để trao đổi thêm thông tin (vẫn duy trì trao đổi ngay cả khi tin đã đóng).
   * [ ] Nhận tin nhắn tức thì từ Nhà tuyển dụng mà không cần tải lại trang.
@@ -286,7 +284,7 @@ DELETE /api/admin/skills/{id}           # [Admin] Xóa kỹ năng
 
 ## 7. Đăng nhập thử frontend
 
-Frontend đã có hai tài khoản mẫu và kiểm tra đăng nhập/vai trò trên server. Cấu hình `AUTH_MODE=mock`, `AUTH_APP_URL=http://localhost:3000` trong `frontend/.env.local`, rồi khởi động lại `npm run dev`.
+Để demo frontend riêng, cấu hình `AUTH_MODE=mock`, `AUTH_APP_URL=http://localhost:3000` trong `frontend/.env.local`, rồi khởi động lại `npm run dev`. Chế độ API mặc định dùng tài khoản trong database Laravel; xem [hướng dẫn kết nối](docs/backend-frontend-integration.md).
 
 | Vai trò | Email | Mật khẩu demo |
 | --- | --- | --- |
