@@ -127,6 +127,12 @@ export function validateAuthValues(
     ) {
       errors.password =
         "Mật khẩu từ 8–32 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.";
+    } else if (
+      kind !== "login" &&
+      new TextEncoder().encode(password).length > 72
+    ) {
+      errors.password =
+        "Mật khẩu chứa quá nhiều ký tự có dấu. Vui lòng rút ngắn mật khẩu.";
     } else if (kind === "change" && password === value("current_password")) {
       errors.password = "Mật khẩu mới không được trùng với mật khẩu hiện tại";
     }

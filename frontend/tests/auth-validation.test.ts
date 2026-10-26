@@ -17,6 +17,22 @@ const registration = {
 };
 const today = "2026-10-17";
 
+test("new passwords cannot exceed the bcrypt UTF-8 byte limit", () => {
+  const password = "ệ".repeat(28) + "A1!";
+  assert.ok(
+    validateAuthValues(
+      "reset",
+      {
+        email: registration.email,
+        token: "valid",
+        password,
+        password_confirmation: password,
+      },
+      today,
+    ).password,
+  );
+});
+
 test("registration accepts both public roles, optional phone and exact fifteenth birthday", () => {
   for (const role of ["candidate", "employer"]) {
     assert.deepEqual(

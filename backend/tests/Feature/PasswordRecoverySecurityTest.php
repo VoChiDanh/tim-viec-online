@@ -100,6 +100,17 @@ class PasswordRecoverySecurityTest extends TestCase
         }
     }
 
+    public function test_password_exceeding_bcrypt_byte_limit_is_rejected_without_consuming_the_token(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('OriginalPass1!')]);
+        $token = $this->requestMailToken($user);
+        $password = str_repeat('ệ', 28).'A1!';
+        $this->postJson('/api/reset-password', array_replace($this->resetPayload($user, $token), ['password' => $password, 'password_confirmation' => $password]))
+            ->assertStatus(422)->assertJsonValidationErrors('password');
+        $this->assertTrue(Hash::check('OriginalPass1!', $user->fresh()->password));
+        $this->postJson('/api/reset-password', $this->resetPayload($user, $token))->assertOk();
+    }
+
     private function requestMailToken(User $user): string
     {
         $this->postJson('/api/forgot-password', ['email' => $user->email])->assertOk();

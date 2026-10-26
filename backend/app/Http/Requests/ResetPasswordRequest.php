@@ -42,6 +42,11 @@ class ResetPasswordRequest extends FormRequest
                 'regex:/\p{Lu}/u',
                 'regex:/\p{N}/u',
                 'regex:/[^\p{L}\p{N}\s]/u',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (is_string($value) && strlen($value) > 72) {
+                        $fail('Mật khẩu chứa quá nhiều ký tự có dấu. Vui lòng rút ngắn mật khẩu.');
+                    }
+                },
             ],
         ];
     }
