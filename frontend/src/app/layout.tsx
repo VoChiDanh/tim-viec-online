@@ -4,6 +4,7 @@ import { CandidateWorkspaceSession } from "@/components/candidate/workspace-sess
 import { Be_Vietnam_Pro } from "next/font/google";
 import { AppToaster } from "@/components/feedback/app-toaster";
 import { ScrollbarLayout } from "@/components/layout/scrollbar-layout";
+import { BackendRealtimeSession } from "@/components/layout/backend-realtime-session";
 import "./globals.css";
 import "./site.css";
 import "./workspace.css";
@@ -44,6 +45,9 @@ export default function RootLayout({
     <html lang="vi" className={`${brandFont.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <ScrollbarLayout />
+        <Suspense fallback={null}>
+          <BackendRealtimeSession />
+        </Suspense>
         <Suspense
           fallback={
             <main className="site-container py-16" role="status">

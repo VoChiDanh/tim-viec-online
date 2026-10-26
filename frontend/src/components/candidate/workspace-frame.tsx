@@ -18,6 +18,7 @@ export function WorkspaceFrame({
   name?: string;
 }) {
   const workspace = useOptionalWorkspace();
+  const isPreview = preview && !workspace?.isApi;
   const inAccountShell = useInAccountShell();
   const avatarUrl = useFileUrl(
     !inAccountShell && preview ? (workspace?.avatar ?? null) : null,
@@ -30,7 +31,7 @@ export function WorkspaceFrame({
     >
       <CandidateSidebar
         active={section}
-        preview={preview}
+        preview={isPreview}
         name={preview ? (workspace?.profile.name ?? name) : name}
         avatar={
           avatarUrl ? (

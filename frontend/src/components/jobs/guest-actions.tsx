@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { apiRequest } from "@/features/api/client";
+import { mapJob } from "@/features/jobs/api";
 import { Bookmark, ArrowRight, Heart } from "lucide-react";
 import { toast } from "sonner";
 import type { AuthRole } from "@/features/auth/types";
@@ -33,6 +36,29 @@ export function GuestActions({
   const workspace = useOptionalWorkspace();
   const candidate = viewerRole === "candidate" ? workspace : null;
   const job = candidate?.jobs.find((item) => item.id === jobId);
+  const candidateRef = useRef(candidate);
+  useEffect(() => {
+    candidateRef.current = candidate;
+  });
+  const [jobError, setJobError] = useState("");
+  const isApi = candidate?.isApi;
+  useEffect(() => {
+    if (!isApi || compact || job) return;
+    let active = true;
+    apiRequest<unknown>(`/jobs/${jobId}`)
+      .then((response) => {
+        if (active) candidateRef.current?.registerJob(mapJob(response.data));
+      })
+      .catch((error) => {
+        if (active)
+          setJobError(
+            error instanceof Error ? error.message : "Không thể tải công việc.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [isApi, compact, job, jobId]);
   const saved = candidate?.savedIds.includes(jobId) ?? false;
   const SaveIcon = appearance === "home" ? Heart : Bookmark;
   const loginUrl = `/login?returnTo=${encodeURIComponent(`/jobs/${jobId}`)}`;
@@ -54,7 +80,9 @@ export function GuestActions({
             className="apply-button h-11 flex-1"
             disabled={viewerRole !== "candidate"}
             onClick={() =>
-              toast.info("Hiện chưa thể nộp hồ sơ. Vui lòng thử lại sau.")
+              toast.info(
+                jobError || "Đang tải thông tin ứng tuyển. Vui lòng thử lại.",
+              )
             }
           >
             {viewerRole === "candidate"
@@ -72,19 +100,32 @@ export function GuestActions({
             Đã ngừng nhận hồ sơ
           </Button>
         ))}
-      {candidate && job ? (
+      {candidate && (job || candidate.isApi) ? (
         <Button
           variant="outline"
           className={compact ? "size-11 rounded-full" : "h-11"}
           aria-label={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
           aria-pressed={saved}
-          onClick={() => {
-            candidate.toggleSaved(jobId);
-            toast.success(
-              saved
-                ? "Đã bỏ lưu việc làm trong phiên xem trước."
-                : "Đã lưu việc làm trong phiên xem trước.",
-            );
+          disabled={candidate.pending[`saved:${jobId}`]}
+          onClick={async () => {
+            try {
+              await candidate.toggleSaved(jobId);
+              toast.success(
+                candidate.isApi
+                  ? saved
+                    ? "Đã bỏ lưu việc làm."
+                    : "Đã lưu việc làm."
+                  : saved
+                    ? "Đã bỏ lưu việc làm trong phiên xem trước."
+                    : "Đã lưu việc làm trong phiên xem trước.",
+              );
+            } catch (error) {
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Không thể lưu việc làm.",
+              );
+            }
           }}
         >
           <SaveIcon aria-hidden="true" fill={saved ? "currentColor" : "none"} />

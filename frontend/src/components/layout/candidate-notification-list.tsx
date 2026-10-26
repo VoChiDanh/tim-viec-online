@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
 import { Bell, CheckCheck, FileCheck, MessageSquare } from "lucide-react";
 import { useWorkspace } from "@/components/candidate/workspace-provider";
 import { candidateNotificationHref } from "@/features/candidate-workspace/notification-link";
@@ -10,6 +11,17 @@ import { Button } from "@/modules/cores/shadcn/components/ui/button";
 
 export function CandidateNotificationList() {
   const state = useWorkspace();
+  const markRead = (id?: number) => {
+    void state
+      .markRead(id)
+      .catch((error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không thể cập nhật thông báo.",
+        ),
+      );
+  };
   const unread = state.notifications.filter((item) => !item.read_at).length;
   const items = [...state.notifications]
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -26,8 +38,8 @@ export function CandidateNotificationList() {
           type="button"
           variant="ghost"
           size="sm"
-          disabled={!unread}
-          onClick={() => state.markRead()}
+          disabled={!unread || state.pending["notification:all"]}
+          onClick={() => markRead()}
         >
           <CheckCheck aria-hidden="true" /> Đọc tất cả
         </Button>
@@ -59,7 +71,7 @@ export function CandidateNotificationList() {
                     state.applications,
                     state.conversations,
                   )}
-                  onClick={() => state.markRead(item.id)}
+                  onClick={() => markRead(item.id)}
                 >
                   <h2>{item.title}</h2>
                   <p>{item.content}</p>
@@ -74,7 +86,8 @@ export function CandidateNotificationList() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => state.markRead(item.id)}
+                  disabled={state.pending[`notification:${item.id}`]}
+                  onClick={() => markRead(item.id)}
                 >
                   Đánh dấu đã đọc
                 </Button>

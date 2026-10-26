@@ -6,7 +6,11 @@ export const APPLICATION_LABELS = {
   accepted: "Trúng tuyển",
   rejected: "Từ chối",
 } as const;
-export type ApplicationStatus = keyof typeof APPLICATION_LABELS;
+export const API_APPLICATION_LABELS = {
+  ...APPLICATION_LABELS,
+  withdrawn: "Đã rút hồ sơ",
+} as const;
+export type ApplicationStatus = keyof typeof API_APPLICATION_LABELS;
 export type CandidateSection =
   "profile" | "jobs" | "messages" | "notifications" | "settings";
 export type Application = {
@@ -16,6 +20,8 @@ export type Application = {
   created_at: string;
   cv_name?: string;
   cover_letter?: string;
+  cv_url?: string;
+  can_withdraw?: boolean;
 };
 export type PreviewMessage = {
   id: string;
@@ -24,6 +30,8 @@ export type PreviewMessage = {
   outgoing: boolean;
   created_at: string;
   preview?: boolean;
+  image_url?: string;
+  read_at?: string | null;
 };
 export type Conversation = { id: number; job_id: number; contact: string };
 export type CandidateNotification = {
@@ -37,6 +45,11 @@ export type CandidateNotification = {
   application_id?: number;
 };
 export type CandidatePreviewData = {
+  mode?: "mock" | "api";
+  userId?: number;
+  cvUrl?: string | null;
+  avatarUrl?: string | null;
+  skills?: { id: number; name: string }[];
   jobs: Job[];
   today: string;
   applications: Application[];

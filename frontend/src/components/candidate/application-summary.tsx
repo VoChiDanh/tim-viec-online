@@ -23,7 +23,8 @@ export function ApplicationSummary({
   const file = state.applicationFiles[application.id] ?? null;
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState(false);
-  const url = useFileUrl(open ? file : null);
+  const localUrl = useFileUrl(open ? file : null);
+  const url = localUrl ?? application.cv_url;
   useLayoutEffect(
     () => () => {
       setOpen(false);
@@ -95,10 +96,12 @@ export function ApplicationSummary({
               {application.cover_letter || "Không có thư giới thiệu."}
             </p>
           </div>
-          <p className="apply-hint">
-            Hồ sơ chỉ được lưu trong phiên xem trước, chưa gửi tới nhà tuyển
-            dụng.
-          </p>
+          {!state.isApi && (
+            <p className="apply-hint">
+              Hồ sơ chỉ được lưu trong phiên xem trước, chưa gửi tới nhà tuyển
+              dụng.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

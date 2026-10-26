@@ -2,6 +2,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Inbox, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useOptionalWorkspace } from "./workspace-provider";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import {
   AlertDialog,
@@ -61,10 +63,12 @@ export function ConfirmRemoval({
 }: {
   label: string;
   title: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   focusId: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const state = useOptionalWorkspace();
   const confirmed = useRef(false);
   useLayoutEffect(() => () => setOpen(false), []);
   return (
@@ -88,18 +92,34 @@ export function ConfirmRemoval({
           </AlertDialogMedia>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
-            Thay đổi này chỉ áp dụng cho bản xem trước hiện tại.
+            {state?.isApi
+              ? "Thay đổi này được lưu vào tài khoản của bạn."
+              : "Thay đổi này chỉ áp dụng cho bản xem trước hiện tại."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Giữ lại</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>Giữ lại</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              confirmed.current = true;
-              onConfirm();
-              requestAnimationFrame(() =>
-                document.getElementById(focusId)?.focus(),
-              );
+            disabled={pending}
+            onClick={async (event) => {
+              event.preventDefault();
+              setPending(true);
+              try {
+                await onConfirm();
+                confirmed.current = true;
+                setOpen(false);
+                requestAnimationFrame(() =>
+                  document.getElementById(focusId)?.focus(),
+                );
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Không thể thực hiện thay đổi.",
+                );
+              } finally {
+                setPending(false);
+              }
             }}
           >
             Xác nhận

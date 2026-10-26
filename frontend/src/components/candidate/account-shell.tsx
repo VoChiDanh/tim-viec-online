@@ -27,7 +27,8 @@ export function AccountShell({
     (item) => pathname === `/account/${item.key}`,
   )?.key;
   const workspace = useOptionalWorkspace();
-  const avatar = useFileUrl(preview ? (workspace?.avatar ?? null) : null);
+  const localAvatar = useFileUrl(workspace?.avatar ?? null);
+  const avatar = localAvatar ?? workspace?.avatarUrl;
   if (!section) return children;
   return (
     <AccountShellContext.Provider value>
@@ -38,7 +39,7 @@ export function AccountShell({
         <CandidateSidebar
           active={section}
           preview={preview}
-          name={preview ? (workspace?.profile.name ?? name) : name}
+          name={workspace?.profile.name ?? name}
           avatar={
             avatar ? (
               <Image

@@ -110,10 +110,11 @@ function ApplyForm({
   const state = useWorkspace();
   const id = useId();
   const [source, setSource] = useState<"existing" | "new">(
-    state.cv ? "existing" : "new",
+    state.cv || state.cvUrl ? "existing" : "new",
   );
   const [file, setFile] = useState<File | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
+  const maxCoverLetter = state.isApi ? 3000 : MAX_COVER_LETTER;
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -155,7 +156,7 @@ function ApplyForm({
     event.preventDefault();
     if (submitLock.current || checking) return;
     const selected = source === "existing" ? state.cv : file;
-    if (!selected) {
+    if (!selected && !(source === "existing" && state.isApi && state.cvUrl)) {
       setError("Vui lòng chọn CV PDF để ứng tuyển.");
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
@@ -167,6 +168,7 @@ function ApplyForm({
     const result = await state.submitApplication({
       jobId: job.id,
       cv: selected,
+      useProfileCv: state.isApi && source === "existing",
       coverLetter,
     });
     submitLock.current = false;
@@ -179,9 +181,16 @@ function ApplyForm({
       return;
     }
     onComplete();
-    toast.success("Đã thêm hồ sơ vào phiên xem trước.", {
-      description: "Hồ sơ chưa được gửi tới nhà tuyển dụng.",
-    });
+    toast.success(
+      state.isApi
+        ? "Nộp hồ sơ ứng tuyển thành công."
+        : "Đã thêm hồ sơ vào phiên xem trước.",
+      {
+        description: state.isApi
+          ? "Theo dõi phản hồi tại Việc làm của tôi."
+          : "Hồ sơ chưa được gửi tới nhà tuyển dụng.",
+      },
+    );
   }
 
   return (
@@ -199,14 +208,14 @@ function ApplyForm({
         <label
           className="apply-source"
           data-selected={source === "existing"}
-          data-disabled={!state.cv}
+          data-disabled={!state.cv && !state.cvUrl}
         >
           <input
             type="radio"
             name={`${id}-source`}
             value="existing"
             checked={source === "existing"}
-            disabled={!state.cv}
+            disabled={!state.cv && !state.cvUrl}
             onChange={() => {
               setSource("existing");
               setError("");
@@ -216,7 +225,10 @@ function ApplyForm({
           <span>
             <strong>CV trong hồ sơ</strong>
             <small>
-              {state.cv?.name ?? "Bạn chưa chọn CV trong hồ sơ cá nhân"}
+              {state.cv?.name ??
+                (state.cvUrl
+                  ? "CV đã lưu trong tài khoản"
+                  : "Bạn chưa chọn CV trong hồ sơ cá nhân")}
             </small>
           </span>
         </label>
@@ -290,7 +302,7 @@ function ApplyForm({
         <Textarea
           id={`${id}-letter`}
           rows={3}
-          maxLength={MAX_COVER_LETTER}
+          maxLength={maxCoverLetter}
           disabled={submitting}
           value={coverLetter}
           onChange={(event) => setCoverLetter(event.target.value)}
@@ -299,17 +311,19 @@ function ApplyForm({
         />
         <p id={`${id}-letter-count`} className="apply-count">
           {coverLetter.length.toLocaleString("vi-VN")}/
-          {MAX_COVER_LETTER.toLocaleString("vi-VN")}
+          {maxCoverLetter.toLocaleString("vi-VN")}
         </p>
       </Field>
       <p className="apply-notice">
         <Info aria-hidden="true" />
         Mỗi công việc chỉ nhận một hồ sơ ứng tuyển của bạn.
       </p>
-      <p className="apply-hint">
-        Chế độ xem trước: CV chỉ được giữ trong phiên này, chưa gửi tới nhà
-        tuyển dụng.
-      </p>
+      {!state.isApi && (
+        <p className="apply-hint">
+          Chế độ xem trước: CV chỉ được giữ trong phiên này, chưa gửi tới nhà
+          tuyển dụng.
+        </p>
+      )}
       {error && (
         <p ref={errorRef} tabIndex={-1} className="apply-error" role="alert">
           {error}

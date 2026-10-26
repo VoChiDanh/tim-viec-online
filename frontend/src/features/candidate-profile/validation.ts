@@ -11,6 +11,9 @@ import {
 export function validateProfile(
   profile: CandidateProfile,
   today: string,
+  catalog: readonly { id: number }[] = PROFILE_SKILLS,
+  maxExperience = 80,
+  maxBio = 5000,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   if (profile.name.trim().length < 2 || profile.name.trim().length > 100)
@@ -30,11 +33,11 @@ export function validateProfile(
   if (
     !Number.isInteger(profile.experience_years) ||
     profile.experience_years < 0 ||
-    profile.experience_years > 80
+    profile.experience_years > maxExperience
   )
-    errors.experience_years = "Số năm kinh nghiệm từ 0 đến 80.";
-  if (profile.bio.length > 5000)
-    errors.bio = "Giới thiệu không quá 5.000 ký tự.";
+    errors.experience_years = `Số năm kinh nghiệm từ 0 đến ${maxExperience}.`;
+  if (profile.bio.length > maxBio)
+    errors.bio = `Giới thiệu không quá ${maxBio.toLocaleString("vi-VN")} ký tự.`;
   if (profile.address.length > 255)
     errors.address = "Địa chỉ không quá 255 ký tự.";
   if (profile.city.length > 100)
@@ -59,9 +62,7 @@ export function validateProfile(
     errors.skill_ids = "Chỉ được chọn tối đa 10 kỹ năng.";
   else if (
     new Set(profile.skill_ids).size !== profile.skill_ids.length ||
-    profile.skill_ids.some(
-      (id) => !PROFILE_SKILLS.some((skill) => skill.id === id),
-    )
+    profile.skill_ids.some((id) => !catalog.some((skill) => skill.id === id))
   )
     errors.skill_ids = "Danh sách kỹ năng chưa hợp lệ.";
   return errors;

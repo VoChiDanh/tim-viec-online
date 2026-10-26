@@ -1,4 +1,4 @@
-import { APPLICATION_LABELS } from "./types";
+import { API_APPLICATION_LABELS } from "./types";
 
 export const WORKSPACE_PAGE_SIZE = 6;
 
@@ -14,8 +14,8 @@ export function parseWorkspaceQuery(params: {
   return {
     tab:
       params.get("tab") === "saved" ? ("saved" as const) : ("applied" as const),
-    status: Object.hasOwn(APPLICATION_LABELS, rawStatus)
-      ? (rawStatus as keyof typeof APPLICATION_LABELS)
+    status: Object.hasOwn(API_APPLICATION_LABELS, rawStatus)
+      ? (rawStatus as keyof typeof API_APPLICATION_LABELS)
       : ("" as const),
     page,
   };

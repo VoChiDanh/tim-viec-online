@@ -22,6 +22,12 @@ const routes: Record<
   "/user/change-password": { kind: "change-password", method: "PUT" },
 };
 
+const permitsEmptyData = new Set<AuthApiPath>([
+  "/forgot-password",
+  "/logout",
+  "/user/change-password",
+]);
+
 function configuredBase(): URL {
   try {
     const raw = process.env.AUTH_API_URL || process.env.NEXT_PUBLIC_API_URL;
@@ -141,7 +147,7 @@ export async function apiRequest(
       body === null ||
       !("success" in body) ||
       body.success !== true ||
-      !("data" in body)
+      (!("data" in body) && !permitsEmptyData.has(path))
     ) {
       throw new AuthApiError(
         502,
@@ -149,7 +155,7 @@ export async function apiRequest(
         "Dịch vụ xác thực trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.",
       );
     }
-    return body.data;
+    return "data" in body ? body.data : null;
   } catch (error) {
     if (error instanceof AuthApiError) throw error;
     throw mapAuthApiError(503, undefined, route.kind);

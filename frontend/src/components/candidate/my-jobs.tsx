@@ -1,9 +1,12 @@
 "use client";
 import Link from "next/link";
+import { toast } from "sonner";
+import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, MapPin } from "lucide-react";
 import {
   APPLICATION_LABELS,
+  API_APPLICATION_LABELS,
   type Application,
 } from "@/features/candidate-workspace/types";
 import type { Job } from "@/features/jobs/types";
@@ -77,9 +80,9 @@ export function MyJobs() {
                   scroll: false,
                 })
               }
-              options={Object.entries(APPLICATION_LABELS).map(
-                ([value, label]) => ({ value, label }),
-              )}
+              options={Object.entries(
+                state.isApi ? API_APPLICATION_LABELS : APPLICATION_LABELS,
+              ).map(([value, label]) => ({ value, label }))}
             />
           )}
         </div>
@@ -162,10 +165,41 @@ export function MyJobs() {
                     <ArrowRight aria-hidden="true" />
                   </Link>
                 )}
+              {application &&
+                state.isApi &&
+                !state.conversations.some((item) => item.job_id === job.id) &&
+                application.status !== "withdrawn" && (
+                  <Button
+                    variant="link"
+                    disabled={state.pending[`conversation:${job.id}`]}
+                    onClick={async () => {
+                      try {
+                        const id = await state.startConversation(job.id);
+                        router.push(`/account/messages?conversation=${id}`);
+                      } catch (error) {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Không thể mở hội thoại.",
+                        );
+                      }
+                    }}
+                  >
+                    Trao đổi với nhà tuyển dụng
+                  </Button>
+                )}
+              {application?.can_withdraw && state.isApi && (
+                <ConfirmRemoval
+                  label={`Rút hồ sơ ${job.title}`}
+                  title="Rút hồ sơ ứng tuyển này?"
+                  onConfirm={() => state.withdraw(application.id)}
+                  focusId="my-jobs-heading"
+                />
+              )}
             </div>
             {application ? (
               <span className="cu-status" data-status={application.status}>
-                {APPLICATION_LABELS[application.status]}
+                {API_APPLICATION_LABELS[application.status]}
               </span>
             ) : (
               <ConfirmRemoval

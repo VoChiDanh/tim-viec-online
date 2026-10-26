@@ -3,14 +3,13 @@ import { requireUser } from "./auth-session";
 
 export async function getCandidateProfileAccount() {
   const user = await requireUser("candidate", "/account/profile");
-  // Enable read/write capabilities here once the Laravel profile and CV
-  // endpoints exist. Never substitute fixture data for an authenticated user.
+  // Authentication is checked again before private profile data is read.
   return {
     user,
     capabilities: {
-      readProfile: false,
-      saveProfile: false,
-      uploadCv: false,
+      readProfile: true,
+      saveProfile: true,
+      uploadCv: true,
     } as const,
   };
 }

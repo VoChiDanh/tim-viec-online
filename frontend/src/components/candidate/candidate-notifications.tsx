@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCheck, FileCheck, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 import { pageSlice } from "@/features/candidate-workspace/rules";
 import { candidateNotificationHref } from "@/features/candidate-workspace/notification-link";
 import { RelativeTime } from "@/components/feedback/relative-time";
@@ -49,7 +50,15 @@ export function CandidateNotifications() {
         index: id === undefined ? -1 : actions.indexOf(source),
       };
     }
-    state.markRead(id);
+    void state
+      .markRead(id)
+      .catch((error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không thể cập nhật thông báo.",
+        ),
+      );
   }
   const params = useSearchParams();
   const filter = ["read", "unread"].includes(params.get("read") ?? "")
@@ -72,7 +81,7 @@ export function CandidateNotifications() {
           variant="ghost"
           type="button"
           onClick={(event) => markRead(event.currentTarget)}
-          disabled={!unread}
+          disabled={!unread || state.pending["notification:all"]}
         >
           <CheckCheck aria-hidden="true" />
           Đánh dấu tất cả đã đọc
@@ -132,7 +141,17 @@ export function CandidateNotifications() {
                   state.conversations,
                 )}
                 className="cu-link"
-                onClick={() => state.markRead(item.id)}
+                onClick={() => {
+                  void state
+                    .markRead(item.id)
+                    .catch((error) =>
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : "Không thể cập nhật thông báo.",
+                      ),
+                    );
+                }}
               >
                 {item.type === "new_message"
                   ? "Xem tin nhắn"

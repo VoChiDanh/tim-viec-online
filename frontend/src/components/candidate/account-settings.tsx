@@ -29,7 +29,9 @@ export function AccountSettings() {
       <section className="cu-card">
         <h2>Cài đặt thông báo qua email</h2>
         <p className="cu-muted">
-          Các lựa chọn chỉ lưu trong phiên xem trước; chưa đăng ký gửi email.
+          {state.isApi
+            ? "Cài đặt email chưa được hệ thống hỗ trợ. Thông báo trên web vẫn hoạt động bình thường."
+            : "Các lựa chọn chỉ lưu trong phiên xem trước; chưa đăng ký gửi email."}
         </p>
         <div className="cu-preference">
           <label htmlFor="email-applications">
@@ -38,6 +40,7 @@ export function AccountSettings() {
           </label>
           <Switch
             id="email-applications"
+            disabled={state.isApi}
             checked={state.emailPrefs.applications}
             onCheckedChange={(applications) =>
               state.setEmailPrefs((current) => ({ ...current, applications }))
@@ -51,6 +54,7 @@ export function AccountSettings() {
           </label>
           <Switch
             id="email-messages"
+            disabled={state.isApi}
             checked={state.emailPrefs.messages}
             onCheckedChange={(messages) =>
               state.setEmailPrefs((current) => ({ ...current, messages }))

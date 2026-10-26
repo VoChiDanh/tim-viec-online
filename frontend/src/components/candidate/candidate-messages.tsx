@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Search,
   Send,
+  Paperclip,
   X,
 } from "lucide-react";
 import { isJobOpen } from "@/features/jobs/formatters";
@@ -25,6 +26,7 @@ import {
 } from "@/modules/cores/shadcn/components/ui/field";
 import { useWorkspace } from "./workspace-provider";
 import { useChatScroll } from "./use-chat-scroll";
+import { useLiveRefresh } from "@/features/api/live";
 import { WorkspaceFrame } from "./workspace-frame";
 import { WorkspaceEmpty, WorkspaceTitle, workspaceDate } from "./workspace-ui";
 
@@ -65,12 +67,41 @@ export function CandidateMessages() {
   const job = state.jobs.find((item) => item.id === conversation?.job_id);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [attachments, setAttachments] = useState<
+    Record<number, File | undefined>
+  >({});
+  const attachmentInput = useRef<HTMLInputElement>(null);
   const [announcement, setAnnouncement] = useState("");
   const composer = useRef<HTMLTextAreaElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousConversation = useRef(requested);
   const activeId = conversation?.id;
+  const attachment = activeId === undefined ? undefined : attachments[activeId];
+  const currentState = useRef(state);
+  useLayoutEffect(() => {
+    currentState.current = state;
+  });
+  useLiveRefresh(
+    async () => {
+      if (activeId !== undefined)
+        await currentState.current.loadMessages(activeId);
+    },
+    state.isApi && activeId !== undefined,
+  );
+  useEffect(() => {
+    if (!state.isApi || activeId === undefined) return;
+    let active = true;
+    currentState.current.loadMessages(activeId).catch((error) => {
+      if (active)
+        setError(
+          error instanceof Error ? error.message : "Không thể tải tin nhắn.",
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [state.isApi, activeId]);
   const draft = activeId === undefined ? "" : (state.drafts[activeId] ?? "");
   const messages = state.messages.filter(
     (item) => item.conversation_id === activeId,
@@ -109,14 +140,20 @@ export function CandidateMessages() {
     setError("");
     setAnnouncement("");
   };
-  const send = () => {
+  const send = async () => {
     if (!conversation) return;
-    const nextError = state.sendPreview(conversation.id);
+    const nextError = await state.sendPreview(conversation.id, attachment);
     setError(nextError ?? "");
     if (!nextError) {
+      setAttachments((current) => ({
+        ...current,
+        [conversation.id]: undefined,
+      }));
       scrollBottom();
       setAnnouncement(
-        "Tin nhắn đã được thêm vào bản xem trước, chưa gửi tới nhà tuyển dụng.",
+        state.isApi
+          ? "Tin nhắn đã gửi."
+          : "Tin nhắn đã được thêm vào bản xem trước, chưa gửi tới nhà tuyển dụng.",
       );
     }
     composer.current?.focus({ preventScroll: true });
@@ -314,6 +351,15 @@ export function CandidateMessages() {
                           {message.outgoing ? "Bạn" : conversation.contact}
                         </span>
                         <p>{message.message}</p>
+                        {message.image_url && (
+                          <a
+                            href={message.image_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Xem ảnh đính kèm
+                          </a>
+                        )}
                         <small>
                           <time
                             dateTime={message.created_at}
@@ -322,6 +368,7 @@ export function CandidateMessages() {
                             {time(message.created_at)}
                           </time>
                           {message.preview && " · Chưa gửi"}
+                          {message.outgoing && message.read_at && " · Đã xem"}
                         </small>
                       </article>
                     </Fragment>
@@ -371,21 +418,86 @@ export function CandidateMessages() {
                       size="icon"
                       aria-label="Gửi"
                       className="cc-send"
+                      disabled={state.pending[`message:${activeId}`]}
                     >
                       <Send size={18} aria-hidden="true" />
                     </Button>
                   </div>
                   <FieldError id="message-error">{error}</FieldError>
                 </Field>
+                {state.isApi && (
+                  <div className="cu-actions">
+                    <input
+                      ref={attachmentInput}
+                      type="file"
+                      className="sr-only"
+                      tabIndex={-1}
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      aria-label="Ảnh đính kèm"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (!file || activeId === undefined) return;
+                        if (
+                          !file.size ||
+                          file.size > 5 * 1024 * 1024 ||
+                          ![
+                            "image/jpeg",
+                            "image/png",
+                            "image/gif",
+                            "image/webp",
+                          ].includes(file.type)
+                        ) {
+                          setError(
+                            "Chọn ảnh JPEG, PNG, GIF hoặc WebP không quá 5 MB.",
+                          );
+                          return;
+                        }
+                        setAttachments((current) => ({
+                          ...current,
+                          [activeId]: file,
+                        }));
+                        setError("");
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={state.pending[`message:${activeId}`]}
+                      onClick={() => attachmentInput.current?.click()}
+                    >
+                      <Paperclip aria-hidden="true" /> Đính kèm ảnh
+                    </Button>
+                    {attachment && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          if (activeId !== undefined)
+                            setAttachments((current) => ({
+                              ...current,
+                              [activeId]: undefined,
+                            }));
+                        }}
+                        aria-label="Bỏ ảnh đính kèm"
+                      >
+                        {attachment.name}
+                        <X aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div className="cc-composer-meta">
                   <span id="message-hint">
                     Enter để gửi · Ctrl/⌘ + Enter để xuống dòng
                   </span>
                   <span>{draft.length}/1.000</span>
                 </div>
-                <p className="cc-preview-note">
-                  Bản xem trước · Tin nhắn chưa gửi tới nhà tuyển dụng.
-                </p>
+                {!state.isApi && (
+                  <p className="cc-preview-note">
+                    Bản xem trước · Tin nhắn chưa gửi tới nhà tuyển dụng.
+                  </p>
+                )}
                 <p className="sr-only" role="status">
                   {announcement}
                 </p>
