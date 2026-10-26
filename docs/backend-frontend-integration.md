@@ -18,6 +18,12 @@ Các trang public, xác thực, ứng viên, nhà tuyển dụng và admin dùng
    `AUTH_APP_URL` phải khớp origin trình duyệt, gồm cả cổng; không trộn `localhost` và `127.0.0.1`. Sau đó chạy `npm run dev` trong `frontend/`. Với bản production, dùng HTTPS, `npm run build` rồi `npm run start`.
 4. Đăng ký tài khoản ứng viên/nhà tuyển dụng qua giao diện. Tài khoản demo `candidate@example.test`/`employer@example.test` thuộc mock mode, không tự xuất hiện trong database API. Admin được tạo bằng seeder với `ADMIN_EMAIL`/`ADMIN_PASSWORD` trong môi trường riêng. Email đăng ký/khôi phục đã triển khai; cấu hình Gmail/SMTP và kiểm tra nhận thư theo [hướng dẫn email](mail-setup.md).
 
+## Lỗi xác thực khi chạy sai cổng
+
+Nếu trang đăng nhập/đăng ký báo “Yêu cầu không hợp lệ. Vui lòng tải lại trang và thử lại”, kiểm tra địa chỉ trình duyệt có khớp `AUTH_APP_URL` hay không. `http://localhost:3001` khác origin với `http://localhost:3000`; cơ chế chống CSRF sẽ từ chối yêu cầu khi cấu hình không khớp.
+
+Lệnh `npm run dev` đã cố định cổng **3000** để không tự chuyển sang 3001 khi một frontend khác đang chạy. Chỉ chạy một frontend; dừng bản `next start` cũ trước khi chạy development. Mở `http://localhost:3000/login`. Nếu chủ động dùng cổng khác, cập nhật đồng bộ `AUTH_APP_URL`, `FRONTEND_URL` ở backend và cấu hình CORS/Reverb liên quan, rồi khởi động lại dịch vụ. Không tắt kiểm tra origin để tránh lỗi cấu hình.
+
 ## Chat và thông báo
 
 Backend cần `BROADCAST_CONNECTION=reverb`, cùng `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`, `REVERB_ALLOWED_ORIGINS`. Chạy `php artisan reverb:start`. Chỉ public key được đưa vào frontend; không đưa secret sang biến `NEXT_PUBLIC_*`.
