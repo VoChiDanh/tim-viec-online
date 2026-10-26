@@ -57,10 +57,11 @@ async function Content({ section, params, legacyPreview }: AdminContentProps) {
   const data = await getAdminData();
   if (!data) return <AdminUnavailable />;
   if (id !== undefined) {
-    if (!(await getAdminJob(Number(id)))) notFound();
+    const job = await getAdminJob(Number(id));
+    if (!job) notFound();
     return (
       <AdminPageEntrance>
-        <AdminJobDetail jobId={Number(id)} />
+        <AdminJobDetail jobId={Number(id)} initialJob={job} />
       </AdminPageEntrance>
     );
   }

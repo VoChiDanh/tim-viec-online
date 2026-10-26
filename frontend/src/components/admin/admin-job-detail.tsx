@@ -33,18 +33,21 @@ import {
 } from "@/features/admin/formatters";
 import { useAdminData } from "./admin-provider";
 import { Checkbox } from "@/modules/cores/shadcn/components/ui/checkbox";
+import type { AdminJob } from "@/features/admin/types";
 
 interface AdminJobDetailProps {
   jobId: number | string;
   preview?: boolean;
+  initialJob?: AdminJob;
 }
 
 export function AdminJobDetail({
   jobId,
   preview = false,
+  initialJob,
 }: AdminJobDetailProps) {
   const prefix = useId();
-  const { db, execute, pending, reset } = useAdminData();
+  const { db, execute, pending, reset, isMock } = useAdminData();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
@@ -70,7 +73,7 @@ export function AdminJobDetail({
   );
 
   const numericId = typeof jobId === "string" ? Number(jobId) : jobId;
-  const job = db.jobs.find((j) => j.id === numericId);
+  const job = db.jobs.find((j) => j.id === numericId) ?? initialJob;
 
   const company = job
     ? db.companies.find((c) => c.id === job.company_id)
@@ -158,13 +161,17 @@ export function AdminJobDetail({
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Case 1: Job was just deleted */}
       {deletedInfo ? (
@@ -174,7 +181,11 @@ export function AdminJobDetail({
               className="ap-icon ap-tone-success"
               aria-hidden="true"
             />
-            <h2>Đã xóa tin trong bản xem trước</h2>
+            <h2>
+              {isMock
+                ? "Đã xóa tin trong bản xem trước"
+                : "Đã xóa tin tuyển dụng"}
+            </h2>
             <p>
               Tài khoản nhà tuyển dụng được giữ nguyên. Chưa có dữ liệu thực tế
               bị xóa hoặc thông báo được gửi đi.
@@ -500,8 +511,9 @@ export function AdminJobDetail({
               )}
 
               <p className="text-[11px] text-[var(--ap-muted)] mt-2">
-                Bản xem trước chỉ xóa tin mẫu. Thông báo cho nhà tuyển dụng và
-                xóa dữ liệu thực tế cần được hệ thống xử lý.
+                {isMock
+                  ? "Bản xem trước chỉ xóa tin mẫu. Thông báo cho nhà tuyển dụng và xóa dữ liệu thực tế cần được hệ thống xử lý."
+                  : "Tin và dữ liệu liên quan sẽ bị xóa. Nhà tuyển dụng sẽ nhận thông báo về quyết định này."}
               </p>
 
               <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">

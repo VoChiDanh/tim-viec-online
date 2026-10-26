@@ -42,7 +42,7 @@ function normalize(text: string): string {
 }
 
 export function AdminSkills() {
-  const { db, execute, pending, reset } = useAdminData();
+  const { db, execute, pending, reset, isMock } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">(
@@ -181,12 +181,18 @@ export function AdminSkills() {
       return;
     }
     if (editingSkill) {
-      showToast("Đã cập nhật kỹ năng trong dữ liệu mẫu.");
+      showToast(
+        isMock
+          ? "Đã cập nhật kỹ năng trong dữ liệu mẫu."
+          : "Đã cập nhật kỹ năng.",
+      );
     } else {
       setQuery(trimmed);
       setUsageFilter("all");
       setCurrentPage(1);
-      showToast("Đã thêm kỹ năng trong dữ liệu mẫu.");
+      showToast(
+        isMock ? "Đã thêm kỹ năng trong dữ liệu mẫu." : "Đã thêm kỹ năng.",
+      );
     }
 
     setIsEditOpen(false);
@@ -206,7 +212,7 @@ export function AdminSkills() {
     }
 
     setDeletingSkill(null);
-    showToast("Đã xóa kỹ năng trong dữ liệu mẫu.");
+    showToast(isMock ? "Đã xóa kỹ năng trong dữ liệu mẫu." : "Đã xóa kỹ năng.");
   };
 
   const deletingJobsCount = deletingSkill ? jobsCountFor(deletingSkill.id) : 0;
@@ -241,13 +247,17 @@ export function AdminSkills() {
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Info notice */}
       <div className="ap-notice">
@@ -516,7 +526,7 @@ export function AdminSkills() {
                 variant="default"
                 className="min-h-11"
               >
-                Lưu vào bản xem trước
+                {isMock ? "Lưu vào bản xem trước" : "Lưu kỹ năng"}
               </Button>
             </DialogFooter>
           </form>
@@ -561,7 +571,9 @@ export function AdminSkills() {
               )}
 
               <p className="text-[11px] text-[var(--ap-muted)]">
-                Thao tác này chỉ áp dụng cho dữ liệu minh họa.
+                {isMock
+                  ? "Thao tác này chỉ áp dụng cho dữ liệu minh họa."
+                  : "Kỹ năng sẽ bị xóa khỏi danh mục và các liên kết hiện có."}
               </p>
 
               <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">

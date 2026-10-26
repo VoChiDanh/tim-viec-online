@@ -42,7 +42,7 @@ function normalize(text: string): string {
 }
 
 export function AdminCategories() {
-  const { db, execute, pending, reset } = useAdminData();
+  const { db, execute, pending, reset, isMock } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">(
@@ -180,12 +180,20 @@ export function AdminCategories() {
       return;
     }
     if (editingCategory) {
-      showToast("Đã cập nhật ngành nghề trong dữ liệu mẫu.");
+      showToast(
+        isMock
+          ? "Đã cập nhật ngành nghề trong dữ liệu mẫu."
+          : "Đã cập nhật ngành nghề.",
+      );
     } else {
       setQuery(trimmed);
       setUsageFilter("all");
       setCurrentPage(1);
-      showToast("Đã thêm ngành nghề trong dữ liệu mẫu.");
+      showToast(
+        isMock
+          ? "Đã thêm ngành nghề trong dữ liệu mẫu."
+          : "Đã thêm ngành nghề.",
+      );
     }
 
     setIsEditOpen(false);
@@ -209,7 +217,9 @@ export function AdminCategories() {
     }
 
     setDeletingCategory(null);
-    showToast("Đã xóa ngành nghề trong dữ liệu mẫu.");
+    showToast(
+      isMock ? "Đã xóa ngành nghề trong dữ liệu mẫu." : "Đã xóa ngành nghề.",
+    );
   };
 
   const deletingJobsCount = deletingCategory
@@ -243,13 +253,17 @@ export function AdminCategories() {
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Info notice */}
       <div className="ap-notice">
@@ -526,7 +540,7 @@ export function AdminCategories() {
                 variant="default"
                 className="min-h-11"
               >
-                Lưu vào bản xem trước
+                {isMock ? "Lưu vào bản xem trước" : "Lưu ngành nghề"}
               </Button>
             </DialogFooter>
           </form>
@@ -590,7 +604,9 @@ export function AdminCategories() {
                     danh mục?
                   </p>
                   <p className="text-[11px] text-[var(--ap-muted)]">
-                    Thao tác này chỉ áp dụng cho dữ liệu minh họa.
+                    {isMock
+                      ? "Thao tác này chỉ áp dụng cho dữ liệu minh họa."
+                      : "Ngành nghề sẽ bị xóa khỏi danh mục hệ thống."}
                   </p>
                   <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">
                     <Button

@@ -33,7 +33,7 @@ import type { AdminCompany, AdminJob, AdminUser } from "@/features/admin/types";
 import { useAdminData } from "./admin-provider";
 
 export function AdminOverview() {
-  const { db, pending, reset } = useAdminData();
+  const { db, pending, reset, isMock } = useAdminData();
   const [trendDays, setTrendDays] = useState<number>(7);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   useLayoutEffect(() => () => setSelectedUser(null), []);
@@ -110,8 +110,15 @@ export function AdminOverview() {
 
   // Trend points for the SVG chart
   const trendPoints = useMemo(
-    () => calculateTrendPoints(db.jobs, db.applications, trendDays),
-    [db.jobs, db.applications, trendDays],
+    () =>
+      db.stats
+        ? db.stats.trends.slice(-trendDays).map((point) => ({
+            date: point.date,
+            jobs: point.jobs_count,
+            applications: point.applications_count,
+          }))
+        : calculateTrendPoints(db.jobs, db.applications, trendDays),
+    [db.stats, db.jobs, db.applications, trendDays],
   );
 
   // SVG Chart math logic
@@ -204,13 +211,17 @@ export function AdminOverview() {
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Metrics Cards */}
       <section
@@ -224,9 +235,12 @@ export function AdminOverview() {
             <span>Tổng tài khoản</span>
             <Users className="ap-icon" aria-hidden="true" />
           </div>
-          <strong>{formatNumber(db.users.length)}</strong>
+          <strong>
+            {formatNumber(db.stats?.users_count ?? db.users.length)}
+          </strong>
           <small>
-            {candidatesCount} ứng viên · {employersCount} nhà tuyển dụng
+            {db.stats?.total_candidates ?? candidatesCount} ứng viên ·{" "}
+            {db.stats?.total_employers ?? employersCount} nhà tuyển dụng
           </small>
         </article>
 
@@ -236,8 +250,12 @@ export function AdminOverview() {
             <span>Tin tuyển dụng</span>
             <BriefcaseBusiness className="ap-icon" aria-hidden="true" />
           </div>
-          <strong>{formatNumber(db.jobs.length)}</strong>
-          <small>{activeJobsCount} tin đang tuyển</small>
+          <strong>
+            {formatNumber(db.stats?.total_jobs ?? db.jobs.length)}
+          </strong>
+          <small>
+            {db.stats?.active_jobs ?? activeJobsCount} tin đang tuyển
+          </small>
         </article>
 
         {/* Metric 3: Lượt ứng tuyển */}
@@ -246,7 +264,9 @@ export function AdminOverview() {
             <span>Lượt ứng tuyển</span>
             <Files className="ap-icon" aria-hidden="true" />
           </div>
-          <strong>{formatNumber(totalApplications)}</strong>
+          <strong>
+            {formatNumber(db.stats?.total_applications ?? totalApplications)}
+          </strong>
           <small>Hồ sơ đã nộp cho các tin hiện có</small>
         </article>
 
@@ -256,7 +276,9 @@ export function AdminOverview() {
             <span>Tin bị báo cáo</span>
             <Flag className="ap-icon" aria-hidden="true" />
           </div>
-          <strong>{formatNumber(reportedJobs.length)}</strong>
+          <strong>
+            {formatNumber(db.stats?.reported_jobs ?? reportedJobs.length)}
+          </strong>
           <small>Cần quản trị viên kiểm tra nội dung</small>
         </article>
       </section>
@@ -443,7 +465,9 @@ export function AdminOverview() {
             </div>
 
             <p className="ap-chart-footnote">
-              Số liệu minh họa đến ngày 16/10/2026.
+              {isMock
+                ? "Số liệu minh họa đến ngày 16/10/2026."
+                : "Số liệu được tổng hợp từ hoạt động trên hệ thống."}
             </p>
 
             {/* Table Fallback Details */}
@@ -526,7 +550,7 @@ export function AdminOverview() {
               <div className="ap-empty">
                 <CheckCircle2 className="ap-icon" aria-hidden="true" />
                 <h3>Đã xử lý hết hàng chờ</h3>
-                <p>Hiện không có tin bị báo cáo trong dữ liệu mẫu.</p>
+                <p>Hiện không có tin bị báo cáo.</p>
               </div>
             )}
           </div>

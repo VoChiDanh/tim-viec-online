@@ -44,7 +44,7 @@ export function AdminJobs() {
   const isPreview =
     pathname.includes("/preview") || searchParams.get("preview") === "true";
 
-  const { db, pending, reset } = useAdminData();
+  const { db, pending, reset, isMock } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [reportFilter, setReportFilter] = useState<"reported" | "all">(
@@ -150,13 +150,17 @@ export function AdminJobs() {
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Metrics Section */}
       <section

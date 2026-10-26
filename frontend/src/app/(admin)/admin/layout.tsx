@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/services/auth-session";
 import { getAdminData } from "@/services/admin";
+import { authMockEnabled } from "@/services/auth-mode";
 import { AdminProvider } from "@/components/admin/admin-provider";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminLoading } from "@/components/admin/admin-loading";
@@ -31,7 +32,7 @@ async function AdminSession({ children }: { children: ReactNode }) {
   const data = await getAdminData();
   if (!data) return <AdminUnavailable />;
   return (
-    <AdminProvider key={user.id} initial={data}>
+    <AdminProvider key={user.id} initial={data} isMock={authMockEnabled()}>
       <AdminShell user={user}>{children}</AdminShell>
     </AdminProvider>
   );

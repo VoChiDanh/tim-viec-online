@@ -52,7 +52,7 @@ function normalize(text: string): string {
 }
 
 export function AdminUsers() {
-  const { db, execute, pending, reset } = useAdminData();
+  const { db, execute, pending, reset, isMock } = useAdminData();
   const prefix = useId();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -148,7 +148,7 @@ export function AdminUsers() {
 
     const actionText = isLocking ? "khóa" : "mở khóa";
     toast.success(
-      `Đã ${actionText} tài khoản ${togglingUser.name} trong dữ liệu mẫu.`,
+      `Đã ${actionText} tài khoản ${togglingUser.name}${isMock ? " trong dữ liệu mẫu" : ""}.`,
     );
     setTogglingUser(null);
   };
@@ -183,13 +183,17 @@ export function AdminUsers() {
       </div>
 
       {/* Preview notification */}
-      <div className="ap-preview">
-        <Info className="ap-icon" aria-hidden="true" />
-        <span>Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.</span>
-        <button type="button" onClick={handleResetPreview} disabled={pending}>
-          Khôi phục mẫu
-        </button>
-      </div>
+      {isMock && (
+        <div className="ap-preview">
+          <Info className="ap-icon" aria-hidden="true" />
+          <span>
+            Dữ liệu minh họa · Thao tác chỉ áp dụng cho bản xem trước.
+          </span>
+          <button type="button" onClick={handleResetPreview} disabled={pending}>
+            Khôi phục mẫu
+          </button>
+        </div>
+      )}
 
       {/* Metrics Section */}
       <section
@@ -654,14 +658,16 @@ export function AdminUsers() {
                 <div>
                   <p>
                     {togglingUser.status === "locked"
-                      ? "Tài khoản được phép đăng nhập trở lại khi hệ thống thực tế áp dụng quyết định này."
-                      : "Trong hệ thống thực tế, mọi phiên đăng nhập của tài khoản này phải được thu hồi ngay. Tin đăng và hồ sơ được giữ lại."}
+                      ? "Tài khoản được phép đăng nhập trở lại sau khi mở khóa."
+                      : "Mọi phiên đăng nhập của tài khoản này sẽ bị thu hồi ngay. Tin đăng và hồ sơ được giữ lại."}
                   </p>
                 </div>
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Thao tác hiện tại chỉ cập nhật dữ liệu minh họa.
+                {isMock
+                  ? "Thao tác hiện tại chỉ cập nhật dữ liệu minh họa."
+                  : "Quyết định này áp dụng cho tài khoản trên hệ thống."}
               </p>
 
               <DialogFooter className="ap-modal-actions mx-0 mb-0 rounded-none bg-transparent p-0 pt-4">

@@ -13,28 +13,33 @@ import type {
   AdminWorkspaceAdapter,
 } from "@/features/admin/adapter";
 import { createAdminMockAdapter } from "@/mocks/admin-adapter";
+import { createAdminApiAdapter } from "@/features/admin/api-adapter";
 
 type AdminState = {
   db: AdminDatabase;
   pending: boolean;
   execute: (command: AdminCommand) => Promise<{ success: true } | AdminFailure>;
   reset: () => void;
+  isMock: boolean;
 };
 const AdminContext = createContext<AdminState | null>(null);
 
-// The server only mounts this workspace with mock data today. A future API
-// adapter can replace the factory here; components already await all writes.
+// The server chooses the data source; API failures never fall back to fixtures.
 export function AdminProvider({
   initial,
   children,
   adapter: suppliedAdapter,
+  isMock = true,
 }: {
   initial: AdminDatabase;
   children: ReactNode;
   adapter?: AdminWorkspaceAdapter;
+  isMock?: boolean;
 }) {
   const [adapter] = useState(
-    () => suppliedAdapter ?? createAdminMockAdapter(initial),
+    () =>
+      suppliedAdapter ??
+      (isMock ? createAdminMockAdapter(initial) : createAdminApiAdapter()),
   );
   const [db, setDb] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -68,10 +73,11 @@ export function AdminProvider({
     <AdminContext.Provider
       value={{
         db,
+        isMock,
         pending,
         execute,
         reset: () => {
-          if (!busy.current) setDb(adapter.reset());
+          if (isMock && !busy.current) setDb(adapter.reset());
         },
       }}
     >

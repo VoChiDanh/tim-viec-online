@@ -65,12 +65,24 @@ export interface AdminApplication {
 }
 
 export interface AdminDatabase {
+  stats?: AdminStats;
   categories: AdminCategory[];
   skills: AdminSkill[];
   users: AdminUser[];
   companies: AdminCompany[];
   jobs: AdminJob[];
   applications: AdminApplication[];
+}
+
+export interface AdminStats {
+  users_count: number;
+  total_candidates: number;
+  total_employers: number;
+  total_jobs: number;
+  active_jobs: number;
+  total_applications: number;
+  reported_jobs: number;
+  trends: { date: string; jobs_count: number; applications_count: number }[];
 }
 
 export interface TrendPoint {
@@ -80,11 +92,7 @@ export interface TrendPoint {
 }
 
 export type AdminPageKey =
-  | "overview"
-  | "jobs"
-  | "users"
-  | "categories"
-  | "skills";
+  "overview" | "jobs" | "users" | "categories" | "skills";
 
 export interface AdminNavItem {
   key: AdminPageKey;
@@ -93,4 +101,3 @@ export interface AdminNavItem {
   iconName: string;
   showReportCount?: boolean;
 }
-
