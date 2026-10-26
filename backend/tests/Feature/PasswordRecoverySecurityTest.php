@@ -89,6 +89,17 @@ class PasswordRecoverySecurityTest extends TestCase
         $this->postJson('/api/reset-password', $this->resetPayload($user, $secondToken))->assertOk();
     }
 
+    public function test_new_password_accepts_special_characters_and_unicode_supported_by_the_frontend(): void
+    {
+        foreach (['GoodPass1.', 'MậtKhẩuMới1!'] as $password) {
+            $user = User::factory()->create();
+            $token = $this->requestMailToken($user);
+            $payload = array_replace($this->resetPayload($user, $token), ['password' => $password, 'password_confirmation' => $password]);
+            $this->postJson('/api/reset-password', $payload)->assertOk();
+            $this->assertTrue(Hash::check($password, $user->fresh()->password));
+        }
+    }
+
     private function requestMailToken(User $user): string
     {
         $this->postJson('/api/forgot-password', ['email' => $user->email])->assertOk();

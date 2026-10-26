@@ -38,7 +38,10 @@ class ResetPasswordRequest extends FormRequest
                 'min:8',
                 'max:32',
                 'confirmed',
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]+$/',
+                'regex:/\p{Ll}/u',
+                'regex:/\p{Lu}/u',
+                'regex:/\p{N}/u',
+                'regex:/[^\p{L}\p{N}\s]/u',
             ],
         ];
     }
