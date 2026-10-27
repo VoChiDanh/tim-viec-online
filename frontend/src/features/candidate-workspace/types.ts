@@ -48,6 +48,7 @@ export type CandidateNotification = {
 export type CandidatePreviewData = {
   mode?: "mock" | "api";
   userId?: number;
+  emailVerifiedAt?: string | null;
   cvUrl?: string | null;
   avatarUrl?: string | null;
   skills?: { id: number; name: string }[];

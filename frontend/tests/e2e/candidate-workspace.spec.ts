@@ -288,8 +288,9 @@ test("notification read state and account preferences persist between preview pa
     .getByRole("link", { name: "Quản lý tài khoản", exact: true })
     .click();
   const preference = page.getByRole("switch", { name: /Trạng thái ứng tuyển/ });
-  await preference.click();
   await expect(preference).not.toBeChecked();
+  await preference.click();
+  await expect(preference).toBeChecked();
   await page
     .getByRole("navigation", { name: "Tài khoản ứng viên", exact: true })
     .getByRole("link", { name: "Thông báo", exact: true })
@@ -303,7 +304,7 @@ test("notification read state and account preferences persist between preview pa
   ).toHaveCount(0);
   await page.goBack();
   await expect(page).toHaveURL(/\/account\/settings$/);
-  await expect(preference).not.toBeChecked();
+  await expect(preference).toBeChecked();
   expect(
     await page.evaluate(() => ({
       local: localStorage.length,

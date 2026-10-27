@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 import { Switch } from "@/modules/cores/shadcn/components/ui/switch";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
@@ -9,6 +10,14 @@ import { WorkspaceTitle } from "./workspace-ui";
 
 export function AccountSettings() {
   const state = useWorkspace();
+  const { loadEmailPrefs } = state;
+  useEffect(() => {
+    void loadEmailPrefs();
+  }, [loadEmailPrefs]);
+  const emailBusy =
+    state.emailPrefsLoading || Boolean(state.pending["email-preferences"]);
+  const needsVerification = state.isApi && !state.emailVerifiedAt;
+  const emailDisabled = emailBusy || !state.emailPrefsReady;
   return (
     <WorkspaceFrame section="settings">
       <WorkspaceTitle title="Quản lý tài khoản" />
@@ -26,13 +35,45 @@ export function AccountSettings() {
           </Link>
         </div>
       </section>
-      <section className="cu-card">
+      <section className="cu-card" aria-busy={emailBusy}>
         <h2>Cài đặt thông báo qua email</h2>
         <p className="cu-muted">
           {state.isApi
-            ? "Cài đặt email chưa được hệ thống hỗ trợ. Thông báo trên web vẫn hoạt động bình thường."
+            ? "Bật những email bạn muốn nhận. Thông báo trên web vẫn hoạt động khi tắt email."
             : "Các lựa chọn chỉ lưu trong phiên xem trước; chưa đăng ký gửi email."}
         </p>
+        {needsVerification && (
+          <p className="cu-muted">
+            Xác thực email trước khi bật thông báo.{" "}
+            <Link href="/verify-email" className="cu-link">
+              Xác thực email
+            </Link>
+          </p>
+        )}
+        {state.emailPrefsLoading && (
+          <p role="status">Đang tải cài đặt email…</p>
+        )}
+        {state.emailPrefsError && (
+          <p role="alert">
+            {state.emailPrefsError}{" "}
+            {!state.emailPrefsReady && (
+              <button
+                type="button"
+                className="cu-link"
+                onClick={() => void loadEmailPrefs()}
+                disabled={emailBusy}
+              >
+                Thử lại
+              </button>
+            )}
+          </p>
+        )}
+        {state.pending["email-preferences"] && (
+          <p role="status">Đang lưu cài đặt email…</p>
+        )}
+        {state.emailPrefsSaved && !emailBusy && (
+          <p role="status">Đã lưu cài đặt email.</p>
+        )}
         <div className="cu-preference">
           <label htmlFor="email-applications">
             <strong>Trạng thái ứng tuyển</strong>
@@ -40,10 +81,13 @@ export function AccountSettings() {
           </label>
           <Switch
             id="email-applications"
-            disabled={state.isApi}
+            disabled={
+              emailDisabled ||
+              (needsVerification && !state.emailPrefs.applications)
+            }
             checked={state.emailPrefs.applications}
             onCheckedChange={(applications) =>
-              state.setEmailPrefs((current) => ({ ...current, applications }))
+              void state.updateEmailPreference("applications", applications)
             }
           />
         </div>
@@ -54,10 +98,12 @@ export function AccountSettings() {
           </label>
           <Switch
             id="email-messages"
-            disabled={state.isApi}
+            disabled={
+              emailDisabled || (needsVerification && !state.emailPrefs.messages)
+            }
             checked={state.emailPrefs.messages}
             onCheckedChange={(messages) =>
-              state.setEmailPrefs((current) => ({ ...current, messages }))
+              void state.updateEmailPreference("messages", messages)
             }
           />
         </div>

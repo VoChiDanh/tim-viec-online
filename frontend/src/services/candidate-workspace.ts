@@ -51,6 +51,7 @@ export const getCandidatePreview = cache(async () => {
     return {
       mode: "api" as const,
       userId: user.id,
+      emailVerifiedAt: user.email_verified_at ?? null,
       jobs: Array.from(new Map(jobs.map((job) => [job.id, job])).values()),
       today: vietnamToday(),
       profile: candidateProfileFromApi(profile),

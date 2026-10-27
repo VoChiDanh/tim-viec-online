@@ -2,6 +2,7 @@ const publicReads =
   /^\/(?:categories(?:\/\d+)?|skills(?:\/\d+)?|companies(?:\/\d+)?|jobs(?:\/\d+)?|locations\/cities)$/;
 const routes: [RegExp, string[]][] = [
   [publicReads, ["GET"]],
+  [/^\/user\/email-preferences$/, ["GET", "PUT"]],
   [/^\/candidate\/profile$/, ["GET", "POST", "PUT"]],
   [/^\/candidate\/cv$/, ["GET", "POST", "DELETE"]],
   [/^\/candidate\/cv\/file$/, ["GET"]],

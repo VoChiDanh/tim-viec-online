@@ -19,6 +19,11 @@ import {
 } from "@/features/candidate-workspace/application";
 import { validateCv } from "@/features/candidate-profile/validation";
 import { validateMessage } from "@/features/candidate-workspace/rules";
+import {
+  loadEmailPreferences,
+  saveEmailPreferences,
+  type EmailPreferences,
+} from "@/features/candidate-workspace/email-preferences";
 import { createProfilePreview } from "@/mocks/candidate-profile";
 import type { CandidateProfile } from "@/features/candidate-profile/types";
 import { apiRequest } from "@/features/api/client";
@@ -91,10 +96,34 @@ function useWorkspaceState(initial: WorkspaceInitial) {
   const { messages, setMessages } = chat;
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [notifications, setNotifications] = useState(initial.notifications);
-  const [emailPrefs, setEmailPrefs] = useState({
-    applications: true,
-    messages: true,
+  const [emailPrefs, setEmailPrefs] = useState<EmailPreferences>({
+    applications: false,
+    messages: false,
   });
+  const [emailPrefsReady, setEmailPrefsReady] = useState(!api);
+  const [emailPrefsLoading, setEmailPrefsLoading] = useState(false);
+  const [emailPrefsError, setEmailPrefsError] = useState<string | null>(null);
+  const [emailPrefsSaved, setEmailPrefsSaved] = useState(false);
+  const emailPrefsReading = useRef(false);
+  const loadEmailPrefs = useCallback(async () => {
+    if (!api || emailPrefsReading.current) return;
+    emailPrefsReading.current = true;
+    setEmailPrefsLoading(true);
+    setEmailPrefsError(null);
+    setEmailPrefsSaved(false);
+    try {
+      setEmailPrefs(await loadEmailPreferences());
+      setEmailPrefsReady(true);
+    } catch (error) {
+      setEmailPrefsReady(false);
+      setEmailPrefsError(
+        error instanceof Error ? error.message : "Không thể tải cài đặt email.",
+      );
+    } finally {
+      emailPrefsReading.current = false;
+      setEmailPrefsLoading(false);
+    }
+  }, [api]);
   useBackendEvent(
     "backend:message",
     (message) => {
@@ -238,7 +267,37 @@ function useWorkspaceState(initial: WorkspaceInitial) {
     drafts,
     notifications,
     emailPrefs,
-    setEmailPrefs,
+    emailPrefsReady,
+    emailPrefsLoading,
+    emailPrefsError,
+    emailPrefsSaved,
+    loadEmailPrefs,
+    updateEmailPreference: async (
+      key: keyof EmailPreferences,
+      enabled: boolean,
+    ) => {
+      if (locks.current.has("email-preferences") || (api && !emailPrefsReady))
+        return;
+      const previous = emailPrefs;
+      const next = { ...previous, [key]: enabled };
+      setEmailPrefs(next);
+      setEmailPrefsError(null);
+      setEmailPrefsSaved(false);
+      if (!api) return;
+      try {
+        await command("email-preferences", async () => {
+          setEmailPrefs(await saveEmailPreferences(next));
+          setEmailPrefsSaved(true);
+        });
+      } catch (error) {
+        setEmailPrefs(previous);
+        setEmailPrefsError(
+          error instanceof Error
+            ? error.message
+            : "Không thể lưu cài đặt email. Vui lòng thử lại.",
+        );
+      }
+    },
     registerJob: (job: Job) => {
       knownJobs.current.add(job.id);
       setJobs((current) =>
