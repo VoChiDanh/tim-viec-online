@@ -408,3 +408,76 @@
     gap: 18px;
   }
 }
+.ea-ai-skeleton {
+  display: grid;
+  gap: 12px;
+  padding-block: 14px;
+}
+.ea-ai-criteria {
+  display: grid;
+  gap: 10px;
+  margin-block: 16px;
+  font-size: 12px;
+}
+.ea-ai-criteria > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ea-ai-criteria dd {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ap-ai-detail {
+  --ep-navy: var(--brand-navy);
+  --ep-muted: var(--muted-foreground);
+  --ep-border: var(--border);
+  --ep-bg: var(--background);
+  --ep-blue: var(--brand-blue);
+  --ep-blue-soft: var(--selection-background);
+  --ep-orange: var(--brand-orange);
+  --ep-orange-soft: #fff3eb;
+  --ep-green: var(--workspace-success);
+  --ep-green-soft: var(--workspace-success-background);
+  display: grid;
+  gap: 20px;
+  max-width: 900px;
+  margin-inline: auto;
+  padding: 24px;
+}
+.ap-ai-detail .ec-ai-panel {
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.ap-ai-applications {
+  display: grid;
+  gap: 16px;
+  margin-block: 16px;
+}
+.ap-ai-applications li {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.ap-ai-applications a {
+  color: var(--brand-blue);
+  font-weight: 600;
+}
+.ap-ai-summary {
+  display: grid;
+  gap: 10px;
+  padding: 24px;
+  overflow-wrap: anywhere;
+}
+.ap-ai-summary h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.ap-ai-summary a {
+  width: fit-content;
+  color: var(--color-primary, #345cff);
+  font-weight: 600;
+}

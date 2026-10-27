@@ -1,5 +1,6 @@
 import type { ApiResponse } from "@/features/api/types";
 import { readWorkspaceSnapshot } from "@/features/api/workspace";
+import { aiStatus, parseAiAnalysis, safeAiError } from "./ai";
 import type { AuthUser } from "@/features/auth/types";
 import type { Category } from "@/features/jobs/types";
 import type {
@@ -28,6 +29,9 @@ export type RawApplication = Pick<
   | "created_at"
   | "cover_letter"
 > & {
+  ai_analysis?: unknown;
+  ai_analysis_status?: unknown;
+  ai_analysis_error?: unknown;
   cv_url: string | null;
   candidate: {
     user_id: number;
@@ -127,7 +131,16 @@ export function mapApplication(raw: RawApplication): EmployerApplication {
     reviewed_at: raw.reviewed_at,
     created_at: raw.created_at,
     cv_path: raw.cv_url ? `/api/backend/applications/${raw.id}/cv` : null,
-    analysis: null,
+    analysis: raw.ai_analysis ? parseAiAnalysis(raw.ai_analysis) : null,
+    analysis_status: aiStatus(raw.ai_analysis_status)
+      ? raw.ai_analysis_status
+      : raw.ai_analysis
+        ? "completed"
+        : "deferred",
+    analysis_error:
+      raw.ai_analysis_status === "failed"
+        ? safeAiError(raw.ai_analysis_error)
+        : null,
   };
 }
 export function mapMessage(raw: RawMessage): EmployerMessage {

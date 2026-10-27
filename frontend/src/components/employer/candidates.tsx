@@ -69,12 +69,9 @@ export function EmployerCandidates() {
   const router = useRouter();
   const jobId = params.get("job_id") ?? "";
   const status = params.get("status") ?? "";
-  const minimum = apiMode ? "" : (params.get("match_score") ?? "");
+  const minimum = params.get("match_score") ?? "";
   const keyword = params.get("keyword") ?? "";
-  const sort =
-    apiMode && params.get("sort") === "score"
-      ? "newest"
-      : (params.get("sort") ?? (apiMode ? "newest" : "score"));
+  const sort = params.get("sort") ?? (apiMode ? "newest" : "score");
   const selectedJob = jobs.find((job) => String(job.id) === jobId);
   const jobApplications = applications.filter(
     (application) => !jobId || String(application.job_id) === jobId,
@@ -162,19 +159,17 @@ export function EmployerCandidates() {
             count: jobApplications.filter((a) => a.status === "applied").length,
             note: "Chưa xem CV ứng tuyển",
           },
-          ...(!apiMode
-            ? [
-                {
-                  label: "Phù hợp từ 80%",
-                  count: jobApplications.filter(
-                    (a) =>
-                      a.status !== "withdrawn" &&
-                      (a.analysis?.match_score ?? 0) >= 80,
-                  ).length,
-                  note: "Đánh giá theo tin ứng tuyển",
-                },
-              ]
-            : []),
+          ...[
+            {
+              label: "Phù hợp từ 80%",
+              count: jobApplications.filter(
+                (a) =>
+                  a.status !== "withdrawn" &&
+                  (a.analysis?.match_score ?? 0) >= 80,
+              ).length,
+              note: "Đánh giá theo tin ứng tuyển",
+            },
+          ],
           {
             label: "Đã trúng tuyển",
             count: jobApplications.filter((a) => a.status === "accepted")
@@ -264,7 +259,7 @@ export function EmployerCandidates() {
                 onValueChange={(value) => filter("status", value)}
               />
             </div>
-            {!apiMode && (
+            {
               <div className="ep-field">
                 <span className="ec-field-label">Điểm phù hợp AI</span>
                 <SelectionField
@@ -276,7 +271,7 @@ export function EmployerCandidates() {
                   onValueChange={(value) => filter("match_score", value)}
                 />
               </div>
-            )}
+            }
           </div>
           <div className="ec-job-meta">
             {selectedJob ? (
@@ -334,11 +329,7 @@ export function EmployerCandidates() {
               label="Sắp xếp hồ sơ"
               placeholder="Điểm AI cao nhất"
               clearable={false}
-              options={
-                apiMode
-                  ? sortOptions.filter((option) => option.value !== "score")
-                  : sortOptions
-              }
+              options={sortOptions}
               value={sort}
               onValueChange={(value) => filter("sort", value || "score")}
             />
@@ -389,19 +380,18 @@ export function EmployerCandidates() {
                     </span>
                   </span>
                   <span className="ec-row-status">
-                    {!apiMode &&
-                      (application.analysis ? (
-                        <span
-                          className={`ec-score ec-score-${scoreClass(application.analysis.match_score)}`}
-                        >
-                          {application.analysis.match_score}%{" "}
-                          <small>phù hợp</small>
-                        </span>
-                      ) : (
-                        <span className="ec-analysis-pending">
-                          Chưa có điểm AI
-                        </span>
-                      ))}
+                    {application.analysis ? (
+                      <span
+                        className={`ec-score ec-score-${scoreClass(application.analysis.match_score)}`}
+                      >
+                        {application.analysis.match_score}%{" "}
+                        <small>phù hợp</small>
+                      </span>
+                    ) : (
+                      <span className="ec-analysis-pending">
+                        Chưa có điểm AI
+                      </span>
+                    )}
                     <ApplicationBadge status={application.status} />
                   </span>
                   <span className="ec-open-profile">

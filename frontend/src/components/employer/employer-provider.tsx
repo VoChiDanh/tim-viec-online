@@ -44,6 +44,7 @@ import {
 } from "@/features/employer/api";
 import type { EmployerJob } from "@/features/employer/types";
 import { vietnamToday } from "@/features/jobs/formatters";
+import { parseAiState, type AiState } from "@/features/employer/ai";
 
 function useEmployerState(initial: EmployerData) {
   const apiMode = initial.mode === "api";
@@ -381,6 +382,53 @@ function useEmployerState(initial: EmployerData) {
     },
     [apiMode, loadMessages],
   );
+  const readAnalysis = useCallback(
+    async (id: number, signal?: AbortSignal): Promise<AiState> => {
+      const result = parseAiState(
+        (
+          await apiRequest<unknown>(`/applications/${id}/ai-analysis`, {
+            signal,
+          })
+        ).data,
+      );
+      setApplications((current) =>
+        current.map((app) =>
+          app.id === id
+            ? {
+                ...app,
+                analysis: result.analysis,
+                analysis_status: result.status,
+                analysis_error: result.error,
+              }
+            : app,
+        ),
+      );
+      return result;
+    },
+    [],
+  );
+  const requestAnalysis = useCallback(async (id: number): Promise<AiState> => {
+    const result = parseAiState(
+      (
+        await apiRequest<unknown>(`/applications/${id}/ai-analyze`, {
+          method: "POST",
+        })
+      ).data,
+    );
+    setApplications((current) =>
+      current.map((app) =>
+        app.id === id
+          ? {
+              ...app,
+              analysis: result.analysis,
+              analysis_status: result.status,
+              analysis_error: result.error,
+            }
+          : app,
+      ),
+    );
+    return result;
+  }, []);
   const markConversationRead = useCallback(
     async (id: number) => {
       try {
@@ -413,6 +461,8 @@ function useEmployerState(initial: EmployerData) {
     messageSending: chat.sending,
     retryMessage: chat.retryMessage,
     refresh,
+    readAnalysis,
+    requestAnalysis,
     saveCompany: async (values: CompanyValues) => {
       if (!apiMode) return mock.saveCompany(values);
       const issues = validateCompany(values);

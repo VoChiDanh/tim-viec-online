@@ -1,5 +1,6 @@
 import type { Category, Company, Job, JobStatus } from "@/features/jobs/types";
 import type { AuthUser } from "@/features/auth/types";
+import type { AiAnalysis, AiStatus } from "./ai";
 
 export const EMPLOYER_PAGES = [
   { key: "dashboard", href: "/employer", label: "Tổng quan" },
@@ -65,14 +66,9 @@ export interface EmployerApplication {
   reviewed_at: string | null;
   created_at: string;
   cv_path: string | null;
-  analysis: {
-    match_score: number;
-    summary: string;
-    matched_skills: string[];
-    missing_skills: string[];
-    strengths: string[];
-    recommendations: string[];
-  } | null;
+  analysis: AiAnalysis | null;
+  analysis_status?: AiStatus;
+  analysis_error?: string | null;
 }
 export interface EmployerConversation {
   id: number;

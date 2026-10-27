@@ -1127,6 +1127,6 @@
 }
 @media (min-width: 901px) {
   .ec-overview[data-api="true"] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

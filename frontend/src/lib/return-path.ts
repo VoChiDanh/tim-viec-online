@@ -9,7 +9,7 @@ export function safeJobReturnPath(
     typeof value !== "string" ||
     value.length > 1000 ||
     /[\x00-\x1f\x7f\\]/.test(value) ||
-    !/^\/(?:jobs(?:\/\d+)?|account\/(?:profile|jobs|messages|notifications|settings|security)|employer(?:\/(?:jobs(?:\/new|\/[1-9]\d*\/edit)?|candidates(?:\/[1-9]\d*)?|messages|notifications|company))?|admin(?:\/(?:jobs(?:\/[1-9]\d*)?|users|categories|skills))?)(?:\?[^#]*)?$/.test(
+    !/^\/(?:jobs(?:\/\d+)?|account\/(?:profile|jobs|messages|notifications|settings|security)|employer(?:\/(?:jobs(?:\/new|\/[1-9]\d*\/edit)?|candidates(?:\/[1-9]\d*)?|messages|notifications|company))?|admin(?:\/(?:jobs(?:\/[1-9]\d*)?|applications\/[1-9]\d*|users|categories|skills))?)(?:\?[^#]*)?$/.test(
       value,
     )
   )
@@ -19,7 +19,9 @@ export function safeJobReturnPath(
   // agree with the verified session role to avoid redirect loops after login.
   if (pathname === "/account/security") return value;
   const adminPath = pathname === "/admin" || pathname.startsWith("/admin/");
-  const adminJobId = pathname.match(/^\/admin\/jobs\/(\d+)$/)?.[1];
+  const adminJobId = pathname.match(
+    /^\/admin\/(?:jobs|applications)\/(\d+)$/,
+  )?.[1];
   if (adminJobId && !Number.isSafeInteger(Number(adminJobId))) return fallback;
   if (role === "admin") return adminPath ? value : fallback;
   if (adminPath && role) return fallback;

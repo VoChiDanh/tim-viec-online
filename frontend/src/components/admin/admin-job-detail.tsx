@@ -34,6 +34,7 @@ import {
 import { useAdminData } from "./admin-provider";
 import { Checkbox } from "@/modules/cores/shadcn/components/ui/checkbox";
 import type { AdminJob } from "@/features/admin/types";
+import { AdminJobApplications } from "./admin-job-applications";
 
 interface AdminJobDetailProps {
   jobId: number | string;
@@ -344,6 +345,7 @@ export function AdminJobDetail({
                 </dl>
               </section>
 
+              {!isMock && <AdminJobApplications jobId={job.id} />}
               {/* Company Card Section */}
               {company && (
                 <section className="ap-panel ap-company-card">

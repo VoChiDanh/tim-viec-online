@@ -47,21 +47,19 @@ export function EmployerDashboard() {
       note: `${applications.filter((app) => app.status === "applied").length} hồ sơ chưa xem`,
       icon: Files,
     },
-    ...(!apiMode
-      ? [
-          {
-            label: "CV phù hợp từ 80%",
-            value: applications.filter(
-              (app) =>
-                app.analysis &&
-                app.analysis.match_score >= 80 &&
-                app.status !== "withdrawn",
-            ).length,
-            note: "Dựa trên kết quả phân tích CV mẫu",
-            icon: ScanText,
-          },
-        ]
-      : []),
+    ...[
+      {
+        label: "CV phù hợp từ 80%",
+        value: applications.filter(
+          (app) =>
+            app.analysis &&
+            app.analysis.match_score >= 80 &&
+            app.status !== "withdrawn",
+        ).length,
+        note: "Dựa trên kết quả phân tích CV mẫu",
+        icon: ScanText,
+      },
+    ],
     {
       label: "Hồ sơ trúng tuyển",
       value: applications.filter((app) => app.status === "accepted").length,
@@ -135,7 +133,7 @@ export function EmployerDashboard() {
       <div className="ep-workspace">
         <div>
           <EmployerJobs compact />
-          {!apiMode && (
+          {
             <section className="ep-panel ep-candidates">
               <div className="ep-panel-heading">
                 <div>
@@ -147,6 +145,12 @@ export function EmployerDashboard() {
                   <ArrowRight className="ep-icon" />
                 </Link>
               </div>
+              {!featured.length && (
+                <p className="ep-subtle">
+                  Ch?a c? k?t qu? ph?n t?ch CV. K?t qu? s? xu?t hi?n sau khi h?
+                  s? ???c x? l?.
+                </p>
+              )}
               {featured.map((app) => (
                 <article className="ep-candidate" key={app.id}>
                   <span className="ep-avatar">
@@ -205,7 +209,7 @@ export function EmployerDashboard() {
                 </div>
               )}
             </section>
-          )}
+          }
         </div>
         <aside className="ep-aside">
           <section className="ep-panel ep-company">

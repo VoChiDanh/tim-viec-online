@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { analysis } from "./fixtures/ai-analysis";
 import {
   allPages,
   jobPayload,
@@ -31,12 +32,37 @@ const raw: RawApplication = {
     skills: [{ name: "PHP" }],
   },
 };
-test("employer application uses authenticated local CV route and defers AI", () => {
+test("employer application uses authenticated local CV route and preserves missing AI without inventing a result", () => {
   const application = mapApplication(raw);
   assert.equal(application.cv_path, "/api/backend/applications/27/cv");
   assert.equal(application.analysis, null);
   assert.equal(application.status, "withdrawn");
   assert.deepEqual(application.skills, ["PHP"]);
+});
+
+test("employer adapter maps completed AI and keeps pending/failure apart from zero", () => {
+  const completed = mapApplication({
+    ...raw,
+    ai_analysis: analysis,
+    ai_analysis_status: "completed",
+  });
+  assert.equal(completed.analysis?.match_score, 84);
+  assert.equal(completed.analysis_status, "completed");
+  const failed = mapApplication({
+    ...raw,
+    ai_analysis_status: "failed",
+    ai_analysis_error: "private credentials",
+  });
+  assert.equal(failed.analysis, null);
+  assert.equal(failed.analysis_status, "failed");
+  assert.doesNotMatch(failed.analysis_error ?? "", /private credentials/);
+  assert.equal(
+    mapApplication({ ...raw, ai_analysis_status: "pending" }).analysis_status,
+    "pending",
+  );
+  assert.throws(() =>
+    mapApplication({ ...raw, ai_analysis: { ...analysis, match_score: "84" } }),
+  );
 });
 test("existing conversation retains association with withdrawn application", () => {
   assert.deepEqual(

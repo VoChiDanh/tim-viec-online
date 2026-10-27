@@ -60,6 +60,67 @@ const job = {
   company,
   applications_count: 0,
 };
+const aiFixture = process.env.AI_CONTRACT_FIXTURE === "1";
+const aiResult = {
+  match_score: 84,
+  summary: "Ứng viên đáp ứng kỹ năng và kinh nghiệm chính của vị trí.",
+  matched_skills: ["PHP", "MySQL"],
+  missing_skills: [],
+  strengths: [
+    "Có kinh nghiệm phát triển API",
+    "Sử dụng cơ sở dữ liệu thành thạo",
+  ],
+  recommendations: [],
+  criteria_scores: {
+    skills: 90,
+    experience: 80,
+    education: 85,
+    orientation: 75,
+  },
+  provider: "gemini",
+  model: "fixture-model",
+  created_at: "2026-10-27T00:00:00Z",
+};
+const aiStates = new Map([
+  [1, "completed"],
+  [2, "failed"],
+  [3, "deferred"],
+  [4, "pending"],
+]);
+const aiStalled = new Set([4]);
+const aiPolls = new Map();
+const aiState = (id) => ({
+  status: aiStates.get(id),
+  analysis: aiStates.get(id) === "completed" ? aiResult : null,
+  error: aiStates.get(id) === "failed" ? "private provider credentials" : null,
+  retryable:
+    aiStalled.has(id) || ["failed", "deferred"].includes(aiStates.get(id)),
+});
+function aiApplications() {
+  return [1, 2, 3, 4].map((id) => ({
+    id,
+    job_id: 1,
+    candidate_id: id,
+    status: "applied",
+    reviewed_at: null,
+    created_at: `2026-10-${25 + id}T00:00:00Z`,
+    cover_letter: "Tôi mong muốn trao đổi về vị trí này.",
+    cv_url: id === 3 ? null : "/protected/cv",
+    candidate: {
+      user_id: 100 + id,
+      name: `Ứng viên AI ${id}`,
+      email: `ai${id}@example.test`,
+      phone: null,
+      title: "Lập trình viên PHP",
+      city: "Hà Nội",
+      experience_years: 3,
+      skills: [{ name: "PHP" }],
+    },
+    ai_analysis_status: aiStates.get(id),
+    ai_analysis_error: aiState(id).error,
+    ai_analysis: aiState(id).analysis,
+  }));
+}
 
 function sendList(response, data = []) {
   response.writeHead(200, {
@@ -139,6 +200,40 @@ const server = createServer(async (request, response) => {
     return sendVoid(response);
   }
   requestCounts[path] = (requestCounts[path] ?? 0) + 1;
+  if (
+    aiFixture &&
+    /^\/api\/applications\/\d+\/ai-(?:analysis|analyze)$/.test(path)
+  ) {
+    if (token !== "test-employer-token" && token !== "test-admin-token")
+      return send(response, 403);
+    const id = Number(path.split("/")[3]);
+    if (!aiStates.has(id)) return send(response, 404);
+    if (request.method === "POST" && path.endsWith("ai-analyze")) {
+      if (id === 3) return send(response, 400);
+      if (aiStates.get(id) !== "completed") {
+        aiStalled.delete(id);
+        aiStates.set(id, "pending");
+        aiPolls.set(id, 0);
+      }
+      return send(
+        response,
+        aiStates.get(id) === "completed" ? 200 : 202,
+        aiState(id),
+      );
+    }
+    if (request.method === "GET" && path.endsWith("ai-analysis")) {
+      if (
+        !aiStalled.has(id) &&
+        ["pending", "processing"].includes(aiStates.get(id))
+      ) {
+        const polls = (aiPolls.get(id) ?? 0) + 1;
+        aiPolls.set(id, polls);
+        aiStates.set(id, polls >= 2 ? "completed" : "processing");
+      }
+      return send(response, 200, aiState(id));
+    }
+    return send(response, 405);
+  }
   if (heldPaths.has(path)) {
     await new Promise((resolve) => {
       waiting.set(path, [...(waiting.get(path) ?? []), resolve]);
@@ -180,6 +275,14 @@ const server = createServer(async (request, response) => {
       (path.startsWith("/api/candidate/") && entry[1].role !== "candidate")
     )
       return send(response, 403, null, "forbidden");
+    if (aiFixture && path === "/api/admin/jobs/1/applications")
+      return sendList(response, aiApplications());
+    if (aiFixture && /^\/api\/admin\/applications\/[1-3]$/.test(path)) {
+      const app = aiApplications().find(
+        (item) => item.id === Number(path.split("/").at(-1)),
+      );
+      return send(response, 200, { ...app, job });
+    }
     if (path === "/api/workspace/bootstrap") {
       const role = entry[1].role;
       const stats = {
@@ -230,7 +333,7 @@ const server = createServer(async (request, response) => {
           role,
           company: { ...company, user_id: 2 },
           jobs: [job],
-          applications: [],
+          applications: aiFixture ? aiApplications() : [],
           conversations: [],
           notifications: [],
           categories: [{ id: 1, name: "Contract category" }],
@@ -407,6 +510,6 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(4119, "127.0.0.1");
+server.listen(Number(process.env.FIXTURE_PORT || 4119), "127.0.0.1");
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => server.close(() => process.exit(0)));

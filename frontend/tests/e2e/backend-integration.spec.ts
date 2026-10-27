@@ -229,8 +229,16 @@ test.describe.serial("Laravel integration without AI", () => {
     ).toBeVisible();
     await page.goto(`/employer/candidates/${ids.application_id}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    const assessment = page.getByRole("region", {
+      name: "Đánh giá độ phù hợp",
+    });
+    await expect(assessment).toBeVisible();
+    await expect(assessment).toContainText(
+      "Hồ sơ này chưa có kết quả phân tích AI.",
+    );
+    await expect(assessment.getByRole("meter")).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Đánh giá độ phù hợp", exact: true }),
+      assessment.getByRole("button", { name: "Phân tích CV", exact: true }),
     ).toHaveCount(0);
     await expect(
       page.getByText("Frontend Engineer E2E", { exact: true }).first(),

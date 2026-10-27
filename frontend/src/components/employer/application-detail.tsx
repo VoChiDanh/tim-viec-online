@@ -12,12 +12,12 @@ import {
   Mail,
   MessageSquare,
   Phone,
-  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEmployer } from "./employer-provider";
+import { ApplicationAnalysis } from "./application-analysis";
 import {
   APPLICATION_LABELS,
   JOB_STATUS_LABELS,
@@ -42,8 +42,6 @@ import "./employer-application-detail.css";
 
 const dateLabel = (value: string) =>
   new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("vi-VN");
-const scoreClass = (score: number) =>
-  score >= 80 ? "high" : score >= 60 ? "mid" : "low";
 
 export function EmployerApplicationDetail({ id }: { id: number }) {
   const { applications, jobs, company } = useEmployer();
@@ -105,7 +103,6 @@ function ApplicationContent({
     !withdrawn ||
     conversations.some((item) => item.application_id === application.id);
   const jobStatus = effectiveJobStatus(job, today);
-  const analysis = application.analysis;
   // Only the bundled mock PDF or an authenticated local proxy may be embedded.
   const cvPath =
     application.cv_path === "/demo/employer-cv.pdf" ||
@@ -410,103 +407,7 @@ function ApplicationContent({
             )}
           </section>
 
-          {!apiMode && (
-            <section
-              className="ep-panel ec-ai-panel ea-panel"
-              data-score={
-                analysis ? scoreClass(analysis.match_score) : "pending"
-              }
-              aria-labelledby={`${headingId}-ai`}
-            >
-              <div className="ec-ai-title">
-                <Sparkles size={18} aria-hidden="true" />
-                <h2 id={`${headingId}-ai`}>Đánh giá độ phù hợp</h2>
-              </div>
-              <p className="ec-ai-job">
-                Đối chiếu với: <strong>{job.title}</strong>
-              </p>
-              {analysis ? (
-                <>
-                  <p className="ec-preview-label">Phân tích AI minh họa</p>
-                  <div className="ec-ai-score">
-                    <div>
-                      <strong>
-                        {analysis.match_score}
-                        <span>%</span>
-                      </strong>
-                      <p>
-                        {analysis.match_score >= 80
-                          ? "Rất phù hợp với vị trí"
-                          : analysis.match_score >= 60
-                            ? "Có kỹ năng phù hợp với vị trí"
-                            : "Cần xem xét thêm kinh nghiệm"}
-                      </p>
-                    </div>
-                    <span className="ec-ai-label">Match Score</span>
-                  </div>
-                  <div
-                    className="ec-score-track"
-                    role="meter"
-                    aria-label="Điểm phù hợp với vị trí"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={analysis.match_score}
-                  >
-                    <span style={{ width: `${analysis.match_score}%` }} />
-                  </div>
-                  <p className="ec-ai-summary">{analysis.summary}</p>
-                  <h3>Điểm mạnh</h3>
-                  <ul className="ec-ai-strengths">
-                    {analysis.strengths.map((strength) => (
-                      <li key={strength}>{strength}</li>
-                    ))}
-                  </ul>
-                  <h3>Kỹ năng đáp ứng</h3>
-                  <div className="ec-skill-list">
-                    {analysis.matched_skills.length ? (
-                      analysis.matched_skills.map((skill) => (
-                        <span key={skill}>{skill}</span>
-                      ))
-                    ) : (
-                      <p className="ec-cover-letter">
-                        Chưa ghi nhận kỹ năng đáp ứng.
-                      </p>
-                    )}
-                  </div>
-                  <h3>Kỹ năng cần bổ sung</h3>
-                  <div className="ec-skill-list ec-missing-skills">
-                    {analysis.missing_skills.length ? (
-                      analysis.missing_skills.map((skill) => (
-                        <span key={skill}>{skill}</span>
-                      ))
-                    ) : (
-                      <p className="ec-cover-letter">
-                        Không ghi nhận kỹ năng còn thiếu.
-                      </p>
-                    )}
-                  </div>
-                  {analysis.recommendations.length > 0 && (
-                    <details className="ec-ai-details">
-                      <summary>Khuyến nghị chi tiết</summary>
-                      <ul className="ec-ai-strengths">
-                        {analysis.recommendations.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                  <p className="ec-ai-note">
-                    Điểm AI hỗ trợ sàng lọc ban đầu. Hãy kết hợp xem CV và trao
-                    đổi trực tiếp để đánh giá ứng viên.
-                  </p>
-                </>
-              ) : (
-                <p className="ec-ai-note">
-                  Hồ sơ này chưa có kết quả phân tích AI.
-                </p>
-              )}
-            </section>
-          )}
+          <ApplicationAnalysis application={application} jobTitle={job.title} />
         </div>
       </div>
 
