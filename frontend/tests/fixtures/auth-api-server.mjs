@@ -3,6 +3,9 @@ import { createServer } from "node:http";
 
 const revokedTokens = new Set();
 let loginRequests = 0;
+const requestCounts = {};
+let heldPaths = new Set();
+const waiting = new Map();
 const identities = {
   "candidate@example.test": {
     id: 1,
@@ -115,7 +118,29 @@ const server = createServer(async (request, response) => {
   );
   const token = request.headers.authorization?.replace(/^Bearer /, "");
   if (path === "/health") return send(response, 200);
-  if (path === "/__test__/stats") return send(response, 200, { loginRequests });
+  if (path === "/__test__/stats")
+    return send(response, 200, {
+      loginRequests,
+      requests: requestCounts,
+      waiting: [...waiting.keys()],
+    });
+  if (path === "/__test__/hold" && request.method === "POST") {
+    const body = await readBody(request);
+    heldPaths = new Set(body.paths ?? []);
+    for (const [key, callbacks] of waiting) {
+      if (!heldPaths.has(key)) {
+        waiting.delete(key);
+        callbacks.forEach((release) => release());
+      }
+    }
+    return sendVoid(response);
+  }
+  requestCounts[path] = (requestCounts[path] ?? 0) + 1;
+  if (heldPaths.has(path)) {
+    await new Promise((resolve) => {
+      waiting.set(path, [...(waiting.get(path) ?? []), resolve]);
+    });
+  }
   if (request.method === "GET" && path === "/api/user") {
     const entry = Object.entries(identities).find(
       ([, user]) => token === `test-${user.role}-token`,
@@ -152,6 +177,86 @@ const server = createServer(async (request, response) => {
       (path.startsWith("/api/candidate/") && entry[1].role !== "candidate")
     )
       return send(response, 403, null, "forbidden");
+    if (path === "/api/workspace/bootstrap") {
+      const role = entry[1].role;
+      const stats = {
+        users_count: 3,
+        total_candidates: 1,
+        total_employers: 1,
+        total_jobs: 1,
+        active_jobs: 1,
+        total_applications: 0,
+        reported_jobs: 0,
+        trends: [],
+      };
+      const user = {
+        ...entry[1],
+        email: entry[0],
+        status: "active",
+        phone: "",
+        dob: "2000-05-20",
+      };
+      if (role === "admin") {
+        const summary = Object.fromEntries(
+          Object.entries(job).filter(
+            ([key]) =>
+              !["description", "requirements", "benefits", "company"].includes(
+                key,
+              ),
+          ),
+        );
+        return send(response, 200, {
+          role,
+          stats,
+          users: [
+            {
+              ...identities["employer@example.test"],
+              email: "employer@example.test",
+              status: "active",
+              company: { ...company, user_id: 2 },
+            },
+            user,
+          ],
+          jobs: [summary],
+          categories: [{ id: 1, name: "Contract category" }],
+          skills: [],
+        });
+      }
+      if (role === "employer")
+        return send(response, 200, {
+          role,
+          company: { ...company, user_id: 2 },
+          jobs: [job],
+          applications: [],
+          conversations: [],
+          notifications: [],
+          categories: [{ id: 1, name: "Contract category" }],
+          skills: [],
+        });
+      return send(response, 200, {
+        role,
+        profile: {
+          user,
+          profile: {
+            title: "",
+            city: "",
+            address: "",
+            bio: "",
+            experience_years: 0,
+            skills: [],
+            cv_url: null,
+            avatar_url: null,
+            social_links: {},
+          },
+        },
+        skills: [],
+        saved_jobs: [],
+        applications: [],
+        conversations: [],
+        notifications: [],
+        conversation_jobs: [],
+      });
+    }
     if (path === "/api/candidate/profile")
       return send(response, 200, {
         user: {

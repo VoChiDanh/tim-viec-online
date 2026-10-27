@@ -12,6 +12,7 @@
     "test:mock-auth": "tsx --conditions=react-server --test tests/server/*.test.ts",
     "test:e2e": "playwright test",
     "test:auth": "playwright test --config playwright.auth.config.ts",
+    "test:admin-performance": "playwright test --config playwright.admin-performance.config.ts",
     "test:backend": "playwright test --config playwright.backend.config.ts"
   },
   "dependencies": {

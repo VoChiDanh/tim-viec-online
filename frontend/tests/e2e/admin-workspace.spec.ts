@@ -7,6 +7,12 @@ async function loginAdmin(page: Page, path = "/admin") {
   await page.getByLabel("Mật khẩu", { exact: true }).fill("Admin@123");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${path}$`));
+  await expect(
+    page.getByRole("button", {
+      name: "Xem tài khoản quản trị viên",
+      exact: true,
+    }),
+  ).toBeVisible();
 }
 
 test("rejected catalog writes keep the dialog and entered name", async ({

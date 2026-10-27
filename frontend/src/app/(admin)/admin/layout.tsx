@@ -5,7 +5,7 @@ import { getAdminData } from "@/services/admin";
 import { authMockEnabled } from "@/services/auth-mode";
 import { AdminProvider } from "@/components/admin/admin-provider";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { AdminLoading } from "@/components/admin/admin-loading";
+import { AdminWorkspaceLoading } from "@/components/admin/admin-loading";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { AdminUnavailable } from "./_components/admin-content";
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <Suspense fallback={<AdminLoading />}>
+      <Suspense fallback={<AdminWorkspaceLoading />}>
         <AdminSession>{children}</AdminSession>
       </Suspense>
       <SiteFooter />

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/services/auth-session";
-import { getAdminData, getAdminJob } from "@/services/admin";
+import { getAdminJob } from "@/services/admin";
 import { AdminPageEntrance } from "@/components/admin/admin-page-entrance";
 import { AdminLoading } from "@/components/admin/admin-loading";
 import { AdminOverview } from "@/components/admin/admin-overview";
@@ -33,7 +33,12 @@ export function AdminUnavailable() {
 
 export function AdminContent(props: AdminContentProps) {
   return (
-    <Suspense fallback={<AdminLoading />}>
+    <Suspense
+      key={props.params ? "detail" : props.section}
+      fallback={
+        <AdminLoading section={props.params ? "detail" : props.section} />
+      }
+    >
       <Content {...props} />
     </Suspense>
   );
@@ -53,9 +58,8 @@ async function Content({ section, params, legacyPreview }: AdminContentProps) {
   await requireUser("admin", returnTo);
   if (id !== undefined && !validId) notFound();
   if (legacyPreview) redirect(returnTo);
-  // API outages/configuration must never expose fixtures or fake mutations.
-  const data = await getAdminData();
-  if (!data) return <AdminUnavailable />;
+  // The persistent layout owns the private snapshot. Revalidate access here,
+  // without loading the entire workspace again on every navigation.
   if (id !== undefined) {
     const job = await getAdminJob(Number(id));
     if (!job) notFound();

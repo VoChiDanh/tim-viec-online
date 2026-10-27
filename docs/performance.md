@@ -42,6 +42,16 @@ npm start
 
 ## Kết quả đo local
 
+### Tải và chuyển trang admin (bổ sung 27/10)
+
+- Layout/provider chỉ tải snapshot quản trị một lần khi vào workspace. Các trang con vẫn kiểm tra phiên/vai trò, nhưng không tải lại toàn bộ snapshot khi điều hướng; thao tác cập nhật vẫn làm mới dữ liệu từ API.
+- Bootstrap chỉ lấy các cột tóm tắt tin từ MySQL, không gửi mô tả/yêu cầu/quyền lợi của mọi tin. Trang chi tiết lấy nội dung đầy đủ riêng. Bỏ dữ liệu ứng tuyển/người dùng lặp lại trong thống kê bootstrap và các quan hệ ứng tuyển không dùng ở endpoint chi tiết.
+- Skeleton gồm khung admin cho lần vào đầu và các bố cục riêng cho tổng quan, tài khoản, kiểm duyệt, danh mục, chi tiết. Header/sidebar giữ nguyên khi chuyển trang; skeleton hỗ trợ màn hình nhỏ và giảm chuyển động.
+- Mẫu đo API trên database local có 1.627 tài khoản và 1.441 tin: bootstrap giảm từ **5.521.544 xuống 1.589.794 byte**, khoảng **71%**. Một lượt đọc lần lượt mất 1,69 và 1,41 giây; đây không phải phép đo P95 hay tải đồng thời.
+- `npm run test:admin-performance` trong `frontend/` chạy API fixture riêng: đếm bootstrap khi chuyển trang, làm chậm xác thực/chi tiết để kiểm tra skeleton, kiểm tra nội dung chi tiết và phiên hết hạn. Fixture này không dùng database phát triển.
+
+### Đợt tối ưu tổng thể
+
 Các số dưới đây là mẫu đo tải đủ HTTP response trên cùng máy và bộ dữ liệu; không phải P95 hay kiểm thử 50 người đồng thời. Sau tối ưu dùng API có OPcache và frontend production, lượt đầu có thể chậm hơn khi cache chưa ấm.
 
 | Trang | Trước | Sau |

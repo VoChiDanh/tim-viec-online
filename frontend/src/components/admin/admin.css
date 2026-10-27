@@ -278,6 +278,62 @@ body:has(.admin-page) {
   min-width: 0;
   min-height: calc(100dvh - 76px);
 }
+
+.ap-loading-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.ap-loading-workspace [data-slot="skeleton"],
+.ap-loading [data-slot="skeleton"] {
+  background: var(--border);
+}
+.ap-loading-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.ap-loading-heading > div:first-child {
+  flex: 1 1 240px;
+}
+.ap-loading-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+}
+.ap-loading-filters > div {
+  flex: 1 1 160px;
+}
+.ap-loading-table {
+  overflow: hidden;
+}
+.ap-loading-table-heading {
+  padding: 22px;
+  border-bottom: 1px solid var(--border);
+}
+.ap-loading-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.ap-loading-row:last-child {
+  border-bottom: 0;
+}
+.ap-loading .ap-metrics {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-loading-workspace [data-slot="skeleton"],
+  .ap-loading [data-slot="skeleton"] {
+    animation: none;
+  }
+}
 .ap-breadcrumb {
   display: flex;
   gap: 8px;
