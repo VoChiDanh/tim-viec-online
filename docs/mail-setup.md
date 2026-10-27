@@ -1,6 +1,6 @@
 # Xác nhận email và thông báo qua email
 
-Laravel Mail xử lý xác nhận địa chỉ sau đăng ký, khôi phục mật khẩu và hai loại thông báo tùy chọn bằng SMTP (Symfony Mailer). Email có bản HTML và text, nội dung tiếng Việt; không gửi mật khẩu, CV hoặc nội dung chat riêng tư.
+Laravel Mail xử lý xác nhận địa chỉ sau đăng ký, quên mật khẩu, xác nhận đổi mật khẩu và hai loại thông báo tùy chọn bằng SMTP (Symfony Mailer). Dùng cùng cấu hình Gmail/SMTP hiện có. Email có bản HTML và text, nội dung tiếng Việt; không gửi mật khẩu, CV hoặc nội dung chat riêng tư.
 
 ## Gmail SMTP — cổng 465
 
@@ -56,11 +56,12 @@ php artisan migrate
 php artisan queue:work database --queue=emails --sleep=1 --tries=3 --timeout=30
 ```
 
-Với database cũ được import SQL, nếu `migrate:status` còn liệt kê `2026_10_23_000001_create_domain_tables` là pending trong khi các bảng nghiệp vụ đã tồn tại, không chạy lại migration tạo bảng đó. Chỉ áp dụng hai migration email:
+Với database cũ được import SQL, nếu `migrate:status` còn liệt kê `2026_10_23_000001_create_domain_tables` là pending trong khi các bảng nghiệp vụ đã tồn tại, không chạy lại migration tạo bảng đó. Chỉ áp dụng các migration email chưa chạy:
 
 ```powershell
 php artisan migrate --path=database/migrations/2026_10_27_000002_add_notification_email_preferences_and_deliveries.php
 php artisan migrate --path=database/migrations/2026_10_27_000005_create_email_verification_tokens_table.php
+php artisan migrate --path=database/migrations/2026_10_27_000006_add_password_change_confirmation.php
 ```
 
 Queue dùng kết nối `database` rõ ràng, kể cả khi queue mặc định của máy là `sync`. Nếu đã có worker AI/default, vẫn cần worker nhận queue `emails`. Sau khi cập nhật code/cấu hình, chạy `php artisan queue:restart` và khởi động lại worker; production cần process manager giữ worker hoạt động.
@@ -73,6 +74,18 @@ Chưa chạy worker thì thư thông báo chờ trong `queue_jobs`, còn chat v�
 2. Đăng xuất và mở `/forgot-password`, nhập email đó. Phản hồi giống nhau dù email có tồn tại để tránh dò tài khoản.
 3. Mở thư khôi phục, bấm nút đặt lại mật khẩu. Liên kết về `FRONTEND_URL/reset-password`, có hạn 15 phút, chỉ dùng một lần; yêu cầu thư mới làm liên kết trước đó hết hiệu lực.
 4. Đổi mật khẩu, đăng nhập với mật khẩu mới. Các phiên đăng nhập trước reset bị thu hồi. Mật khẩu cũ và liên kết đã dùng không còn hiệu lực.
+
+### Đổi mật khẩu khi đang đăng nhập
+
+1. Mở `/account/security` bằng tài khoản ứng viên, tuyển dụng hoặc admin; nhập mật khẩu hiện tại và mật khẩu mới. Sau khi bấm **Đổi mật khẩu**, trang báo đã gửi email xác nhận. Mật khẩu cũ và các phiên hiện có vẫn hoạt động.
+2. Mở email và liên kết `/confirm-password-change`. Kiểm tra địa chỉ tài khoản rồi bấm **Xác nhận đổi mật khẩu**. Chỉ mở thư hoặc tải lại trang chưa áp dụng thay đổi.
+3. Sau xác nhận, mật khẩu mới có hiệu lực và toàn bộ phiên của tài khoản bị thu hồi; đăng nhập lại bằng mật khẩu mới. Trình duyệt đang đăng nhập tài khoản khác vẫn giữ phiên của tài khoản đó.
+
+Liên kết có hạn **15 phút**, dùng một lần. Yêu cầu mới thay thế yêu cầu cũ. Liên kết mất hiệu lực khi đã reset/đổi mật khẩu hoặc đổi địa chỉ email, kể cả đổi về địa chỉ cũ. Database `password_change_requests` chỉ lưu hash mật khẩu mới, hash token và thông tin ràng buộc với tài khoản; không lưu mật khẩu mới dạng rõ và không đưa hash/token vào API response.
+
+Yêu cầu đổi mật khẩu có giới hạn 1 lần/phút, 3 lần/15 phút mỗi tài khoản, kèm giới hạn IP; xác nhận có giới hạn IP riêng. SMTP lỗi trả thông báo gửi thất bại, giữ nguyên mật khẩu và phiên đăng nhập. Người dùng có thể gửi lại từ trang bảo mật sau thời gian chờ. Nếu không yêu cầu đổi mật khẩu, bỏ qua thư.
+
+Migration mới bổ sung `user_id` và `credential_hash` vào `password_reset_tokens`. Các liên kết reset phát hành trước khi nâng cấp chưa có ràng buộc này cần yêu cầu lại thư mới. Không reset database hay tự xác nhận email của các tài khoản cũ.
 
 Liên kết lỗi/hết hạn có nút yêu cầu liên kết mới. Nếu API tạm ngừng, giao diện báo chưa kiểm tra được liên kết thay vì kết luận đã hết hạn. Backend chỉ lưu hash token và không ghi URL/token vào log khi SMTP lỗi. Gửi thất bại sẽ xóa đúng token chưa giao, không xóa token của yêu cầu mới hơn.
 
