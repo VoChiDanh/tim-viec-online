@@ -17,7 +17,7 @@ return [
     'gemini' => [
         'enabled' => env('AI_ANALYSIS_ENABLED', false),
         'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-3.8-flash'),
+        'model' => env('GEMINI_MODEL'),
     ],
 
     'postmark' => [

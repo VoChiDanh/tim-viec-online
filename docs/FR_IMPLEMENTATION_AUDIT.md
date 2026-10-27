@@ -74,11 +74,12 @@
 
 | Mã | Trạng thái | Kiểm tra cụ thể |
 |---|---|---|
-| FR-07.1 | Có code một phần | Apply queue job đọc PDF text + JD, không chặn request; worker phải chạy. |
-| FR-07.2 | Một phần | Gemini prompt nêu trọng số 40/30/15/15; fallback heuristic không tương đương đánh giá định lượng chuyên sâu. |
-| FR-07.3 | Có code | Clamp score 0–100. |
-| FR-07.4 | Có code một phần | Normalize strengths 2–4, missing 0–4, summary <=75 words; chất lượng nội dung chưa đánh giá. |
-| FR-07.5 | Có code | Một result/application, pending/completed/failed. DB/queue failure tests và backup/retention cần xác minh. |
+| FR-07.1 | Có code, đã kiểm thử | Apply lưu CV riêng, chụp JD/kỹ năng rồi dispatch database queue `ai`. Groq/Gemini cấu hình backend; trích xuất PDF có giới hạn. |
+| FR-07.2 | Có code, đã kiểm thử | Bốn điểm thành phần 0–100, backend tính tổng 40/30/15/15. Không dùng fallback sinh điểm. Chất lượng đánh giá cần benchmark tập CV thực tế. |
+| FR-07.3 | Có code, đã kiểm thử | Kiểm tra số nguyên 0–100; đầu ra sai bị từ chối, không clamp thành kết quả giả. |
+| FR-07.4 | Có code, đã kiểm thử | Kiểm tra 2–4 điểm mạnh, 0–4 kỹ năng thiếu, summary dưới 80 từ. Frontend hiển thị kết quả, skeleton, lỗi và thử lại. |
+| FR-07.5 | Có code, đã kiểm thử | Một result/application; khóa database và request ID chống xử lý trùng/callback cũ. Chỉ chủ tin/admin được xem; candidate không nhận AI. Admin mở từ danh sách hồ sơ theo tin. |
+| FR-07.6 | Có code, đã kiểm thử | Queue riêng, tối đa 3 lần với lỗi tạm thời; lỗi key/PDF/JSON dừng sớm. GET không tạo tác vụ, POST thử lại có quyền/email verified/throttle; ngoại lệ an toàn. |
 
 ## FR-08 — Chat
 
@@ -112,7 +113,7 @@
 | NFR | Trạng thái |
 |---|---|
 | NFR-01 50 users / p95 <1.5s | Chưa đo; cần data representative/load test trên staging. |
-| NFR-02 AI trung bình <4s | Chưa đo/không bảo đảm: provider timeout 25s, queue backlog/worker ảnh hưởng. Skeleton UI chưa có. |
+| NFR-02 AI trung bình <4s | Một lượt CV tổng hợp Groq GPT-OSS-20B mất 1,2s/1.043 token; chưa đủ chứng minh trung bình tải thực tế. Skeleton đã có; queue backlog/worker/quota vẫn ảnh hưởng thời gian chờ. |
 | NFR-03 Chat <1s | Chưa đo E2E. |
 | NFR-04 Uptime 99% | Hạ tầng/monitoring ngoài code; chưa có số liệu. |
 | NFR-05 bcrypt | Laravel Hash facade/default hasher; cần kiểm tra production config. |

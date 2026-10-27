@@ -39,9 +39,9 @@ Frontend đặt `NEXT_PUBLIC_REVERB_APP_KEY` trùng key backend, cùng host/port
 | Nhà tuyển dụng | Công ty/logo, tạo/sửa/đóng/mở tin, hồ sơ theo tin, chi tiết/CV/xét duyệt, chat và thông báo |
 | Admin | Thống kê, danh sách/khóa/mở tài khoản, tin báo cáo/xóa tin, CRUD ngành nghề/kỹ năng |
 
-Lớp đọc server nằm ở `frontend/src/services/`; ánh xạ dữ liệu ở `frontend/src/features/*/api*`. Các thao tác browser gọi `/api/backend/...`, có allowlist method/path, kiểm tra Origin với thao tác ghi và giới hạn request body. Token nằm trong cookie HttpOnly; backend vẫn kiểm tra vai trò, quyền sở hữu, file và dữ liệu đầu vào. Không dùng proxy cho URL tùy ý hoặc endpoint AI.
+Lớp đọc server nằm ở `frontend/src/services/`; ánh xạ dữ liệu ở `frontend/src/features/*/api*`. Các thao tác browser gọi `/api/backend/...`, có allowlist method/path, kiểm tra Origin với thao tác ghi và giới hạn request body. Token nằm trong cookie HttpOnly; backend vẫn kiểm tra vai trò, quyền sở hữu, file và dữ liệu đầu vào. Proxy không nhận URL tùy ý; AI chỉ cho phép hai endpoint đọc trạng thái và yêu cầu phân tích theo ID hồ sơ.
 
-`AI_ANALYSIS_ENABLED=false` ngăn việc nộp/mở hồ sơ tự gọi Gemini, kể cả job phân tích cũ được worker lấy lại. Hồ sơ ghi trạng thái `deferred`. Bộ lọc/điểm AI không được nối vào API UI trong đợt này. Ứng viên không được nhận kết quả đánh giá AI.
+`AI_ANALYSIS_ENABLED=false` ngăn tạo yêu cầu phân tích mới; job chưa có kết quả được worker chuyển `deferred`. Khi bật, đơn mới chạy qua database queue riêng `ai`; hồ sơ cũ/lỗi cần bấm phân tích/thử lại. Mở hồ sơ không tự gọi lại dịch vụ. Giao diện nhà tuyển dụng có điểm, bộ lọc/sắp xếp, skeleton và trạng thái lỗi; admin mở đánh giá từ hồ sơ của từng tin. Ứng viên không nhận điểm, nhận xét, trạng thái hoặc lỗi AI. Xem [cấu hình và vận hành AI](ai-setup.md).
 
 ## Kiểm thử
 

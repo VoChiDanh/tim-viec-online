@@ -1,6 +1,6 @@
 # KẾ HOẠCH DỰ ÁN CUỐI KỲ: WEB TÌM VIỆC LÀM ONLINE
 
-> **Trạng thái implementation (26/10/2026):** Backend PR #3 đã được nhận vào `develop`. Nhánh `feature/backend-frontend-api` đã kết nối API cho public, xác thực, ứng viên, nhà tuyển dụng và admin, cùng chat/thông báo Reverb; đã kiểm thử tích hợp trên Laravel và database riêng. AI tắt mặc định và sẽ triển khai sau; ứng viên không được xem đánh giá AI. Cấu hình và phạm vi tại [hướng dẫn ghép frontend/backend](docs/backend-frontend-integration.md). Hợp đồng backend tại [API Checklist](API_CHECKLIST.md), [Backend Guide](BACKEND_GUIDE.md) và [Backend Testing Guide](BACKEND_TESTING_GUIDE.md). Các mục phân công phía dưới giữ kế hoạch ban đầu.
+> **Trạng thái implementation (27/10/2026):** Backend PR #3 đã được nhận vào `develop`. Nhánh `feature/backend-frontend-api` đã kết nối API cho public, xác thực, ứng viên, nhà tuyển dụng và admin, cùng chat/thông báo Reverb. AI đối chiếu CV đã kết nối Groq/Gemini, queue riêng và giao diện nhà tuyển dụng/admin; xem [cấu hình AI](docs/ai-setup.md). AI tắt mặc định, cần key và worker để sử dụng; ứng viên không được xem đánh giá AI. Cấu hình và phạm vi tại [hướng dẫn ghép frontend/backend](docs/backend-frontend-integration.md). Hợp đồng backend tại [API Checklist](API_CHECKLIST.md), [Backend Guide](BACKEND_GUIDE.md) và [Backend Testing Guide](BACKEND_TESTING_GUIDE.md). Các mục phân công phía dưới giữ kế hoạch ban đầu.
 
 ## 1. Công nghệ & Kiến trúc hệ thống
 
@@ -8,7 +8,7 @@
   * `backend/`: Mã nguồn Laravel 12 RESTful API (nâng từ Laravel 11 trong đợt sửa PR #3).
   * `frontend/`: Mã nguồn Next.js 14+ (App Router), TypeScript, Tailwind CSS.
 * **Backend:** **Laravel** (RESTful API, Laravel Sanctum, Eloquent ORM, Laravel Queue, Laravel Storage).
-* **AI Engine:** Google Gemini API qua `GEMINI_MODEL` (mặc định cấu hình hiện tại `gemini-3.8-flash`); phân tích được đưa vào queue. Cần cấu hình API key và worker để chạy thật.
+* **AI Engine:** Groq qua `GROQ_MODEL`, hoặc Gemini khi chọn `AI_PROVIDER=gemini`; trích xuất PDF, kiểm tra JSON và tổng hợp điểm có trọng số tại backend. Phân tích chạy trên database queue `ai`.
 * **Realtime Communication:** **Laravel Reverb** (hoặc **Pusher**) kết hợp **Laravel Echo** (Nhắn tin thời gian thực giữa Nhà tuyển dụng & Ứng viên).
 * **Database:** **MySQL** (Quản lý qua giao diện **phpMyAdmin** / Laragon / XAMPP).
   * *Quy trình chuẩn:* Dùng **Laravel Migration & Seeder** để đồng bộ code trong nhóm; cuối dự án export file `database/database_dump.sql` qua phpMyAdmin để nộp cho Giảng viên.
