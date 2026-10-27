@@ -34,9 +34,10 @@ php artisan migrate --path=database/migrations/2026_10_27_000007_add_ai_applicat
 
 ## Cách dùng
 
-- Đơn mới được đưa vào queue sau khi lưu. Đơn không mất nếu dịch vụ AI gặp lỗi.
+- Mỗi lần ứng viên nộp CV thật vào một tin tuyển dụng, đơn mới tự được đưa vào queue ngay sau khi lưu, trước bước gửi thông báo. Áp dụng cho cả CV tải trực tiếp lúc nộp và CV đã lưu trong tài khoản; không cần nhà tuyển dụng mở hồ sơ hoặc bấm **Phân tích CV**. Cùng một CV nộp vào hai tin được đối chiếu riêng với từng JD. Đơn không mất nếu dịch vụ AI gặp lỗi.
 - Mở chi tiết hồ sơ ở nhà tuyển dụng hoặc danh sách ứng viên của tin ở admin. Kết quả gồm điểm, nhận xét, điểm mạnh, kỹ năng khớp/thiếu và gợi ý.
 - Hồ sơ cũ chưa phân tích: nhấn **Phân tích CV**. Hồ sơ lỗi: kiểm tra nguyên nhân rồi nhấn **Thử lại**. Mở trang hoặc tải lại trang không tự gọi AI.
+- Chỉ tải CV vào trang hồ sơ cá nhân chưa tạo phân tích đối chiếu: cần nộp vào một tin để có JD cụ thể. Hồ sơ nộp trước khi AI được bật có thể vẫn cần phân tích thủ công một lần; điều này không áp dụng cho đơn mới khi AI và worker đang chạy.
 - CV sinh từ bộ seed demo bị loại trừ ở API, scheduler và worker, kể cả bản đã sao chép sang đường dẫn mới. Chúng không được gửi tới provider và không có nút yêu cầu phân tích. CV thật tải lên và nộp trong đơn mới vẫn được xử lý, kể cả khi dùng tài khoản hoặc ứng tuyển vào công ty demo.
 - Kết quả đã hoàn tất được dùng lại. JD/kỹ năng được chụp khi tạo yêu cầu đầu tiên, CV là bản riêng của lần ứng tuyển; sửa hồ sơ hoặc tin sau đó không thay đổi đầu vào của lượt thử lại.
 - PDF scan hoặc PDF không đọc được chữ không được chấm điểm. Ứng viên cần dùng PDF văn bản tối đa 5 MB.

@@ -63,7 +63,7 @@ php artisan queue:work database --queue=ai --sleep=1 --tries=3 --timeout=60
 Giữ terminal này mở. Worker ít hoặc không in nội dung khi không có tác vụ là bình thường.
 
 - Cần `AI_ANALYSIS_ENABLED=true`, key và model hợp lệ trong `.env`.
-- Đơn mới có CV thật được đưa vào queue sau khi lưu.
+- Mỗi đơn mới có CV thật tự được đưa vào queue ngay sau khi lưu, kể cả CV tải trực tiếp hoặc CV đã lưu trong tài khoản; không cần bấm nút phân tích ở nhà tuyển dụng.
 - CV mẫu thuộc bộ seed bị bỏ qua, kể cả bản sao của CV mẫu; không gửi chúng sang provider để tốn quota.
 - CV thật tải lên bằng tài khoản demo và nộp trong đơn mới vẫn được xử lý.
 - Không chạy worker thì hồ sơ mới có thể ở trạng thái chờ phân tích.

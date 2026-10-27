@@ -142,6 +142,22 @@ class ApplicationController extends Controller
             throw $exception;
         }
 
+        // Queue assessment immediately after the application commits. Notification
+        // delivery must not delay automatic analysis or require an employer action.
+        try {
+            if (config('ai.enabled')) {
+                app(AiAssessmentScheduler::class)->schedule($application);
+            }
+        } catch (\Throwable $exception) {
+            $application->update([
+                'ai_analysis_status' => 'failed',
+                'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
+            ]);
+            Log::error('Application CV analysis could not be queued', [
+                'application_id' => $application->id,
+            ]);
+        }
+
         // FR-10.2: Tự động gửi thông báo cho Nhà tuyển dụng
         if ($job->company && $job->company->user) {
             try {
@@ -161,21 +177,6 @@ class ApplicationController extends Controller
                     'exception' => $exception->getMessage(),
                 ]);
             }
-        }
-
-        // Keep application submission fast; analysis runs in the configured queue.
-        try {
-            if (config('ai.enabled')) {
-                app(AiAssessmentScheduler::class)->schedule($application);
-            }
-        } catch (\Throwable $exception) {
-            $application->update([
-                'ai_analysis_status' => 'failed',
-                'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
-            ]);
-            Log::error('Application CV analysis could not be queued', [
-                'application_id' => $application->id,
-            ]);
         }
 
         $application->load(['job.company', 'candidateProfile.skills', 'aiAnalysis']);

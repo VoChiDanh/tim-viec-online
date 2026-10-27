@@ -22,6 +22,8 @@ class AiLifecycleTest extends TestCase
 {
     use RefreshDatabase;
 
+    private \Illuminate\Queue\QueueManager $realQueue;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,6 +36,7 @@ class AiLifecycleTest extends TestCase
         ]);
         Storage::fake('private');
         Storage::fake('public');
+        $this->realQueue = Queue::getFacadeRoot();
         Queue::fake();
         Http::preventStrayRequests();
     }
@@ -385,6 +388,71 @@ class AiLifecycleTest extends TestCase
         Http::assertSentCount(1);
         $this->actingAs($employer, 'sanctum')->postJson('/api/applications/'.$seeded->id.'/ai-analyze')->assertUnprocessable();
         Http::assertSentCount(1);
+    }
+
+    public function test_uploaded_cv_is_automatically_database_queued_before_employer_notification(): void
+    {
+        [$candidate, , $fixture] = $this->fixture();
+        $job = $fixture->job->replicate();
+        $job->save();
+        config(['queue.default' => 'sync', 'queue.connections.database.connection' => 'mysql',
+            'queue.connections.database.table' => 'queue_jobs']);
+        Queue::swap($this->realQueue);
+        $queuedBeforeNotification = false;
+        \Illuminate\Support\Facades\Event::listen('eloquent.creating: '.\App\Models\Notification::class,
+            function ($notification) use (&$queuedBeforeNotification, $job) {
+                if (($notification->data['job_id'] ?? null) === $job->id) {
+                    $queuedBeforeNotification = \Illuminate\Support\Facades\DB::table('queue_jobs')->where('queue', 'ai')->count() === 1;
+                }
+            });
+        $response = $this->actingAs($candidate, 'sanctum')->postJson('/api/jobs/'.$job->id.'/apply', [
+            'cv_source' => 'new',
+            'cv_file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('uploaded-cv.pdf', $this->pdf()),
+        ])->assertCreated();
+        $application = Application::findOrFail($response->json('data.id'));
+        $this->assertTrue($queuedBeforeNotification, 'AI must be queued immediately after saving the application, before notification delivery.');
+        $this->assertSame('pending', $application->ai_analysis_status);
+        $this->assertNotNull($application->ai_request_id);
+        $this->assertNotNull($application->ai_requested_at);
+        $this->assertSame($job->title, $application->ai_job_snapshot['title']);
+        $rows = \Illuminate\Support\Facades\DB::table('queue_jobs')->where('queue', 'ai')->get();
+        $this->assertCount(1, $rows);
+        $payload = json_decode($rows[0]->payload, true, flags: JSON_THROW_ON_ERROR);
+        $queued = unserialize($payload['data']['command'], ['allowed_classes' => [AnalyzeApplicationCv::class]]);
+        $this->assertSame($application->id, $queued->applicationId);
+        $this->assertSame($application->ai_request_id, $queued->requestId);
+        $this->assertSame('database', $queued->connection);
+        $this->assertSame('ai', $queued->queue);
+        Http::assertNothingSent();
+        foreach (['ai_analysis', 'ai_analysis_status', 'ai_analysis_error'] as $privateField) {
+            $this->assertArrayNotHasKey($privateField, $response->json('data'));
+        }
+    }
+
+    public function test_same_profile_cv_submitted_to_different_jobs_is_automatically_assessed_per_application(): void
+    {
+        [$candidate, , $fixture] = $this->fixture();
+        $applications = [];
+        foreach ([1, 2] as $number) {
+            $job = $fixture->job->replicate();
+            $job->title = 'Backend position '.$number;
+            $job->save();
+            $response = $this->actingAs($candidate, 'sanctum')->postJson('/api/jobs/'.$job->id.'/apply', ['cv_source' => 'profile'])->assertCreated();
+            $application = Application::findOrFail($response->json('data.id'));
+            $this->assertSame('pending', $application->ai_analysis_status);
+            Queue::assertPushed(AnalyzeApplicationCv::class, fn ($queued) => $queued->applicationId === $application->id && $queued->requestId === $application->ai_request_id);
+            $applications[] = $application;
+        }
+        Queue::assertPushed(AnalyzeApplicationCv::class, 2);
+        $this->assertNotSame($applications[0]->ai_request_id, $applications[1]->ai_request_id);
+        $this->assertNotSame($applications[0]->cv_path, $applications[1]->cv_path);
+        Http::assertNothingSent();
+        Http::fake(['*' => Http::response($this->providerAssessment())]);
+        foreach ($applications as $application) {
+            $this->app->call([new AnalyzeApplicationCv($application->id, $application->ai_request_id), 'handle']);
+            $this->assertSame('completed', $application->fresh()->ai_analysis_status);
+        }
+        Http::assertSentCount(2);
     }
 
     private function completed(Application $application): void
