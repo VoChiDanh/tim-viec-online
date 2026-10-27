@@ -116,9 +116,18 @@ class WorkspaceBootstrapTest extends TestCase
         }
         $response->assertJsonMissingPath('data.jobs.0.company')
             ->assertJsonMissingPath('data.jobs.0.category')
+            ->assertJsonMissingPath('data.jobs.0.description')
+            ->assertJsonMissingPath('data.jobs.0.requirements')
+            ->assertJsonMissingPath('data.jobs.0.benefits')
+            ->assertJsonMissingPath('data.stats.recent_applications')
+            ->assertJsonMissingPath('data.stats.recent_users')
             ->assertJsonMissingPath('data.users.0.candidate_profile');
-        $this->assertSame($this->getJson('/api/admin/jobs?per_page=100')->json('data.0.description'), $response->json('data.jobs.0.description'));
-        $this->assertSame($this->getJson('/api/admin/stats?days=14')->json('data'), $response->json('data.stats'));
+        $this->getJson('/api/admin/jobs/'.$jobs->first()->id)->assertOk()
+            ->assertJsonPath('data.description', 'Build software')
+            ->assertJsonPath('data.requirements', 'PHP');
+        $stats = $this->getJson('/api/admin/stats?days=14')->json('data');
+        unset($stats['recent_applications'], $stats['recent_users']);
+        $this->assertSame($stats, $response->json('data.stats'));
     }
 
     public function test_new_candidate_and_employer_can_initialize_empty_workspaces(): void

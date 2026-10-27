@@ -310,7 +310,7 @@ class AdminController extends Controller
      */
     public function jobDetail($id): JsonResponse
     {
-        $job = Job::with(['company.user', 'category', 'skills', 'applications.candidateProfile.user'])->withCount('applications')->find($id);
+        $job = Job::with(['company.user', 'category', 'skills'])->withCount('applications')->find($id);
 
         if (! $job) {
             return response()->json([

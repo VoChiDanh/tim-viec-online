@@ -94,13 +94,17 @@ class WorkspaceBootstrapService
 
     private function admin(Request $request): array
     {
+        $stats = app(AdminController::class)->stats($request->duplicate(['days' => 14]))->getData(true)['data'];
+        // Recent rows already exist in the workspace collections; do not repeat
+        // full applications/jobs (including CV paths and narratives) in stats.
+        unset($stats['recent_applications'], $stats['recent_users']);
         return [
             'role' => 'admin',
             'users' => JsonResource::collection(User::select(['id', 'name', 'email', 'phone', 'role', 'status', 'created_at'])->with('company')->orderByDesc('id')->get())->resolve($request),
-            'jobs' => AdminWorkspaceJobResource::collection(Job::with('skills:id,name')->withCount('applications')->orderByDesc('id')->get())->resolve($request),
+            'jobs' => AdminWorkspaceJobResource::collection(Job::select(AdminWorkspaceJobResource::COLUMNS)->with('skills:id,name')->withCount('applications')->orderByDesc('id')->get())->resolve($request),
             'categories' => JsonResource::collection(Category::withCount('jobs')->orderByDesc('id')->get())->resolve($request),
             'skills' => JsonResource::collection(Skill::withCount(['jobs', 'candidateProfiles'])->orderByDesc('id')->get())->resolve($request),
-            'stats' => app(AdminController::class)->stats($request->duplicate(['days' => 14]))->getData(true)['data'],
+            'stats' => $stats,
         ];
     }
 

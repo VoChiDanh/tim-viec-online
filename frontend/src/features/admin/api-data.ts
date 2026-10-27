@@ -12,7 +12,13 @@ export type AdminRequest = <T>(
   path: string,
   init?: RequestInit,
 ) => Promise<ApiResponse<T>>;
-export type AdminJobDto = Omit<AdminJob, "skills"> & {
+export type AdminJobDto = Omit<
+  AdminJob,
+  "skills" | "description" | "requirements" | "benefits"
+> & {
+  description?: string;
+  requirements?: string;
+  benefits?: string;
   is_expired?: boolean;
   skills?: { id: number; name: string }[];
   company?: AdminCompany;
@@ -35,9 +41,9 @@ export function mapAdminJob(dto: AdminJobDto): AdminJob {
     address: dto.address,
     deadline: dto.deadline,
     is_reported: dto.is_reported,
-    description: dto.description,
-    requirements: dto.requirements,
-    benefits: dto.benefits,
+    description: dto.description ?? "",
+    requirements: dto.requirements ?? "",
+    benefits: dto.benefits ?? "",
     applications_count: dto.applications_count,
     status: dto.status === "active" && dto.is_expired ? "expired" : dto.status,
     skills: (dto.skills ?? []).map((skill) => skill.id),

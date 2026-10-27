@@ -113,4 +113,7 @@ test("admin projection uses actual backend totals and trend without fabricated a
   assert.equal("company" in db.jobs[0], false);
   assert.equal("category" in db.jobs[0], false);
   assert.equal("candidate_profile" in db.users[0], false);
+  assert.equal(db.jobs[0].description, "");
+  assert.equal(db.jobs[0].requirements, "");
+  assert.equal(db.jobs[0].benefits, "");
 });

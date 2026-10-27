@@ -73,7 +73,20 @@ export function AdminJobDetail({
   );
 
   const numericId = typeof jobId === "string" ? Number(jobId) : jobId;
-  const job = db.jobs.find((j) => j.id === numericId) ?? initialJob;
+  const workspaceJob = db.jobs.find((j) => j.id === numericId);
+  // API bootstrap contains summaries. The protected detail read supplies the
+  // narratives; mock edits continue to come from the persistent workspace.
+  const job = isMock
+    ? (workspaceJob ?? initialJob)
+    : initialJob
+      ? {
+          ...initialJob,
+          ...workspaceJob,
+          description: initialJob.description,
+          requirements: initialJob.requirements,
+          benefits: initialJob.benefits,
+        }
+      : workspaceJob;
 
   const company = job
     ? db.companies.find((c) => c.id === job.company_id)
