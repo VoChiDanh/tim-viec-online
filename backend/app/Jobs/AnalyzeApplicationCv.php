@@ -74,6 +74,7 @@ class AnalyzeApplicationCv implements ShouldQueue
                 ]);
                 Log::warning('Application CV analysis attempt failed', [
                     'application_id' => $application->id, 'retrying' => (bool) $retry,
+                    'attempt' => $this->attempts(), 'reason' => $safe->getMessage(),
                 ]);
                 if ($this->job && ! $retry) {
                     $this->fail($safe);

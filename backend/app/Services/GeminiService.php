@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Config as PdfConfig;
 use Smalot\PdfParser\Parser;
@@ -16,7 +17,7 @@ use Smalot\PdfParser\Parser;
 /** Historical class name retained for callers of the assessment pipeline. */
 class GeminiService
 {
-    public const PROMPT_VERSION = 'cv-match-v2';
+    public const PROMPT_VERSION = 'cv-match-v4';
 
     private const MAX_PDF_BYTES = 5 * 1024 * 1024;
 
@@ -159,6 +160,9 @@ Không đánh giá theo giới tính, tuổi, tình trạng gia đình hay thôn
 Không sao chép thông tin liên hệ hoặc mã định danh vào kết quả. Không suy diễn bằng cấp/kinh nghiệm không có bằng chứng.
 Trả duy nhất JSON với match_score số nguyên 0..100, summary tiếng Việt dưới 80 từ, matched_skills tối đa 20 mục,
 missing_skills 0..4 mục, strengths 2..4 mục, recommendations 0..4 mục. Mỗi mục là chuỗi tối đa 300 ký tự.
+Nếu CV thiếu nhiều hơn 4 kỹ năng, chỉ chọn tối đa 4 kỹ năng quan trọng nhất với JD; không liệt kê toàn bộ.
+Trước khi trả JSON, đếm lại số mục: missing_skills không quá 4, strengths từ 2 đến 4,
+recommendations không quá 4. Không trả mục thứ 5 trong bất kỳ mảng nào giới hạn 4 mục.
 Thêm criteria_scores gồm skills, experience, education, orientation, mỗi giá trị là số nguyên 0..100.
 Đánh giá skills (kỹ năng chuyên môn) trọng số 40%, experience (kinh nghiệm) 30%, education (học vấn/chứng chỉ) 15%,
 orientation (định hướng và ngoại ngữ phù hợp công việc) 15%. Dùng điểm thấp khi thiếu bằng chứng cần thiết.
@@ -169,12 +173,16 @@ PROMPT;
     private function groq(string $model, #[\SensitiveParameter] string $key, #[\SensitiveParameter] string $input): array
     {
         $strict = in_array($model, ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'], true);
+        $instruction = $this->systemInstruction();
+        if ($strict) {
+            $instruction .= "\nĐịnh dạng truyền dữ liệu: missing_skills, strengths và recommendations là các OBJECT có đúng bốn khóa item_1, item_2, item_3, item_4, không phải mảng. Mỗi khóa chứa một chuỗi hoặc null nếu không dùng. Với strengths, item_1 và item_2 bắt buộc là chuỗi có bằng chứng. Tuyệt đối không thêm item_5. Các trường khác giữ đúng schema.";
+        }
         $payload = [
             'model' => $model,
-            'messages' => [['role' => 'system', 'content' => $this->systemInstruction()], ['role' => 'user', 'content' => $input]],
+            'messages' => [['role' => 'system', 'content' => $instruction], ['role' => 'user', 'content' => $input]],
             'max_completion_tokens' => self::MAX_OUTPUT_TOKENS, 'temperature' => 0.2,
             'response_format' => $strict
-                ? ['type' => 'json_schema', 'json_schema' => ['name' => 'cv_job_assessment', 'strict' => true, 'schema' => $this->schema()]]
+                ? ['type' => 'json_schema', 'json_schema' => ['name' => 'cv_job_assessment', 'strict' => true, 'schema' => $this->groqSchema()]]
                 : ['type' => 'json_object'],
         ];
         if ($strict) {
@@ -188,7 +196,48 @@ PROMPT;
             throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
         }
 
-        return [$this->decode($body['choices'][0]['message']['content']), $this->usage($body['usage'] ?? null, false)];
+        $result = $this->decode($body['choices'][0]['message']['content']);
+        return [$strict ? $this->unpackSlots($result) : $result, $this->usage($body['usage'] ?? null, false)];
+    }
+
+    /** Fixed properties constrain cardinality without relying on array maxItems decoding. */
+    private function groqSchema(): array
+    {
+        $schema = $this->schema();
+        foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+            $properties = [];
+            foreach (range(1, 4) as $index) {
+                $properties['item_'.$index] = ['type' => $field === 'strengths' && $index <= 2 ? 'string' : ['string', 'null'], 'maxLength' => 300];
+            }
+            $schema['properties'][$field] = [
+                'type' => 'object', 'properties' => $properties,
+                'required' => array_keys($properties), 'additionalProperties' => false,
+            ];
+        }
+        return $schema;
+    }
+
+    private function unpackSlots(#[\SensitiveParameter] array $result): array
+    {
+        $keys = ['item_1', 'item_2', 'item_3', 'item_4'];
+        foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+            $slots = $result[$field] ?? null;
+            if (! is_array($slots) || count($slots) !== 4 || array_diff(array_keys($slots), $keys)) {
+                throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
+            }
+            $values = [];
+            foreach ($keys as $index => $key) {
+                $value = $slots[$key];
+                if ($field === 'strengths' && $index < 2 && $value === null) {
+                    throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
+                }
+                if ($value !== null) {
+                    $values[] = $value;
+                }
+            }
+            $result[$field] = $values;
+        }
+        return $result;
     }
 
     private function gemini(#[\SensitiveParameter] Application $application, string $model, #[\SensitiveParameter] string $key, #[\SensitiveParameter] string $input): array
@@ -231,6 +280,15 @@ PROMPT;
             throw new AiAnalysisException(AiAnalysisException::PROVIDER_REJECTED);
         }
         if (! $response->successful()) {
+            // A generated schema rejection is not an invalid key/configuration.
+            // Let the existing bounded queue retry it; never retain failed_generation.
+            if ($url === 'https://api.groq.com/openai/v1/chat/completions'
+                && $response->status() === 400 && $response->json('error.code') === 'json_validate_failed') {
+                Log::warning('AI provider rejected generated assessment structure', [
+                    'provider' => 'groq', 'http_status' => 400, 'provider_code' => 'json_validate_failed',
+                ]);
+                throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT, true);
+            }
             $transient = in_array($response->status(), [408, 429], true) || $response->serverError();
             throw new AiAnalysisException($transient ? AiAnalysisException::PROVIDER_UNAVAILABLE : AiAnalysisException::PROVIDER_REJECTED, $transient);
         }
@@ -287,8 +345,13 @@ PROMPT;
 
         return ['type' => 'object', 'additionalProperties' => false, 'properties' => [
             'match_score' => $score, 'summary' => ['type' => 'string', 'maxLength' => 1500],
-            'matched_skills' => [...$list, 'maxItems' => 20], 'missing_skills' => [...$list, 'maxItems' => 4],
-            'strengths' => [...$list, 'minItems' => 2, 'maxItems' => 4], 'recommendations' => [...$list, 'maxItems' => 4],
+            'matched_skills' => [...$list, 'maxItems' => 20],
+            'missing_skills' => [...$list, 'maxItems' => 4,
+                'description' => 'Chỉ 0 đến 4 kỹ năng quan trọng nhất còn thiếu; nếu có nhiều hơn, chọn tối đa 4.'],
+            'strengths' => [...$list, 'minItems' => 2, 'maxItems' => 4,
+                'description' => 'Từ 2 đến 4 điểm mạnh có bằng chứng trong CV.'],
+            'recommendations' => [...$list, 'maxItems' => 4,
+                'description' => 'Tối đa 4 đề xuất quan trọng nhất.'],
             'criteria_scores' => ['type' => 'object', 'additionalProperties' => false,
                 'properties' => ['skills' => $score, 'experience' => $score, 'education' => $score, 'orientation' => $score],
                 'required' => ['skills', 'experience', 'education', 'orientation']],

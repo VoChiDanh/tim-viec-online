@@ -159,6 +159,53 @@ class AiLifecycleTest extends TestCase
         $this->assertStringNotContainsString('PRIVATE_CV_API_KEY_123', $application->fresh()->ai_analysis_error);
     }
 
+    public function test_groq_schema_rejection_retries_automatically_and_can_complete_without_manual_request(): void
+    {
+        [, , $application] = $this->fixture();
+        config(['ai.provider' => 'groq', 'ai.groq.key' => 'test-only-groq-key', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+        Http::fake(['*' => Http::sequence()
+            ->push(['error' => ['code' => 'json_validate_failed', 'message' => 'PRIVATE_CV_API_KEY_123']], 400)
+            ->push(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($this->groqAssessment())]]]])]);
+        $job = (new AnalyzeApplicationCv($application->id))->withFakeQueueInteractions();
+        try {
+            $this->app->call([$job, 'handle']);
+            $this->fail('The queue must retry a generated schema rejection.');
+        } catch (\App\Exceptions\AiAnalysisException $exception) {
+            $this->assertTrue($exception->retryable);
+        }
+        $this->assertSame('pending', $application->fresh()->ai_analysis_status);
+        $this->assertNull($application->fresh()->ai_analysis_error);
+        $this->assertNull($application->fresh()->aiAnalysis);
+        $job->job->attempts = 2;
+        $this->app->call([$job, 'handle']);
+        $this->assertSame('completed', $application->fresh()->ai_analysis_status);
+        $this->assertSame(88, $application->fresh()->aiAnalysis->match_score);
+        Http::assertSentCount(2);
+    }
+
+    public function test_repeated_schema_rejection_stops_after_three_attempts_with_the_correct_safe_error(): void
+    {
+        [, , $application] = $this->fixture();
+        config(['ai.provider' => 'groq', 'ai.groq.key' => 'test-only-groq-key', 'ai.groq.model' => 'openai/gpt-oss-20b']);
+        Http::fake(['*' => Http::response(['error' => ['code' => 'json_validate_failed', 'message' => 'PRIVATE_CV_API_KEY_123']], 400)]);
+        $job = (new AnalyzeApplicationCv($application->id))->withFakeQueueInteractions();
+        foreach ([1, 2, 3] as $attempt) {
+            $job->job->attempts = $attempt;
+            try {
+                $this->app->call([$job, 'handle']);
+                $this->assertSame(3, $attempt);
+            } catch (\App\Exceptions\AiAnalysisException $exception) {
+                $this->assertLessThan(3, $attempt);
+                $this->assertTrue($exception->retryable);
+            }
+        }
+        $job->assertFailed();
+        $this->assertSame('failed', $application->fresh()->ai_analysis_status);
+        $this->assertSame('AI chưa trả về đánh giá hợp lệ. Bạn có thể thử lại.', $application->fresh()->ai_analysis_error);
+        $this->assertNull($application->fresh()->aiAnalysis);
+        Http::assertSentCount(3);
+    }
+
     public function test_invalid_provider_schema_is_terminal_without_a_fabricated_score(): void
     {
         [, , $application] = $this->fixture();
@@ -471,6 +518,19 @@ class AiLifecycleTest extends TestCase
     private function providerAssessment(): array
     {
         return ['candidates' => [['finishReason' => 'STOP', 'content' => ['parts' => [['text' => json_encode($this->assessment())]]]]]];
+    }
+
+    private function groqAssessment(): array
+    {
+        $assessment = $this->assessment();
+        foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+            $values = $assessment[$field];
+            $assessment[$field] = [];
+            foreach (range(1, 4) as $index) {
+                $assessment[$field]['item_'.$index] = $values[$index - 1] ?? null;
+            }
+        }
+        return $assessment;
     }
 
     private function fixture(): array

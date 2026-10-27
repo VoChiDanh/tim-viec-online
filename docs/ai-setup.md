@@ -44,9 +44,11 @@ php artisan migrate --path=database/migrations/2026_10_27_000007_add_ai_applicat
 
 ## Chi phí và trạng thái
 
-Queue riêng, khóa theo đơn và kết quả duy nhất giúp tránh gọi trùng. Lỗi mạng, 408, 429 và 5xx được thử lại tối đa ba lần với khoảng chờ; sai key, sai cấu trúc và PDF không hợp lệ dừng ngay. Không tự phân tích hàng loạt dữ liệu demo. Với lưu lượng lớn, điều chỉnh số worker theo quota của tài khoản thay vì chạy nhiều worker không giới hạn.
+Queue riêng, khóa theo đơn và kết quả duy nhất giúp tránh gọi trùng. Lỗi mạng, 408, 429 và 5xx được thử lại tối đa ba lần với khoảng chờ. Lỗi Groq HTTP 400 có mã `json_validate_failed` nghĩa là kết quả sinh ra không khớp schema; lỗi này cũng dùng chung giới hạn ba lần thử của queue, không báo nhầm thành sai cấu hình. Các lỗi 400 khác, sai key và PDF không hợp lệ dừng ngay. Kết quả sai cấu trúc không được lưu hoặc cắt bớt để giả thành thành công. Không tự phân tích hàng loạt dữ liệu demo. Với lưu lượng lớn, điều chỉnh số worker theo quota của tài khoản thay vì chạy nhiều worker không giới hạn.
 
 Backend giới hạn nội dung CV, JD và đầu ra; lưu model/provider, phiên bản prompt, dấu vân tay đầu vào và token usage nếu nhà cung cấp trả về. Không lưu nội dung lỗi thô của provider vào lỗi AI/failed jobs. Bốn điểm thành phần 0–100 được tổng hợp tại backend theo trọng số 40/30/15/15. Kết quả AI cũ có thể chưa có điểm thành phần.
+
+Với GPT-OSS trên Groq, schema truyền các trường kỹ năng thiếu, điểm mạnh và đề xuất bằng đúng bốn ô `item_1`–`item_4` (ô không dùng là `null`). Backend đổi các ô hợp lệ thành danh sách trước khi kiểm tra và lưu; API/frontend vẫn dùng mảng như cũ. Cách này tránh lỗi model sinh mục thứ năm dù có `maxItems`. Ô thừa, thiếu hoặc dữ liệu sai vẫn bị từ chối; không cắt bớt kết quả lỗi để tạo điểm hợp lệ. Xem [Structured Outputs của Groq](https://console.groq.com/docs/structured-outputs) về schema strict; ứng dụng vẫn kiểm tra ngữ nghĩa đầu ra ở backend.
 
 API xác thực:
 

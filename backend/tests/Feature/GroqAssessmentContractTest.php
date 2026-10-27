@@ -67,6 +67,38 @@ class GroqAssessmentContractTest extends TestCase
         });
     }
 
+    public function test_strict_schema_limits_bounded_lists_with_four_named_slots(): void
+    {
+        $assessment = $this->assessment();
+        foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+            $assessment[$field] = $this->slots($assessment[$field]);
+        }
+        Http::fake(['*' => Http::response(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($assessment)]]]])]);
+        $analysis = app(GeminiService::class)->analyze($this->fixture());
+        $this->assertSame(['English'], $analysis->missing_skills);
+        $this->assertCount(2, $analysis->strengths);
+        $this->assertSame([], $analysis->recommendations);
+        Http::assertSent(function ($request) {
+            $properties = $request['response_format']['json_schema']['schema']['properties'];
+            foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+                if ($properties[$field]['type'] !== 'object' || count($properties[$field]['properties']) !== 4
+                    || count($properties[$field]['required']) !== 4 || $properties[$field]['additionalProperties'] !== false) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    private function slots(array $values): array
+    {
+        $slots = [];
+        for ($index = 0; $index < max(4, count($values)); $index++) {
+            $slots['item_'.($index + 1)] = $values[$index] ?? null;
+        }
+        return $slots;
+    }
+
     public function test_llama_uses_json_object_mode_with_the_same_validated_score_contract(): void
     {
         config(['ai.groq.model' => 'llama-3.3-70b-versatile']);
@@ -104,6 +136,28 @@ class GroqAssessmentContractTest extends TestCase
         Http::fake(['*' => Http::response(['error' => ['message' => 'PRIVATE CV and secret-provider-key']], $status)]);
         $this->assertFailure($this->fixture(), $retryable);
         Http::assertSentCount(1);
+    }
+
+    public function test_provider_json_validation_failure_is_retryable_and_not_a_configuration_error(): void
+    {
+        Http::fake(['*' => Http::response(['error' => [
+            'type' => 'invalid_request_error', 'code' => 'json_validate_failed',
+            'message' => 'PRIVATE CV secret-provider-key',
+            'failed_generation' => json_encode(['missing_skills' => ['a', 'b', 'c', 'd', 'e']]),
+        ]], 400)]);
+        $application = $this->fixture();
+        try {
+            app(GeminiService::class)->analyze($application);
+            $this->fail('Provider schema rejection must not create an assessment.');
+        } catch (AiAnalysisException $exception) {
+            $this->assertSame(AiAnalysisException::INVALID_ASSESSMENT, $exception->getMessage());
+            $this->assertTrue($exception->retryable);
+            $this->assertNull($exception->getPrevious());
+            $this->assertStringNotContainsString('PRIVATE CV', (string) $exception);
+            $this->assertStringNotContainsString('secret-provider-key', (string) $exception);
+        }
+        Http::assertSentCount(1);
+        $this->assertNull($application->fresh()->aiAnalysis);
     }
 
     public function test_network_failure_is_retryable_and_never_chains_the_original_exception(): void
@@ -201,7 +255,15 @@ class GroqAssessmentContractTest extends TestCase
 
     private function response(?array $assessment = null): array
     {
-        return ['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($assessment ?? $this->assessment())]]],
+        $assessment ??= $this->assessment();
+        if (in_array(config('ai.groq.model'), ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'], true)) {
+            foreach (['missing_skills', 'strengths', 'recommendations'] as $field) {
+                if (is_array($assessment[$field] ?? null)) {
+                    $assessment[$field] = $this->slots($assessment[$field]);
+                }
+            }
+        }
+        return ['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($assessment)]]],
             'usage' => ['prompt_tokens' => 123, 'completion_tokens' => 44, 'total_tokens' => 167]];
     }
 
