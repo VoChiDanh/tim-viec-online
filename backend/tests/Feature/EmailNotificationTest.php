@@ -28,7 +28,7 @@ class EmailNotificationTest extends TestCase
         parent::setUp();
         Mail::fake();
         Queue::fake();
-        config(['services.gemini.enabled' => false, 'broadcasting.default' => 'log']);
+        config(['ai.enabled' => false, 'services.gemini.enabled' => false, 'broadcasting.default' => 'log']);
     }
 
     public function test_preferences_require_authentication_default_off_and_accept_only_complete_boolean_input(): void

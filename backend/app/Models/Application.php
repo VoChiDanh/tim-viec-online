@@ -23,6 +23,9 @@ class Application extends Model
         'status',
         'ai_analysis_status',
         'ai_analysis_error',
+        'ai_request_id',
+        'ai_requested_at',
+        'ai_job_snapshot',
         'reviewed_at',
     ];
 
@@ -30,6 +33,8 @@ class Application extends Model
     {
         return [
             'reviewed_at' => 'datetime',
+            'ai_requested_at' => 'datetime',
+            'ai_job_snapshot' => 'array',
         ];
     }
 

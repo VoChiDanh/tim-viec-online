@@ -23,7 +23,7 @@ class AiAssessmentContractTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['broadcasting.default' => 'log', 'services.gemini.key' => 'test-only-key', 'services.gemini.model' => 'test-model']);
+        config(['broadcasting.default' => 'log', 'ai.enabled' => true, 'ai.provider' => 'gemini', 'services.gemini.key' => 'test-only-key', 'services.gemini.model' => 'test-model']);
         Storage::fake('private');
         Storage::fake('public');
         Http::preventStrayRequests();
@@ -41,7 +41,7 @@ class AiAssessmentContractTest extends TestCase
         Http::assertSent(fn ($request) => $request['generationConfig']['responseSchema']['type'] === 'OBJECT'
             && $request['contents'][0]['parts'][0]['inlineData']['mimeType'] === 'application/pdf');
         $this->actingAs($employer, 'sanctum')->getJson("/api/applications/{$application->id}/ai-analysis")
-            ->assertOk()->assertJsonPath('data.match_score', 88);
+            ->assertOk()->assertJsonPath('data.analysis.match_score', 88);
     }
 
     public function test_missing_key_does_not_create_analysis_and_can_be_retried_by_employer(): void
@@ -115,6 +115,7 @@ class AiAssessmentContractTest extends TestCase
     private function assessment(): array
     {
         return ['match_score' => 88, 'summary' => 'Relevant backend experience.',
+            'criteria_scores' => ['skills' => 88, 'experience' => 88, 'education' => 88, 'orientation' => 88],
             'matched_skills' => ['PHP'], 'missing_skills' => [],
             'strengths' => ['PHP experience', 'SQL experience'], 'recommendations' => []];
     }

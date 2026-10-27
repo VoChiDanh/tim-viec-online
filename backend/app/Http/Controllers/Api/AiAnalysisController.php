@@ -3,152 +3,58 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\AnalyzeApplicationCv;
+use App\Http\Requests\AnalyzeApplicationRequest;
+use App\Http\Resources\AiAnalysisResource;
 use App\Models\Application;
+use App\Services\AiAssessmentScheduler;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class AiAnalysisController extends Controller
 {
-    /**
-     * Kích hoạt AI phân tích CV ứng viên so với JD công việc (FR-07)
-     */
-    public function analyzeAndStore(Request $request, $applicationId): JsonResponse
+    public function analyzeAndStore(AnalyzeApplicationRequest $request, string $applicationId, AiAssessmentScheduler $scheduler): JsonResponse
     {
-        $user = $request->user();
-
-        // 1. Tìm đơn ứng tuyển kèm thông tin tin tuyển dụng và hồ sơ ứng viên
-        $application = Application::with(['job.company', 'candidateProfile.user', 'aiAnalysis'])->find($applicationId);
-        if (! $application) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy hồ sơ ứng tuyển.',
-            ], 404);
-        }
-
-        // Assessment is private to the owning employer and administrators.
-        $isOwnerEmployer = $user->role === 'employer' && $application->job && $application->job->company && $application->job->company->user_id === $user->id;
-        $isAdmin = $user->role === 'admin';
-
-        if (! $isOwnerEmployer && ! $isAdmin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn không có quyền thực hiện phân tích AI cho đơn ứng tuyển này.',
-            ], 403);
-        }
-
-        if (! config('services.gemini.enabled')) {
-            return response()->json(['success' => false, 'message' => 'Phân tích AI chưa được bật.'], 503);
-        }
-
-        // 3. Kiểm tra file CV có tồn tại không
-        if (! $application->cv_path) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Đơn ứng tuyển này chưa có file CV để phân tích.',
-            ], 400);
-        }
-
+        $application = $this->ownedApplication($request, $applicationId);
         if ($application->aiAnalysis) {
-            return response()->json(
-                ['success' => true, 'message' => 'Kết quả phân tích đã có sẵn', 'data' => $application->aiAnalysis],
-                200,
-                [],
-                JSON_UNESCAPED_UNICODE
-            );
+            return $this->state($application);
         }
-
-        if ($application->ai_analysis_status === 'pending') {
-            return response()->json(['success' => true, 'message' => 'Phân tích CV đang được xử lý', 'data' => ['status' => 'pending']], 202);
-        }
-
-        $application->update(['ai_analysis_status' => 'pending', 'ai_analysis_error' => null]);
+        abort_unless(config('ai.enabled'), 503, 'Phân tích AI chưa được bật.');
+        abort_unless($application->cv_path, 422, 'Đơn ứng tuyển này chưa có file CV để phân tích.');
+        abort_if($application->isWithdrawn(), 422, 'Hồ sơ đã rút không thể yêu cầu phân tích.');
         try {
-            AnalyzeApplicationCv::dispatch($application->id);
-        } catch (\Throwable $exception) {
-            $application->update([
-                'ai_analysis_status' => 'failed',
-                'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
-            ]);
-            Log::error('Application CV analysis retry could not be queued', [
-                'application_id' => $application->id,
-                'exception' => $exception->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Không thể đưa CV vào hàng đợi phân tích',
-                'data' => ['status' => 'failed'],
-            ], 503);
+            $application = $scheduler->schedule($application);
+        } catch (\Throwable) {
+            return response()->json(['success' => false, 'message' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.'], 503);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã đưa CV vào hàng đợi phân tích',
-            'data' => ['status' => 'pending'],
-        ], 202);
+        return $this->state($application, $application->aiAnalysis ? 200 : 202);
     }
 
-    /**
-     * Xem kết quả phân tích AI đã lưu của một đơn ứng tuyển
-     */
-    public function show(Request $request, $applicationId): JsonResponse
+    public function show(Request $request, string $applicationId): JsonResponse
     {
-        $user = $request->user();
+        return $this->state($this->ownedApplication($request, $applicationId));
+    }
 
-        // Tìm đơn ứng tuyển
-        $application = Application::with(['job.company', 'candidateProfile.user', 'aiAnalysis'])->find($applicationId);
+    private function ownedApplication(Request $request, string $id): Application
+    {
+        $application = Application::with(['job.company', 'aiAnalysis'])->findOrFail($id);
+        abort_unless($request->user()->isAdmin()
+            || ($request->user()->isEmployer() && $application->job?->company?->user_id === $request->user()->id), 403,
+            'Bạn không có quyền xem hoặc phân tích hồ sơ này.');
+        return $application;
+    }
 
-        if (! $application) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy hồ sơ ứng tuyển.',
-            ], 404);
-        }
-
-        // Kiểm tra quyền
-        $isOwnerEmployer = $user->role === 'employer' && $application->job && $application->job->company && $application->job->company->user_id === $user->id;
-        $isAdmin = $user->role === 'admin';
-
-        if (! $isOwnerEmployer && ! $isAdmin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn không có quyền xem kết quả phân tích AI của đơn này.',
-            ], 403);
-        }
-
-        $analysis = $application->aiAnalysis;
-
-        if (! $analysis) {
-            if ($application->ai_analysis_status === 'pending') {
-                return response()->json(['success' => true, 'message' => 'Phân tích CV đang được xử lý', 'data' => ['status' => 'pending']], 202);
-            }
-            if ($application->ai_analysis_status === 'failed') {
-                return response()->json(['success' => false, 'message' => 'Không thể phân tích CV', 'data' => ['status' => 'failed', 'error' => $application->ai_analysis_error]], 422);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Hồ sơ này chưa được AI phân tích hoặc đang trong quá trình xử lý.',
-            ], 404);
-        }
-
+    private function state(Application $application, int $httpStatus = 200): JsonResponse
+    {
+        $status = $application->aiAnalysis ? 'completed' : ($application->ai_analysis_status ?? 'deferred');
         return response()->json([
-            'success' => true,
-            'message' => 'Lấy kết quả phân tích AI thành công.',
+            'success' => true, 'message' => 'Trạng thái phân tích CV.',
             'data' => [
-                'application_id' => $application->id,
-                'job_title' => $application->job?->title,
-                'candidate_name' => $application->candidateProfile?->user?->name,
-                'match_score' => $analysis->match_score,
-                'summary' => $analysis->summary,
-                'strengths' => $analysis->strengths,
-                'matched_skills' => $analysis->matched_skills,
-                'missing_skills' => $analysis->missing_skills,
-                'recommendations' => $analysis->recommendations,
-                'analyzed_at' => $analysis->created_at,
+                'status' => $status,
+                'analysis' => $application->aiAnalysis ? new AiAnalysisResource($application->aiAnalysis) : null,
+                'error' => $status === 'failed' ? $application->ai_analysis_error : null,
+                'retryable' => (bool) config('ai.enabled') && ! $application->aiAnalysis && ! $application->isWithdrawn()
+                    && ! AiAssessmentScheduler::isActive($application),
             ],
-        ], 200, [], JSON_UNESCAPED_UNICODE);
+        ], $httpStatus);
     }
 }

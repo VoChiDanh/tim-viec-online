@@ -188,7 +188,7 @@ class Pr3ReviewRegressionTest extends TestCase
         [, , $application] = $this->fixture();
         // The fixture's fake PDF has no readable text and HTTP is disabled.
         try {
-            (new AnalyzeApplicationCv($application->id))->handle(app(GeminiService::class));
+            (new AnalyzeApplicationCv($application->id, $application->ai_request_id))->handle(app(GeminiService::class));
         } catch (\Throwable) {
             // A validation failure is expected; the persisted status is the contract.
         }

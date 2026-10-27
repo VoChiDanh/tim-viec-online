@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ApplyJobRequest;
 use App\Http\Resources\ApplicationResource;
-use App\Jobs\AnalyzeApplicationCv;
+use App\Services\AiAssessmentScheduler;
 use App\Models\Application;
 use App\Models\Job;
 use App\Models\Notification;
@@ -113,7 +113,7 @@ class ApplicationController extends Controller
                     'cv_path' => $cvPath,
                     'cover_letter' => $request->cover_letter,
                     'status' => 'applied',
-                    'ai_analysis_status' => config('services.gemini.enabled') ? 'pending' : 'deferred',
+                    'ai_analysis_status' => 'deferred',
                 ]);
                 $currentJob->touch();
 
@@ -165,8 +165,8 @@ class ApplicationController extends Controller
 
         // Keep application submission fast; analysis runs in the configured queue.
         try {
-            if (config('services.gemini.enabled')) {
-                AnalyzeApplicationCv::dispatch($application->id);
+            if (config('ai.enabled')) {
+                app(AiAssessmentScheduler::class)->schedule($application);
             }
         } catch (\Throwable $exception) {
             $application->update([
@@ -175,7 +175,6 @@ class ApplicationController extends Controller
             ]);
             Log::error('Application CV analysis could not be queued', [
                 'application_id' => $application->id,
-                'exception' => $exception->getMessage(),
             ]);
         }
 
@@ -310,7 +309,7 @@ class ApplicationController extends Controller
         ]);
         $applications = Application::whereHas('job.company', function ($query) use ($request) {
             $query->where('user_id', $request->user()->id);
-        })->with(['job.company', 'candidateProfile.user', 'candidateProfile.skills'])
+        })->with(['job.company', 'candidateProfile.user', 'candidateProfile.skills', 'aiAnalysis'])
             ->orderByDesc('id')->paginate((int) $request->input('per_page', 50));
 
         return response()->json([
@@ -393,23 +392,7 @@ class ApplicationController extends Controller
             $application->refresh();
         }
 
-        // Đảm bảo AI analysis tồn tại
-        if (config('services.gemini.enabled') && ! $application->aiAnalysis && $application->ai_analysis_status !== 'pending') {
-            $application->update(['ai_analysis_status' => 'pending', 'ai_analysis_error' => null]);
-            try {
-                AnalyzeApplicationCv::dispatch($application->id);
-            } catch (\Throwable $exception) {
-                $application->update([
-                    'ai_analysis_status' => 'failed',
-                    'ai_analysis_error' => 'Không thể đưa CV vào hàng đợi phân tích. Vui lòng thử lại sau.',
-                ]);
-                Log::error('Application CV analysis could not be queued when opening applicant', [
-                    'application_id' => $application->id,
-                    'exception' => $exception->getMessage(),
-                ]);
-            }
-            $application->refresh();
-        }
+        // Reading an applicant must never initiate a paid provider request.
         $application->load('aiAnalysis');
 
         return response()->json([

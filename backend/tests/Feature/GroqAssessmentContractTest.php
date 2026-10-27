@@ -76,6 +76,22 @@ class GroqAssessmentContractTest extends TestCase
         Http::assertSent(fn ($request) => $request['response_format']['type'] === 'json_object');
     }
 
+    public function test_gemini_also_requires_criteria_and_uses_the_server_weighted_score(): void
+    {
+        config(['ai.provider' => 'gemini', 'services.gemini.key' => 'test-only-gemini-key', 'services.gemini.model' => 'test-model']);
+        $application = $this->fixture();
+        $legacy = $this->assessment();
+        unset($legacy['criteria_scores']);
+        Http::fake(['*' => Http::sequence()
+            ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode($legacy)]]]]]])
+            ->push(['candidates' => [['content' => ['parts' => [['text' => json_encode($this->assessment())]]]]]])]);
+        $this->assertFailure($application, false);
+        $analysis = app(GeminiService::class)->analyze($application);
+        $this->assertSame(75, $analysis->match_score);
+        $this->assertSame('gemini', $analysis->provider);
+        Http::assertSent(fn ($request) => in_array('criteria_scores', $request['generationConfig']['responseSchema']['required'], true));
+    }
+
     public static function failures(): array
     {
         return ['bad request' => [400, false], 'unauthorized' => [401, false], 'forbidden' => [403, false],

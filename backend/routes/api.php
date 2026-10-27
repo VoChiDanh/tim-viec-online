@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\AdminApplicationController;
 use App\Http\Controllers\Api\AiAnalysisController;
 use App\Http\Controllers\Api\ApplicationController;
 use App\Http\Controllers\Api\AuthController;
@@ -81,8 +82,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // AI CV Analysis (FR-07)
     Route::prefix('applications')->group(function () {
-        Route::post('/{applicationId}/ai-analyze', [AiAnalysisController::class, 'analyzeAndStore']);
-        Route::get('/{applicationId}/ai-analysis', [AiAnalysisController::class, 'show']);
+        Route::post('/{applicationId}/ai-analyze', [AiAnalysisController::class, 'analyzeAndStore'])
+            ->whereNumber('applicationId')->middleware(['role:employer,admin', 'email.verified', 'throttle:10,1']);
+        Route::get('/{applicationId}/ai-analysis', [AiAnalysisController::class, 'show'])
+            ->whereNumber('applicationId')->middleware(['role:employer,admin', 'throttle:120,1']);
         Route::get('/{applicationId}/cv', [ApplicationController::class, 'downloadCv']);
     });
 
@@ -129,6 +132,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin Routes (FR-09)
     Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('/jobs/{id}/applications', [AdminApplicationController::class, 'index']);
+        Route::get('/applications/{id}', [AdminApplicationController::class, 'show']);
+
         // Dashboard Stats
         Route::get('/stats', [AdminController::class, 'stats']);
 

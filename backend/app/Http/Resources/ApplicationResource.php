@@ -59,16 +59,7 @@ class ApplicationResource extends JsonResource
                 ];
             }),
             'ai_analysis' => $this->when(($request->user()?->isEmployer() || $request->user()?->isAdmin()) && $this->relationLoaded('aiAnalysis') && $this->aiAnalysis !== null, function () {
-                return [
-                    'id' => $this->aiAnalysis->id,
-                    'match_score' => $this->aiAnalysis->match_score,
-                    'summary' => $this->aiAnalysis->summary,
-                    'matched_skills' => $this->aiAnalysis->matched_skills,
-                    'missing_skills' => $this->aiAnalysis->missing_skills,
-                    'strengths' => $this->aiAnalysis->strengths,
-                    'recommendations' => $this->aiAnalysis->recommendations,
-                    'created_at' => $this->aiAnalysis->created_at?->toIso8601String(),
-                ];
+                return new AiAnalysisResource($this->aiAnalysis);
             }),
         ];
     }

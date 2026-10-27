@@ -36,9 +36,9 @@ class GeminiService
         [$result, $usage] = $provider === 'groq'
             ? $this->groq($model, $key, $input)
             : $this->gemini($application, $model, $key, $input);
-        $this->validateAnalysis($result, $provider === 'groq');
-        $criteria = $result['criteria_scores'] ?? null;
-        $score = $criteria === null ? $result['match_score'] : (int) round(
+        $this->validateAnalysis($result);
+        $criteria = $result['criteria_scores'];
+        $score = (int) round(
             ($criteria['skills'] * 40 + $criteria['experience'] * 30
                 + $criteria['education'] * 15 + $criteria['orientation'] * 15) / 100,
             0, PHP_ROUND_HALF_UP
@@ -303,13 +303,11 @@ PROMPT;
 
             return $node;
         };
-        $schema = $convert($this->schema());
-        $schema['required'] = array_values(array_diff($schema['required'], ['criteria_scores']));
 
-        return $schema;
+        return $convert($this->schema());
     }
 
-    private function validateAnalysis(#[\SensitiveParameter] array $result, bool $requireCriteria): void
+    private function validateAnalysis(#[\SensitiveParameter] array $result): void
     {
         $allowed = ['match_score', 'summary', 'matched_skills', 'missing_skills', 'strengths', 'recommendations', 'criteria_scores'];
         $wordCount = is_string($result['summary'] ?? null)
@@ -330,16 +328,14 @@ PROMPT;
                 }
             }
         }
-        if ($requireCriteria || array_key_exists('criteria_scores', $result)) {
-            $criteria = $result['criteria_scores'] ?? null;
-            $keys = ['skills', 'experience', 'education', 'orientation'];
-            if (! is_array($criteria) || count($criteria) !== 4 || array_diff(array_keys($criteria), $keys)) {
+        $criteria = $result['criteria_scores'] ?? null;
+        $keys = ['skills', 'experience', 'education', 'orientation'];
+        if (! is_array($criteria) || count($criteria) !== 4 || array_diff(array_keys($criteria), $keys)) {
+            throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
+        }
+        foreach ($keys as $key) {
+            if (! $this->validScore($criteria[$key] ?? null)) {
                 throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
-            }
-            foreach ($keys as $key) {
-                if (! $this->validScore($criteria[$key] ?? null)) {
-                    throw new AiAnalysisException(AiAnalysisException::INVALID_ASSESSMENT);
-                }
             }
         }
     }

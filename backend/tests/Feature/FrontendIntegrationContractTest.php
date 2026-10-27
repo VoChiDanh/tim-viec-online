@@ -53,7 +53,7 @@ class FrontendIntegrationContractTest extends TestCase
 
     public function test_ai_deferred_mode_does_not_queue_on_apply_or_employer_review(): void
     {
-        config(['services.gemini.enabled' => false]);
+        config(['ai.enabled' => false, 'services.gemini.enabled' => false]);
         Bus::fake();
         Storage::fake('private');
         Storage::fake('public');
