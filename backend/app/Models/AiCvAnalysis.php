@@ -23,6 +23,12 @@ class AiCvAnalysis extends Model
         'missing_skills',
         'strengths',
         'recommendations',
+        'criteria_scores',
+        'provider',
+        'model',
+        'prompt_version',
+        'input_hash',
+        'token_usage',
     ];
 
     protected function casts(): array
@@ -33,6 +39,8 @@ class AiCvAnalysis extends Model
             'missing_skills' => 'array',
             'strengths' => 'array',
             'recommendations' => 'array',
+            'criteria_scores' => 'array',
+            'token_usage' => 'array',
             'created_at' => 'datetime',
         ];
     }
