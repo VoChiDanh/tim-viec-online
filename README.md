@@ -35,6 +35,9 @@ tim-viec-online/
 ```
 
 ### 1.2. Hướng dẫn cài đặt & Khởi chạy nhanh (Quick Start)
+
+**Windows/XAMPP, đặc biệt khi đã có database:** xem [hướng dẫn chạy backend từng bước](docs/backend-run-guide.md), gồm API, Reverb, queue AI, queue email và cách xử lý trùng cổng.
+
 1. **Cấu hình Backend (`/backend`):**
    ```bash
    cd backend
