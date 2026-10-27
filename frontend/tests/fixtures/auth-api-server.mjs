@@ -2,6 +2,7 @@
 import { createServer } from "node:http";
 
 const revokedTokens = new Set();
+const usedVerificationLinks = new Set();
 let loginRequests = 0;
 const requestCounts = {};
 let heldPaths = new Set();
@@ -11,6 +12,7 @@ const identities = {
     id: 1,
     name: "Nguyễn Minh Anh",
     role: "candidate",
+    email_verified_at: null,
   },
   "employer@example.test": { id: 2, name: "Trần Hoàng Nam", role: "employer" },
   "admin@example.test": { id: 3, name: "Quản trị viên", role: "admin" },
@@ -336,6 +338,20 @@ const server = createServer(async (request, response) => {
           email: ["Email đã được sử dụng"],
         });
       return send(response, 201);
+    }
+    if (path === "/api/email/verify") {
+      if (body.token === "n".repeat(64)) return send(response, 503);
+      const key = `${body.email}:${body.token}`;
+      if (body.token !== "v".repeat(64) || usedVerificationLinks.has(key))
+        return send(response, 400, null, "invalid_verification_token");
+      usedVerificationLinks.add(key);
+      if (identities[body.email])
+        identities[body.email].email_verified_at = new Date().toISOString();
+      return send(response, 200, { email: body.email, verified: true });
+    }
+    if (path === "/api/email/resend") {
+      if (body.email === "throttled@example.test") return send(response, 429);
+      return send(response, 200, { accepted: true });
     }
     if (path === "/api/forgot-password") return sendVoid(response);
     if (path === "/api/verify-reset-token") {

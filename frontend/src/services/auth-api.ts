@@ -15,6 +15,8 @@ const routes: Record<
 > = {
   "/login": { kind: "login", method: "POST" },
   "/register": { kind: "register", method: "POST" },
+  "/email/verify": { kind: "verify-email", method: "POST" },
+  "/email/resend": { kind: "resend-verification", method: "POST" },
   "/forgot-password": { kind: "forgot-password", method: "POST" },
   "/verify-reset-token": { kind: "verify-reset-token", method: "POST" },
   "/reset-password": { kind: "reset-password", method: "POST" },

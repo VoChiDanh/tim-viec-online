@@ -90,12 +90,14 @@ export async function AuthScreen({
   };
   const notice =
     params.notice === "registered"
-      ? "Đăng ký thành công. Vui lòng đăng nhập để tiếp tục."
-      : params.notice === "reset"
-        ? "Đặt lại mật khẩu thành công. Vui lòng đăng nhập."
-        : params.notice === "logout"
-          ? "Bạn đã đăng xuất."
-          : "";
+      ? "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản."
+      : params.notice === "verified"
+        ? "Xác thực email thành công. Vui lòng đăng nhập để tiếp tục."
+        : params.notice === "reset"
+          ? "Đặt lại mật khẩu thành công. Vui lòng đăng nhập."
+          : params.notice === "logout"
+            ? "Bạn đã đăng xuất."
+            : "";
   return (
     <AuthShell kind={kind} {...content[kind]}>
       {notice && kind === "login" && authEnabled() && (

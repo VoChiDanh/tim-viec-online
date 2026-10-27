@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
+import Link from "next/link";
 import { AuthForm } from "@/components/auth/auth-form";
 import { AuthLoading } from "@/components/auth/auth-loading";
 import { requireUser } from "@/services/auth-session";
@@ -20,12 +21,26 @@ export default function SecurityPage() {
   );
 }
 async function SecurityForm() {
-  await requireUser(undefined, "/account/security");
+  const user = await requireUser(undefined, "/account/security");
   await connection();
   return (
     <section className="surface auth-security">
       <h1>Đổi mật khẩu</h1>
       <p>Nhập mật khẩu hiện tại và chọn mật khẩu mới cho tài khoản của bạn.</p>
+      {user.email_verified_at === null && (
+        <p className="auth-status" role="status">
+          Email {user.email} chưa được xác thực. Vui lòng xác thực trước khi ứng
+          tuyển, đăng tin hoặc gửi tin nhắn.{" "}
+          <Link
+            href={`/verify-email?${new URLSearchParams({ email: user.email })}`}
+          >
+            Xác thực email / gửi lại liên kết
+          </Link>
+        </p>
+      )}
+      {user.email_verified_at && (
+        <p className="auth-form-note">Email {user.email} đã được xác thực.</p>
+      )}
       <AuthForm
         kind="change"
         today={vietnamToday()}

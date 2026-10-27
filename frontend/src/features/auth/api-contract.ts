@@ -3,6 +3,8 @@ import type { AuthUser } from "@/features/auth/types";
 export type AuthApiKind =
   | "login"
   | "register"
+  | "verify-email"
+  | "resend-verification"
   | "forgot-password"
   | "verify-reset-token"
   | "reset-password"
@@ -13,6 +15,8 @@ export type AuthApiKind =
 export type AuthApiPath =
   | "/login"
   | "/register"
+  | "/email/verify"
+  | "/email/resend"
   | "/forgot-password"
   | "/verify-reset-token"
   | "/reset-password"
@@ -62,12 +66,26 @@ export function parseUser(value: unknown): AuthUser {
     !["active", "locked"].includes(status)
   )
     return invalidResponse();
+  const verifiedAt = value.email_verified_at;
+  if (
+    verifiedAt !== undefined &&
+    verifiedAt !== null &&
+    (typeof verifiedAt !== "string" ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(
+        verifiedAt,
+      ) ||
+      !Number.isFinite(Date.parse(verifiedAt)))
+  )
+    return invalidResponse();
   return {
     id: id as number,
     name,
     email,
     role: role as AuthUser["role"],
     status: status as AuthUser["status"],
+    ...(verifiedAt !== undefined
+      ? { email_verified_at: verifiedAt as string | null }
+      : {}),
   };
 }
 
@@ -103,6 +121,8 @@ export function parseLogin(value: unknown): {
 
 const allowedFields: Record<AuthApiKind, readonly string[]> = {
   login: ["email", "password"],
+  "verify-email": ["email", "token"],
+  "resend-verification": ["email"],
   register: [
     "name",
     "email",
@@ -127,6 +147,22 @@ export function mapAuthApiError(
 ): AuthApiError {
   const code =
     record(body) && typeof body.code === "string" ? body.code : undefined;
+  if (
+    status === 400 &&
+    kind === "verify-email" &&
+    code === "invalid_verification_token"
+  )
+    return new AuthApiError(
+      400,
+      code,
+      "Liên kết xác thực đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu liên kết mới.",
+    );
+  if (status === 403 && code === "email_verification_required")
+    return new AuthApiError(
+      403,
+      code,
+      "Vui lòng xác thực email trước khi ứng tuyển, đăng tin hoặc gửi tin nhắn.",
+    );
   if (
     status === 400 &&
     (kind === "reset-password" || kind === "verify-reset-token") &&

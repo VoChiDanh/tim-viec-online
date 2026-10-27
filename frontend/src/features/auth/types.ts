@@ -8,6 +8,7 @@ export type AuthUser = {
   email: string;
   role: AuthRole;
   status: "active" | "locked";
+  email_verified_at?: string | null;
 };
 
 export type AuthValues = Record<string, string>;

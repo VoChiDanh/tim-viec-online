@@ -6,7 +6,7 @@ export function AuthShell({
   description,
   children,
 }: {
-  kind: AuthKind;
+  kind: AuthKind | "verify";
   title: string;
   description: string;
   children: React.ReactNode;

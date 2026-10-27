@@ -10,6 +10,7 @@ import {
 } from "@/features/auth/api-contract";
 import type { AuthActionState, AuthKind } from "@/features/auth/types";
 import { readAuthForm, validateAuthValues } from "@/features/auth/validation";
+import { validateVerificationInput } from "@/features/auth/email-verification";
 import { vietnamToday } from "@/features/jobs/formatters";
 import { authEnabled } from "@/services/auth-mode";
 import { authRequest } from "@/services/auth-request";
@@ -104,14 +105,94 @@ export async function registerAction(
   _previous: AuthActionState,
   form: FormData,
 ): Promise<AuthActionState> {
+  let email = "";
   try {
     const { values, error } = await validate("register", form);
     if (error) return error;
     await authRequest("/register", { body: values });
+    email = values.email;
   } catch (error) {
     return failure(error);
   }
-  redirect("/login?notice=registered");
+  redirect(`/verify-email?${new URLSearchParams({ email })}`);
+}
+
+async function submitVerification(
+  form: FormData,
+  confirm: boolean,
+): Promise<AuthActionState> {
+  try {
+    await assertAuthOrigin();
+    if (!authEnabled())
+      return {
+        status: "preview",
+        message:
+          "Chức năng xác thực email chưa sẵn sàng. Vui lòng thử lại sau.",
+      };
+    const rawEmail = form.get("email");
+    const rawToken = form.get("token");
+    const email =
+      typeof rawEmail === "string"
+        ? rawEmail.slice(0, 1000).trim().toLowerCase()
+        : "";
+    const token = typeof rawToken === "string" ? rawToken.slice(0, 1000) : "";
+    const errors = validateVerificationInput({ email, token }, confirm);
+    if (Object.keys(errors).length)
+      return {
+        status: "error",
+        message: "Vui lòng kiểm tra lại thông tin xác thực.",
+        errors,
+      };
+    const result = await authRequest(
+      confirm ? "/email/verify" : "/email/resend",
+      {
+        body: confirm ? { email, token } : { email },
+      },
+    );
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      (confirm
+        ? !(
+            "verified" in result &&
+            result.verified === true &&
+            "email" in result &&
+            result.email === email
+          )
+        : !("accepted" in result && result.accepted === true))
+    ) {
+      throw new AuthApiError(
+        502,
+        "invalid_response",
+        "Dịch vụ xác thực trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.",
+      );
+    }
+    if (confirm) revalidatePath("/", "layout");
+    return {
+      status: "success",
+      message: confirm
+        ? "Xác thực email thành công."
+        : "Nếu email cần xác thực, liên kết mới sẽ được gửi đến hộp thư. Vui lòng kiểm tra cả thư rác.",
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function verifyEmailAction(
+  _previous: AuthActionState,
+  form: FormData,
+): Promise<AuthActionState> {
+  const state = await submitVerification(form, true);
+  if (state.status === "success") redirect("/login?notice=verified");
+  return state;
+}
+
+export async function resendVerificationAction(
+  _previous: AuthActionState,
+  form: FormData,
+): Promise<AuthActionState> {
+  return submitVerification(form, false);
 }
 
 export async function forgotAction(

@@ -155,3 +155,41 @@ test("reset token verification maps expired links without exposing upstream mess
     "service_unavailable",
   );
 });
+
+test("email verification state distinguishes legacy, pending and verified users", () => {
+  assert.equal(parseUser(user).email_verified_at, undefined);
+  assert.equal(
+    parseUser({ ...user, email_verified_at: null }).email_verified_at,
+    null,
+  );
+  const timestamp = "2026-10-27T00:00:00.000000Z";
+  assert.equal(
+    parseUser({ ...user, email_verified_at: timestamp }).email_verified_at,
+    timestamp,
+  );
+  for (const value of [false, 1, "yesterday", "", "2026-99-99T00:00:00Z", []]) {
+    assert.throws(
+      () => parseUser({ ...user, email_verified_at: value }),
+      AuthApiError,
+    );
+  }
+});
+
+test("email verification errors explain expiry, required confirmation and throttling safely", () => {
+  const expired = mapAuthApiError(
+    400,
+    { code: "invalid_verification_token", message: "private token" },
+    "verify-email",
+  );
+  assert.equal(expired.code, "invalid_verification_token");
+  assert.match(expired.message, /hết hạn|không hợp lệ/);
+  assert.doesNotMatch(expired.message, /private/);
+  assert.equal(
+    mapAuthApiError(429, {}, "resend-verification").code,
+    "rate_limited",
+  );
+  assert.equal(
+    mapAuthApiError(403, { code: "email_verification_required" }, "user").code,
+    "email_verification_required",
+  );
+});

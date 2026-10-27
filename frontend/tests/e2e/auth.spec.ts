@@ -369,13 +369,16 @@ test("duplicate registration email preserves non-secret values and never creates
   ).toBe(false);
 });
 
-test("successful registration returns to login without silently authenticating", async ({
+test("successful registration opens verification instructions without silently authenticating", async ({
   page,
   context,
 }) => {
   await registration(page, "new@example.test");
   await page.getByRole("button", { name: /Đăng ký|Tạo tài khoản/ }).click();
-  await expect(page).toHaveURL(/\/login\?.*notice=registered/);
+  await expect(page).toHaveURL(/\/verify-email\?email=new%40example.test$/);
+  await expect(
+    page.getByRole("button", { name: "Gửi lại email xác thực", exact: true }),
+  ).toBeVisible();
   expect(
     (await context.cookies()).some((item) => item.name === "timviec_session"),
   ).toBe(false);
@@ -470,6 +473,7 @@ test("authentication pages are accessible and fit a 360px viewport", async ({
     "/login",
     "/register",
     "/forgot-password",
+    "/verify-email?email=person%40example.test",
     "/reset-password?email=candidate%40example.test&token=valid-reset-token",
   ]) {
     await page.goto(path);
@@ -491,4 +495,164 @@ test("authentication pages are accessible and fit a 360px viewport", async ({
       fullPage: true,
     });
   }
+});
+
+test("verification GET leaves links unused until explicit confirmation and replay fails safely", async ({
+  page,
+  request,
+  context,
+}) => {
+  const url = `/verify-email?email=verify-once%40example.test&token=${"v".repeat(64)}`;
+  const before =
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/email/verify"] ?? 0;
+  await page.goto(url);
+  await expect(
+    page.getByRole("button", { name: "Xác thực email", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  expect(
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/email/verify"] ?? 0,
+  ).toBe(before);
+  await expect(page.locator('meta[name="referrer"]')).toHaveAttribute(
+    "content",
+    "no-referrer",
+  );
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    /noindex/,
+  );
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/login\?notice=verified$/);
+  await expect(page.getByRole("status")).toContainText(
+    "Xác thực email thành công",
+  );
+  expect(
+    (await context.cookies()).some(
+      (cookie) => cookie.name === "timviec_session",
+    ),
+  ).toBe(false);
+  await page.goto(url);
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "hết hạn hoặc không hợp lệ",
+  );
+  await expect(
+    page.getByRole("button", { name: "Xác thực email", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Nếu email cần xác thực",
+  );
+});
+
+test("verification handles malformed links, unavailable services and account-neutral resend throttling", async ({
+  page,
+}) => {
+  await page.goto("/verify-email?email=person%40example.test&token=malformed");
+  await expect(page.getByRole("alert")).toContainText("không hợp lệ");
+  await expect(
+    page.getByRole("button", { name: "Xác thực email", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(
+    `/verify-email?email=person%40example.test&token=${"n".repeat(64)}`,
+  );
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Không thể kết nối");
+  await expect(
+    page.getByRole("button", { name: "Xác thực email", exact: true }),
+  ).toBeEnabled();
+  await page.goto("/verify-email?email=throttled%40example.test");
+  await page
+    .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("quá nhiều lần");
+  await page
+    .getByLabel("Email nhận liên kết xác thực")
+    .fill("missing@example.test");
+  await page
+    .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Nếu email cần xác thực",
+  );
+});
+
+test("verification keeps an existing session when confirming another mailbox", async ({
+  page,
+  context,
+}) => {
+  await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  const before = (await context.cookies()).find(
+    (cookie) => cookie.name === "timviec_session",
+  )?.value;
+  await page.goto(
+    `/verify-email?email=other-mailbox%40example.test&token=${"v".repeat(64)}`,
+  );
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/jobs$/);
+  expect(
+    (await context.cookies()).find(
+      (cookie) => cookie.name === "timviec_session",
+    )?.value,
+  ).toBe(before);
+});
+
+test("cross-origin verification cannot consume an email link", async ({
+  page,
+  request,
+}) => {
+  const captured = new Promise<{
+    headers: Record<string, string>;
+    body: Buffer;
+  }>((resolve) => {
+    void page.route(/\/verify-email(?:\?.*)?$/, async (route) => {
+      const action = route.request();
+      if (action.method() !== "POST") return route.continue();
+      resolve({ headers: action.headers(), body: action.postDataBuffer()! });
+      await route.abort("blockedbyclient");
+    });
+  });
+  const url = `/verify-email?email=cross-origin%40example.test&token=${"v".repeat(64)}`;
+  await page.goto(url);
+  const before =
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/email/verify"] ?? 0;
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
+  const action = await captured;
+  const headers: Record<string, string> = {
+    ...action.headers,
+    origin: "https://example.com",
+  };
+  for (const header of ["host", "cookie", "content-length"])
+    delete headers[header];
+  const response = await request.post(`http://localhost:3119${url}`, {
+    headers,
+    data: action.body,
+    maxRedirects: 0,
+  });
+  expect(
+    response.status() >= 400 ||
+      /Yêu cầu không hợp lệ|invalid.origin|Invalid Server Actions request/i.test(
+        await response.text(),
+      ),
+  ).toBe(true);
+  expect(
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/email/verify"] ?? 0,
+  ).toBe(before);
 });
