@@ -42,7 +42,11 @@ class EmailNotificationTest extends TestCase
         }
         $this->putJson('/api/user/email-preferences', ['applications' => true, 'messages' => false])
             ->assertOk()->assertJsonPath('data', ['applications' => true, 'messages' => false]);
-        $this->assertSame(['applications' => true, 'messages' => false], $user->fresh()->email_notifications);
+        // MySQL normalizes JSON object key order; MariaDB preserves insertion order.
+        $stored = $user->fresh()->email_notifications;
+        $this->assertCount(2, $stored);
+        $this->assertTrue($stored['applications']);
+        $this->assertFalse($stored['messages']);
     }
 
     public function test_unverified_recipient_can_disable_but_cannot_enable_preferences(): void

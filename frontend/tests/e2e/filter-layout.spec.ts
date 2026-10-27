@@ -12,12 +12,38 @@ async function geometry(page: Page) {
   return page.evaluate(
     (selectors) =>
       selectors.map((selector) => {
-        const rect = document.querySelector(selector)!.getBoundingClientRect();
+        const rect = Array.from(
+          document.querySelectorAll<HTMLElement>(selector),
+        )
+          .find((element) => element.checkVisibility())!
+          .getBoundingClientRect();
         return { selector, left: rect.left, width: rect.width };
       }),
     surfaces,
   );
 }
+
+test("geometry ignores retained hidden result pages", async ({ page }) => {
+  await page.goto("/jobs");
+  await expect(
+    page.locator(".results-layout").filter({ visible: true }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const hidden = document.createElement("div");
+    hidden.style.display = "none";
+    hidden.append(document.querySelector(".results-layout")!.cloneNode(true));
+    document.body.prepend(hidden);
+  });
+  const result = (await geometry(page)).find(
+    (item) => item.selector === ".results-layout",
+  )!;
+  expect(result.width).toBeGreaterThan(0);
+  await verifyMenu(
+    page,
+    page.locator(".job-sort-trigger").filter({ visible: true }),
+    true,
+  );
+});
 
 async function verifyMenu(page: Page, trigger: Locator, modal: boolean) {
   // Bring the trigger into view before establishing the baseline on mobile.
@@ -31,8 +57,10 @@ async function verifyMenu(page: Page, trigger: Locator, modal: boolean) {
       const sample = () => {
         samples.push(
           selectors.map((selector) => {
-            const rect = document
-              .querySelector(selector)!
+            const rect = Array.from(
+              document.querySelectorAll<HTMLElement>(selector),
+            )
+              .find((element) => element.checkVisibility())!
               .getBoundingClientRect();
             return { selector, left: rect.left, width: rect.width };
           }),
@@ -71,8 +99,10 @@ async function verifyMenu(page: Page, trigger: Locator, modal: boolean) {
     await new Promise<void>((resolve) => {
       const sample = () => {
         for (const before of baseline) {
-          const rect = document
-            .querySelector(before.selector)!
+          const rect = Array.from(
+            document.querySelectorAll<HTMLElement>(before.selector),
+          )
+            .find((element) => element.checkVisibility())!
             .getBoundingClientRect();
           maximum = Math.max(
             maximum,
@@ -115,7 +145,9 @@ for (const width of [360, 900, 901, 1440]) {
       await page.addStyleTag({
         content: "::-webkit-scrollbar { width: 17px; height: 17px; }",
       });
-      await expect(page.locator(".results-layout")).toBeVisible();
+      await expect(
+        page.locator(".results-layout").filter({ visible: true }),
+      ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       if (width > 900) {
         await page.evaluate(() => {
@@ -151,7 +183,11 @@ for (const width of [360, 900, 901, 1440]) {
           false,
         );
       }
-      await verifyMenu(page, page.locator(".job-sort-trigger"), true);
+      await verifyMenu(
+        page,
+        page.locator(".job-sort-trigger").filter({ visible: true }),
+        true,
+      );
       await verifyMenu(
         page,
         page.getByRole("button", { name: "Ngành nghề", exact: true }),

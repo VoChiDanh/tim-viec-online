@@ -68,4 +68,11 @@ jobs:
       - name: Audit dependencies
         run: composer audit --locked
       - name: Run backend tests
-        run: vendor/bin/phpunit
+        run: vendor/bin/phpunit --log-junit phpunit-results.xml
+      - name: Upload failed test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: backend/phpunit-results.xml
+          retention-days: 7

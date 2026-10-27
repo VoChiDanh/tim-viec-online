@@ -100,6 +100,10 @@ class WorkspacePerformanceTest extends TestCase
         $config['key'] = 'test-key';
         $config['secret'] = 'test-secret';
         $config['app_id'] = 'test-app';
+        // This is a fake HTTP transport test, independent of local Reverb env.
+        $config['options'] = array_replace($config['options'], [
+            'host' => '127.0.0.1', 'port' => 6001, 'scheme' => 'http', 'useTLS' => false,
+        ]);
         $config['client_options']['handler'] = function ($request, $options) use (&$captured) {
             $captured = $options;
 

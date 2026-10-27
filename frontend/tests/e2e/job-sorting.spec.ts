@@ -115,6 +115,10 @@ for (const width of [360, 1440]) {
       fullPage: false,
     });
     await page.keyboard.press("End");
+    // Radix schedules focus after the key event; Enter must target that option.
+    await expect(
+      page.getByRole("option", { name: "Ngày đăng (mới nhất)", exact: true }),
+    ).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/sort=newest$/);
     await expect(sort).toBeFocused();

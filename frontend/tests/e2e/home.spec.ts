@@ -51,13 +51,19 @@ test("featured jobs resolve to their own details and guest save opens login", as
 }) => {
   await page.goto("/");
   const cards = page.getByTestId("home-job-card");
-  const titles = await cards.getByRole("heading").allTextContents();
-  const links = await cards
+  await expect(cards).toHaveCount(6);
+  // Read paired values atomically after the streamed carousel has arrived.
+  const entries = await cards
     .getByRole("heading")
     .getByRole("link")
     .evaluateAll((elements) =>
-      elements.map((element) => element.getAttribute("href")!),
+      elements.map((element) => ({
+        title: element.textContent!.trim(),
+        href: element.getAttribute("href")!,
+      })),
     );
+  const titles = entries.map((entry) => entry.title);
+  const links = entries.map((entry) => entry.href);
   expect(new Set(links).size).toBe(6);
   const save = cards
     .first()
@@ -148,8 +154,11 @@ test("carousel, category arrows, trends, company links, brand and employer CTA w
 test("home and the custom location picker pass automated accessibility", async ({
   page,
 }) => {
+  // Audit final colors; entrance motion has its own regression coverage.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.getByTestId("home-job-card")).toHaveCount(6);
+  await expect(page.locator(".home-company-card")).toHaveCount(6);
   expect(
     (
       await new AxeBuilder({ page })
