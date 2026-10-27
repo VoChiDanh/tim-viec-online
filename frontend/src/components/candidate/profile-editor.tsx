@@ -318,7 +318,9 @@ export function ProfileEditor({
                       accept=".pdf,application/pdf"
                       onChange={(event) => void selectFile("cv", event)}
                       aria-invalid={!!fileErrors.cv}
-                      aria-describedby="cv-description cv-error"
+                      aria-describedby={
+                        workspace.isApi ? "cv-error" : "cv-description cv-error"
+                      }
                     />
                   )}
                   <div className="cu-file-picker">
@@ -341,11 +343,11 @@ export function ProfileEditor({
                           : "Chưa chọn CV"}
                     </span>
                   </div>
-                  <FieldDescription id="cv-description">
-                    {workspace.isApi
-                      ? "CV được lưu riêng tư trong tài khoản của bạn."
-                      : "Tệp chỉ được xem trên thiết bị, chưa được tải lên."}
-                  </FieldDescription>
+                  {!workspace.isApi && (
+                    <FieldDescription id="cv-description">
+                      Tệp chỉ được xem trên thiết bị, chưa được tải lên.
+                    </FieldDescription>
+                  )}
                   <FieldError id="cv-error">{fileErrors.cv}</FieldError>
                 </Field>
                 {reading.cv && <p role="status">Đang đọc tệp…</p>}
