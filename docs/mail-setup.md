@@ -1,6 +1,6 @@
-# Gửi email tài khoản
+# Xác nhận email và thông báo qua email
 
-Laravel Mail đã xử lý email đăng ký và khôi phục mật khẩu bằng SMTP (Symfony Mailer). Không cần cài PHPMailer hoặc tạo một endpoint gửi email công khai. Email có bản HTML và text, nội dung tiếng Việt; không gửi mật khẩu người dùng.
+Laravel Mail xử lý xác nhận địa chỉ sau đăng ký, khôi phục mật khẩu và hai loại thông báo tùy chọn bằng SMTP (Symfony Mailer). Email có bản HTML và text, nội dung tiếng Việt; không gửi mật khẩu, CV hoặc nội dung chat riêng tư.
 
 ## Gmail SMTP — cổng 465
 
@@ -47,18 +47,48 @@ php artisan mail:check --to=dia-chi-nhan-cua-ban@example.com
 
 Thông báo SMTP nhận thư không bảo đảm thư đã vào inbox: kiểm tra cả Thư rác/Spam. Lệnh không in mật khẩu, token hoặc lỗi SMTP thô. Khởi động lại `php artisan serve --port=8000` sau khi chỉnh cấu hình; dùng `config:cache` sau khi cấu hình production đã đúng. URL frontend được lưu trong config nên vẫn hoạt động khi cache.
 
-Gửi mail hiện đồng bộ; **không cần queue worker cho hai loại email này**. Timeout được giới hạn 1–8 giây mỗi thao tác socket; mặc định 5 giây. Đây không phải cam kết tổng thời gian gửi. Tránh mailer `failover` với đích `log` nếu cần xác nhận gửi thật.
+Email xác nhận và khôi phục gửi đồng bộ với timeout SMTP hữu hạn. Email thông báo chạy qua queue riêng để không làm chậm chat. Timeout được giới hạn 1–8 giây mỗi thao tác socket; mặc định 5 giây. Đây không phải cam kết tổng thời gian gửi. Tránh mailer `failover` với đích `log` nếu cần xác nhận gửi thật.
+
+Sau khi cập nhật code, chạy migration bổ sung (không reset dữ liệu) và giữ worker trong terminal riêng tại `backend`:
+
+```powershell
+php artisan migrate
+php artisan queue:work database --queue=emails --sleep=1 --tries=3 --timeout=30
+```
+
+Với database cũ được import SQL, nếu `migrate:status` còn liệt kê `2026_10_23_000001_create_domain_tables` là pending trong khi các bảng nghiệp vụ đã tồn tại, không chạy lại migration tạo bảng đó. Chỉ áp dụng hai migration email:
+
+```powershell
+php artisan migrate --path=database/migrations/2026_10_27_000002_add_notification_email_preferences_and_deliveries.php
+php artisan migrate --path=database/migrations/2026_10_27_000005_create_email_verification_tokens_table.php
+```
+
+Queue dùng kết nối `database` rõ ràng, kể cả khi queue mặc định của máy là `sync`. Nếu đã có worker AI/default, vẫn cần worker nhận queue `emails`. Sau khi cập nhật code/cấu hình, chạy `php artisan queue:restart` và khởi động lại worker; production cần process manager giữ worker hoạt động.
+
+Chưa chạy worker thì thư thông báo chờ trong `queue_jobs`, còn chat và chuông thông báo vẫn hoạt động. Xem `php artisan queue:failed` khi có thư lỗi; chỉ retry sau khi sửa SMTP. Gửi qua SMTP có thể bị lặp nếu server nhận thư rồi tiến trình chết trước khi ghi nhận thành công; không cam kết giao thư đúng một lần ở nhà cung cấp.
 
 ## Thử luồng ứng dụng
 
-1. Đăng ký bằng email bạn sở hữu: nhận thư chào mừng, sau đó đăng nhập.
+1. Đăng ký bằng email bạn sở hữu: trang `/verify-email` hướng dẫn kiểm tra hộp thư. Mở liên kết và bấm **Xác thực email** để hoàn tất, sau đó đăng nhập. Liên kết hết hạn sau 60 phút, chỉ dùng một lần. Mở trang/tải lại trang chưa tiêu thụ liên kết.
 2. Đăng xuất và mở `/forgot-password`, nhập email đó. Phản hồi giống nhau dù email có tồn tại để tránh dò tài khoản.
 3. Mở thư khôi phục, bấm nút đặt lại mật khẩu. Liên kết về `FRONTEND_URL/reset-password`, có hạn 15 phút, chỉ dùng một lần; yêu cầu thư mới làm liên kết trước đó hết hiệu lực.
 4. Đổi mật khẩu, đăng nhập với mật khẩu mới. Các phiên đăng nhập trước reset bị thu hồi. Mật khẩu cũ và liên kết đã dùng không còn hiệu lực.
 
 Liên kết lỗi/hết hạn có nút yêu cầu liên kết mới. Nếu API tạm ngừng, giao diện báo chưa kiểm tra được liên kết thay vì kết luận đã hết hạn. Backend chỉ lưu hash token và không ghi URL/token vào log khi SMTP lỗi. Gửi thất bại sẽ xóa đúng token chưa giao, không xóa token của yêu cầu mới hơn.
 
-Giới hạn gửi lại: 3 yêu cầu/15 phút cho một email (dùng chung giữa các alias), kèm giới hạn tổng theo IP; không dùng chung bộ đếm với đăng nhập. Email xác nhận đăng ký không quyết định kết quả tạo tài khoản: nếu SMTP lỗi, tài khoản vẫn đăng nhập được và backend ghi nhận lỗi an toàn.
+Xác nhận email: gửi lại tối đa 1 lần/phút, 3 lần/15 phút theo địa chỉ, kèm giới hạn theo IP; đổi email trong hồ sơ cũng có giới hạn riêng theo tài khoản/IP. Không dùng chung bộ đếm với đăng nhập. Khôi phục mật khẩu giữ giới hạn 3 yêu cầu/15 phút theo email giữa các alias.
+
+SMTP lỗi không xóa tài khoản đăng ký. Người dùng vẫn đăng nhập, sửa hồ sơ và yêu cầu gửi lại tại `/verify-email`. Backend yêu cầu xác nhận trước khi ứng tuyển, đăng/sửa/mở lại tin hoặc bắt đầu/gửi tin nhắn. Các tài khoản cũ chưa có `email_verified_at` cũng xác nhận bằng hộp thư của mình; migration không giả lập việc xác nhận và không tự gửi thư hàng loạt. Đổi mật khẩu hoặc reset mật khẩu không tự đánh dấu email đã xác nhận.
+
+## Cài đặt thông báo của ứng viên
+
+Mở `/account/settings`, xác nhận email rồi bật **Trạng thái ứng tuyển** và/hoặc **Tin nhắn mới**. Mặc định tắt; tải lại trang vẫn giữ lựa chọn. Có thể tắt bất kỳ lúc nào, kể cả khi địa chỉ mới chưa xác nhận.
+
+- Trạng thái hồ sơ: gom thay đổi trong 10 giây và gửi trạng thái mới nhất còn đúng.
+- Tin nhắn: gom trong 60 giây kể từ tin mới nhất của cùng hội thoại; bỏ qua nếu đã đọc trước lúc gửi.
+- Worker kiểm tra lại lựa chọn, email đã xác nhận, địa chỉ chưa đổi, tài khoản còn hoạt động và quyền sở hữu. Tắt email không tắt thông báo trên web.
+
+Database lưu lựa chọn ở `users.email_notifications`, token băm ở `email_verification_tokens`, trạng thái gom/giao thư ở `notification_email_deliveries`. Không cần thêm field xác nhận mới: dùng `users.email_verified_at` đã có.
 
 ## Khi chưa nhận được thư
 
@@ -70,6 +100,6 @@ Giới hạn gửi lại: 3 yêu cầu/15 phút cho một email (dùng chung gi�
 
 ## Kiểm thử tự động
 
-Backend có regression tests cho MIME HTML/text, URL frontend, SMTP lỗi không lộ thông tin, đầu vào token, hạn 15 phút và dùng một lần. `npm run test:backend` trong frontend khởi chạy thêm SMTP sink chỉ bind `127.0.0.1:8129`, không relay ra Internet; chỉ nhận `*@frontend-e2e.test`. Thư nằm trong storage kiểm thử đã ignore, dùng database riêng `frontend_api_e2e_test` trên cổng 33063. Không dùng bộ thử nghiệm này làm cấu hình chạy ứng dụng.
+Backend có regression tests cho xác nhận, phân quyền tài khoản chưa xác nhận, token băm/hết hạn/dùng lại, đổi email, tùy chọn, gom thư, lỗi SMTP/queue và kiểm tra lại lúc giao. `npm run test:backend` trong frontend khởi chạy SMTP sink chỉ bind `127.0.0.1:8129`, không relay ra Internet; chỉ nhận `*@frontend-e2e.test`. Thư nằm trong storage kiểm thử đã ignore, dùng database riêng `frontend_api_e2e_test` trên cổng 33063. Không dùng bộ thử nghiệm này làm cấu hình chạy ứng dụng.
 
 Tham khảo: [Gmail SMTP](https://developers.google.com/workspace/gmail/imap/imap-smtp), [Google App Passwords](https://support.google.com/accounts/answer/185833), [Laravel 12 Mail](https://laravel.com/docs/12.x/mail), [Symfony TLS](https://symfony.com/doc/current/mailer.html#ensure-tls).

@@ -1,5 +1,7 @@
 # Email tài khoản và khôi phục mật khẩu
 
+> Cập nhật 27/10/2026: email đăng ký đã chuyển sang xác nhận quyền sở hữu; thông báo tùy chọn qua queue được triển khai tiếp tại [kế hoạch xác nhận và thông báo](email-verification-notifications.md). Phần dưới ghi nhận đợt triển khai khôi phục ban đầu.
+
 > Thực hiện trực tiếp theo `executing-plans`, kiểm thử trước khi sửa hành vi và commit từng phần.
 
 **Mục tiêu:** Email đăng ký và liên kết đặt lại mật khẩu gửi được qua SMTP, nội dung tiếng Việt đồng bộ thương hiệu. Luồng khôi phục tuân thủ SRS FR-01.6, FR-02.7 và FR-02.8.

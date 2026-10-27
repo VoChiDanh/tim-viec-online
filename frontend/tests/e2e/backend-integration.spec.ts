@@ -492,10 +492,19 @@ test.describe.serial("Laravel integration without AI", () => {
         reject();
         await page.unroute(resource);
       }
+      // Reverb can echo the saved message before the POST response reconciles
+      // its optimistic bubble. Check the final state after the send finishes.
+      const retryResponse = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname ===
+            `/api/backend/conversations/${ids.conversation_id}/messages` &&
+          response.request().method() === "POST",
+      );
       await bubbles
         .filter({ hasText: failedText })
         .getByRole("button", { name: "Thử lại", exact: true })
         .click();
+      expect((await retryResponse).ok()).toBeTruthy();
       await expect(bubbles.filter({ hasText: failedText })).toHaveCount(1);
       await expect(bubbles.filter({ hasText: failedText })).not.toHaveAttribute(
         "data-delivery",

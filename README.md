@@ -55,7 +55,7 @@ tim-viec-online/
    npm run dev
    ```
 
-3. **Email đăng ký và quên mật khẩu:** Cấu hình Gmail SMTP hoặc nhà cung cấp của bạn theo [hướng dẫn email](docs/mail-setup.md). Chạy `php artisan mail:check` trong `backend/` để kiểm tra cấu hình; chỉ dùng `--to=...` khi muốn gửi thư thử. Mailer `log` mặc định không giao thư đến hộp thư thật.
+3. **Xác nhận email và thông báo:** Cấu hình SMTP theo [hướng dẫn email](docs/mail-setup.md). Chạy `php artisan migrate`, kiểm tra bằng `php artisan mail:check`; chỉ dùng `--to=...` khi muốn gửi thử. Giữ `php artisan queue:work database --queue=emails --sleep=1 --tries=3 --timeout=30` để giao thông báo tùy chọn. Mailer `log` không giao thư đến hộp thư thật.
 
 4. **Chat và hiệu suất local:** Giữ `php artisan reverb:start` chạy trong terminal riêng. Xem [hướng dẫn hiệu suất](docs/performance.md) về OPcache, dữ liệu workspace và kết quả đo tải trang.
 

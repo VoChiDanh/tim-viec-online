@@ -16,7 +16,7 @@ Các trang public, xác thực, ứng viên, nhà tuyển dụng và admin dùng
    ```
 
    `AUTH_APP_URL` phải khớp origin trình duyệt, gồm cả cổng; không trộn `localhost` và `127.0.0.1`. Sau đó chạy `npm run dev` trong `frontend/`. Với bản production, dùng HTTPS, `npm run build` rồi `npm run start`.
-4. Đăng ký tài khoản ứng viên/nhà tuyển dụng qua giao diện. Tài khoản demo `candidate@example.test`/`employer@example.test` thuộc mock mode, không tự xuất hiện trong database API. Admin được tạo bằng seeder với `ADMIN_EMAIL`/`ADMIN_PASSWORD` trong môi trường riêng. Email đăng ký/khôi phục đã triển khai; cấu hình Gmail/SMTP và kiểm tra nhận thư theo [hướng dẫn email](mail-setup.md).
+4. Đăng ký tài khoản ứng viên/nhà tuyển dụng qua giao diện rồi xác nhận địa chỉ bằng liên kết trong email. Chưa xác nhận vẫn đăng nhập được nhưng chưa ứng tuyển, đăng tin hoặc nhắn tin được. Tài khoản demo `candidate@example.test`/`employer@example.test` thuộc mock mode, không tự xuất hiện trong database API. Admin được tạo bằng seeder với `ADMIN_EMAIL`/`ADMIN_PASSWORD` trong môi trường riêng. Cấu hình SMTP, migration và worker queue `emails` theo [hướng dẫn email](mail-setup.md); ứng viên bật tùy chọn tại `/account/settings`.
 
 ## Lỗi xác thực khi chạy sai cổng
 

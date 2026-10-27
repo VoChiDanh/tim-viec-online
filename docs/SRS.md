@@ -47,7 +47,9 @@
 | FR-01.3 | Email phải đúng định dạng chuẩn RFC (ví dụ: `user@example.com`) và không được trùng với email đã có trong hệ thống (không phân biệt hoa thường). Nếu trùng, hệ thống hiển thị thông báo "Email đã được sử dụng" và yêu cầu nhập lại email khác (Không xóa thông tin đã nhập trước đó). |
 | FR-01.4 | Mật khẩu có độ dài **từ 8 đến 32 ký tự**, bắt buộc chứa **ít nhất một chữ cái thường, chữ cái in hoa, ký tự đặc biệt và số**. Ô "Xác nhận mật khẩu" phải trùng khớp 100% với mật khẩu đã nhập. |
 | FR-01.5 | Số điện thoại là tùy chọn. Nếu nhập, phải gồm đúng **10 chữ số** và bắt đầu bằng các đầu số hợp lệ của Việt Nam (03, 05, 07, 08, 09). Nếu sai định dạng, hệ thống hiển thị "Số điện thoại không hợp lệ". |
-| FR-01.6 | Đăng ký thành công: Hệ thống tự động tạo hồ sơ tương ứng (hồ sơ ứng viên rỗng nếu là Ứng viên, hồ sơ công ty rỗng nếu là Nhà tuyển dụng), gửi thông báo về người dùng là đã đăng ký thành công (Gồm các thông tin đi kèm, không bao gồm tài khoản và mật khẩu). Sau đó, chuyển hướng  sang trang đăng nhập và đăng nhập tài khoản. |
+| FR-01.6 | Đăng ký thành công: Hệ thống tự động tạo hồ sơ tương ứng (hồ sơ ứng viên rỗng nếu là Ứng viên, hồ sơ công ty rỗng nếu là Nhà tuyển dụng), gửi email xác nhận quyền sở hữu địa chỉ và chuyển đến trang hướng dẫn xác nhận. Không gửi mật khẩu hoặc token đăng nhập qua email. |
+| FR-01.7 | **Xác nhận email (cập nhật 27/10/2026):** Liên kết dùng một lần, hết hạn sau 60 phút; backend chỉ lưu hash token. Mở liên kết không tự xác nhận: người dùng bấm nút để gửi POST xác nhận và cập nhật `email_verified_at`. Gửi lại liên kết làm liên kết cũ hết hiệu lực, có giới hạn theo email/IP và phản hồi không tiết lộ tài khoản tồn tại. |
+| FR-01.8 | Tài khoản chưa xác nhận vẫn được đăng nhập, quản lý hồ sơ và yêu cầu gửi lại thư; backend chặn ứng tuyển, tạo/sửa/mở lại tin tuyển dụng và bắt đầu/gửi tin nhắn đến khi email được xác nhận. Thay đổi email thực sự xóa trạng thái xác nhận và vô hiệu hóa liên kết cũ; khôi phục mật khẩu không thay thế xác nhận email. Không tự xác nhận tài khoản cũ bằng migration. |
 
 ### FR-02. Đăng nhập, Quên mật khẩu & Khóa tài khoản
 
@@ -145,6 +147,8 @@
 | FR-10.1 | **Thông báo cho Ứng viên:** Hệ thống tự động tạo và gửi thông báo cho Ứng viên khi:<br>- Nhà tuyển dụng thay đổi trạng thái hồ sơ ứng tuyển (*Trúng tuyển, Từ chối*).<br>- Nhà tuyển dụng gửi tin nhắn mới trong phòng chat. |
 | FR-10.2 | **Thông báo cho Nhà tuyển dụng:** Hệ thống tự động tạo và gửi thông báo cho Nhà tuyển dụng khi:<br>- Có ứng viên mới nộp hồ sơ vào tin tuyển dụng của công ty.<br>- Ứng viên gửi tin nhắn mới trong phòng chat. |
 | FR-10.3 | **Trải nghiệm thông báo:**<br>- Biểu tượng chuông trên thanh điều hướng hiển thị số lượng thông báo chưa đọc (Unread badge).<br>- Danh sách thông báo hiển thị tiêu đề, nội dung ngắn gọn, thời gian gửi tương đối (ví dụ: *5 phút trước*), và phân biệt rõ trạng thái Đã đọc (màu trắng background) / Chưa đọc (Màu xanh background).<br>- Người dùng có thể nhấn vào thông báo để chuyển hướng ngay tới màn hình chi tiết tương ứng, bấm đánh dấu đã đọc từng thông báo, hoặc bấm nút "Đánh dấu tất cả là đã đọc". |
+| FR-10.4 | **Email theo lựa chọn (cập nhật 27/10/2026):** Ứng viên bật/tắt riêng email trạng thái ứng tuyển và tin nhắn mới tại Quản lý tài khoản. Mặc định cả hai tắt; phải xác nhận email trước khi bật. Lựa chọn lưu trong database, độc lập với thông báo trên web. |
+| FR-10.5 | Email thông báo chạy qua queue `emails`, không gửi SMTP trong yêu cầu chat. Gom thay đổi trạng thái trong 10 giây và tin nhắn cùng hội thoại trong 60 giây. Trước khi gửi, kiểm tra lại tài khoản, xác nhận email, lựa chọn hiện tại, địa chỉ nhận, quyền sở hữu, trạng thái hồ sơ hoặc tin nhắn chưa đọc. Không đưa CV/nội dung tin nhắn riêng tư vào email. |
 
 ---
 
