@@ -24,6 +24,8 @@ export default function SecurityPage() {
 async function SecurityForm() {
   const user = await requireUser(undefined, "/account/security");
   await connection();
+  const verificationRequired =
+    authApiEnabled() && user.email_verified_at === null;
   return (
     <section className="surface auth-security">
       <h1>Đổi mật khẩu</h1>
@@ -32,10 +34,10 @@ async function SecurityForm() {
           ? "Nhập mật khẩu hiện tại và chọn mật khẩu mới. Hệ thống sẽ gửi email xác nhận; mật khẩu chỉ được cập nhật sau khi bạn xác nhận trong email."
           : "Nhập mật khẩu hiện tại và chọn mật khẩu mới cho tài khoản của bạn."}
       </p>
-      {user.email_verified_at === null && (
+      {verificationRequired && (
         <p className="auth-status" role="status">
-          Email {user.email} chưa được xác thực. Vui lòng xác thực trước khi ứng
-          tuyển, đăng tin hoặc gửi tin nhắn.{" "}
+          Email {user.email} chưa được xác thực. Vui lòng xác thực email trước
+          khi yêu cầu đổi mật khẩu.{" "}
           <Link
             href={`/verify-email?${new URLSearchParams({ email: user.email })}`}
           >
@@ -46,11 +48,13 @@ async function SecurityForm() {
       {user.email_verified_at && (
         <p className="auth-form-note">Email {user.email} đã được xác thực.</p>
       )}
-      <AuthForm
-        kind="change"
-        today={vietnamToday()}
-        action={changePasswordAction}
-      />
+      {!verificationRequired && (
+        <AuthForm
+          kind="change"
+          today={vietnamToday()}
+          action={changePasswordAction}
+        />
+      )}
     </section>
   );
 }

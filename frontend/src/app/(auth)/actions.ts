@@ -208,7 +208,7 @@ export async function forgotAction(
     return {
       status: "success",
       message:
-        "Nếu email đã đăng ký, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra hộp thư đến và thư rác.",
+        "Nếu email đã đăng ký và được xác thực, bạn sẽ nhận được liên kết đặt lại mật khẩu. Vui lòng kiểm tra hộp thư đến và thư rác.",
     };
   } catch (error) {
     return failure(error);

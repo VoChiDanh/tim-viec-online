@@ -252,4 +252,12 @@ test("email verification errors explain expiry, required confirmation and thrott
     mapAuthApiError(403, { code: "email_verification_required" }, "user").code,
     "email_verification_required",
   );
+  assert.match(
+    mapAuthApiError(
+      403,
+      { code: "email_verification_required" },
+      "change-password",
+    ).message,
+    /đổi mật khẩu/,
+  );
 });

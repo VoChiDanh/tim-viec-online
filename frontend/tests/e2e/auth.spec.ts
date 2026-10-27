@@ -287,6 +287,11 @@ test("API admin routes and legacy preview URLs render API records without demo r
     "/admin/jobs/1/preview",
   ]) {
     await page.goto(path);
+    // Legacy preview leaves redirect after authentication; the persistent
+    // layout's heading can be visible before that redirect has settled.
+    await expect(page).toHaveURL(
+      new URL(path.replace(/\/preview$/, ""), page.url()).href,
+    );
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(
       page.getByText("Dữ liệu quản trị chưa được kết nối", { exact: true }),
@@ -386,6 +391,12 @@ test("successful registration opens verification instructions without silently a
 
 test("forgot-password has an account-neutral response", async ({ page }) => {
   await page.goto("/forgot-password");
+  await expect(
+    page.getByRole("link", {
+      name: "Xác thực email / gửi lại liên kết",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "/verify-email");
   await page.getByLabel(/^Email/).fill("nonexistent@example.test");
   await page.getByRole("button", { name: /Gửi/ }).click();
   await expect(page.getByText(/Nếu.*email|Nếu.*tài khoản/i)).toBeVisible();
@@ -433,12 +444,27 @@ test("reset link verification distinguishes service outages from expired links",
   await expect(page.getByLabel(/^Mật khẩu mới/)).toHaveCount(0);
 });
 
-test("changing a password requires a session and verifies the current password", async ({
+test("changing a password requires a verified session and verifies the current password", async ({
   page,
 }) => {
   await page.goto("/account/security");
   await expect(page).toHaveURL(/\/login/);
   await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  await page.goto("/account/security");
+  await expect(page.getByLabel(/^Mật khẩu hiện tại/)).toHaveCount(0);
+  await expect(
+    page.getByRole("link", {
+      name: "Xác thực email / gửi lại liên kết",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.goto(
+    `/verify-email?email=candidate%40example.test&token=${"v".repeat(64)}`,
+  );
+  await page
+    .getByRole("button", { name: "Xác thực email", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/jobs$/);
   await page.goto("/account/security");
   await page.getByLabel(/^Mật khẩu hiện tại/).fill("WrongPass1!");
@@ -468,7 +494,15 @@ test("changing a password requires a session and verifies the current password",
   await expect(page).toHaveURL(/\/account\/security$/);
 });
 
-async function requestPasswordChange(page: Page, current = "OldFixture1!") {
+async function requestPasswordChange(
+  page: Page,
+  current = "OldFixture1!",
+  email = "candidate@example.test",
+) {
+  // Tests may be selected independently; explicitly verify the fixture identity.
+  await page.request.post("http://127.0.0.1:4119/api/email/verify", {
+    data: { email, token: "v".repeat(64) },
+  });
   await page.goto("/account/security");
   await page.getByLabel(/^Mật khẩu hiện tại/).fill(current);
   await page.getByLabel(/^Mật khẩu mới/).fill("NewFixture2!");
@@ -549,7 +583,7 @@ test("password change confirmation preserves another account session", async ({
 }) => {
   await login(page, "employer@example.test");
   await expect(page).toHaveURL(/\/employer$/);
-  await requestPasswordChange(page);
+  await requestPasswordChange(page, "OldFixture1!", "employer@example.test");
   await expect(
     page.locator("form.auth-form").getByRole("status"),
   ).toContainText("employer@example.test");
@@ -627,7 +661,14 @@ test("authentication pages are accessible and fit a 360px viewport", async ({
     "/reset-password?email=candidate%40example.test&token=valid-reset-token",
   ]) {
     await page.goto(path);
+    await expect(page).toHaveURL(new URL(path, page.url()).href);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // Measure settled text colors, after the auth card's opacity entrance.
+    await page.locator(".auth-card").evaluate(async (card) => {
+      await Promise.all(
+        card.getAnimations().map((animation) => animation.finished),
+      );
+    });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth - window.innerWidth,

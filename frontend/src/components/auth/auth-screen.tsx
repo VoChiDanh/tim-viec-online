@@ -34,7 +34,8 @@ const content = {
   },
   forgot: {
     title: "Quên mật khẩu?",
-    description: "Nhập email đã đăng ký để nhận liên kết đặt lại mật khẩu.",
+    description:
+      "Nhập email đã đăng ký và được xác thực để nhận liên kết đặt lại mật khẩu.",
   },
   reset: {
     title: "Đặt lại mật khẩu",

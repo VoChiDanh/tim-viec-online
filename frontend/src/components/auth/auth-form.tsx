@@ -322,6 +322,12 @@ export function AuthForm({
           )}
         </>
       )}
+      {kind === "forgot" && (
+        <p className="auth-form-note">
+          Bạn cần xác thực email trước khi khôi phục mật khẩu.{" "}
+          <Link href="/verify-email">Xác thực email / gửi lại liên kết</Link>
+        </p>
+      )}
       {kind !== "change" &&
         input("email", "Email", {
           type: "email",

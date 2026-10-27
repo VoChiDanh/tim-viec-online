@@ -206,7 +206,9 @@ export function mapAuthApiError(
     return new AuthApiError(
       403,
       code,
-      "Vui lòng xác thực email trước khi ứng tuyển, đăng tin hoặc gửi tin nhắn.",
+      kind === "change-password"
+        ? "Vui lòng xác thực email trước khi yêu cầu đổi mật khẩu."
+        : "Vui lòng xác thực email trước khi ứng tuyển, đăng tin hoặc gửi tin nhắn.",
     );
   if (
     status === 400 &&
