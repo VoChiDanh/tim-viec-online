@@ -83,6 +83,10 @@
   background: var(--card);
   font-size: 14px;
 }
+/* Keep one password visibility control when the browser provides its own. */
+.auth-input-wrap input[type="password"]::-ms-reveal {
+  display: none;
+}
 .auth-date-toggle {
   position: absolute;
   right: 3px;
