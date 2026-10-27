@@ -532,7 +532,7 @@ test("pending password change keeps the session until an explicit one-use email 
   await page
     .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "hết hạn hoặc không hợp lệ",
   );
   await expect(
@@ -580,7 +580,7 @@ test("password confirmation handles bad links and network errors; mail failures 
   await page.goto(
     "/confirm-password-change?email=person%40example.test&token=bad",
   );
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "hết hạn hoặc không hợp lệ",
   );
   await expect(
@@ -592,14 +592,16 @@ test("password confirmation handles bad links and network errors; mail failures 
   await page
     .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("Không thể kết nối");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Không thể kết nối",
+  );
   await expect(
     page.getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true }),
   ).toBeEnabled();
   await login(page);
   await expect(page).toHaveURL(/\/jobs$/);
   await requestPasswordChange(page, "MailFail1!");
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "Chưa thể gửi email xác nhận",
   );
   expect(
@@ -764,49 +766,63 @@ test("verification keeps an existing session when confirming another mailbox", a
   ).toBe(before);
 });
 
-test("cross-origin verification cannot consume an email link", async ({
-  page,
-  request,
-}) => {
-  const captured = new Promise<{
-    headers: Record<string, string>;
-    body: Buffer;
-  }>((resolve) => {
-    void page.route(/\/verify-email(?:\?.*)?$/, async (route) => {
-      const action = route.request();
-      if (action.method() !== "POST") return route.continue();
-      resolve({ headers: action.headers(), body: action.postDataBuffer()! });
-      await route.abort("blockedbyclient");
+for (const confirmation of [
+  {
+    page: "/verify-email",
+    endpoint: "/api/email/verify",
+    button: "Xác thực email",
+    token: "v",
+  },
+  {
+    page: "/confirm-password-change",
+    endpoint: "/api/password/change/confirm",
+    button: "Xác nhận đổi mật khẩu",
+    token: "p",
+  },
+])
+  test(`cross-origin ${confirmation.page} cannot consume an email link`, async ({
+    page,
+    request,
+  }) => {
+    const captured = new Promise<{
+      headers: Record<string, string>;
+      body: Buffer;
+    }>((resolve) => {
+      void page.route(`**${confirmation.page}?*`, async (route) => {
+        const action = route.request();
+        if (action.method() !== "POST") return route.continue();
+        resolve({ headers: action.headers(), body: action.postDataBuffer()! });
+        await route.abort("blockedbyclient");
+      });
     });
+    const url = `${confirmation.page}?email=cross-origin%40example.test&token=${confirmation.token.repeat(64)}`;
+    await page.goto(url);
+    const before =
+      (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+        .data.requests[confirmation.endpoint] ?? 0;
+    await page
+      .getByRole("button", { name: confirmation.button, exact: true })
+      .click();
+    const action = await captured;
+    const headers: Record<string, string> = {
+      ...action.headers,
+      origin: "https://example.com",
+    };
+    for (const header of ["host", "cookie", "content-length"])
+      delete headers[header];
+    const response = await request.post(`http://localhost:3119${url}`, {
+      headers,
+      data: action.body,
+      maxRedirects: 0,
+    });
+    expect(
+      response.status() >= 400 ||
+        /Yêu cầu không hợp lệ|invalid.origin|Invalid Server Actions request/i.test(
+          await response.text(),
+        ),
+    ).toBe(true);
+    expect(
+      (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+        .data.requests[confirmation.endpoint] ?? 0,
+    ).toBe(before);
   });
-  const url = `/verify-email?email=cross-origin%40example.test&token=${"v".repeat(64)}`;
-  await page.goto(url);
-  const before =
-    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
-      .data.requests["/api/email/verify"] ?? 0;
-  await page
-    .getByRole("button", { name: "Xác thực email", exact: true })
-    .click();
-  const action = await captured;
-  const headers: Record<string, string> = {
-    ...action.headers,
-    origin: "https://example.com",
-  };
-  for (const header of ["host", "cookie", "content-length"])
-    delete headers[header];
-  const response = await request.post(`http://localhost:3119${url}`, {
-    headers,
-    data: action.body,
-    maxRedirects: 0,
-  });
-  expect(
-    response.status() >= 400 ||
-      /Yêu cầu không hợp lệ|invalid.origin|Invalid Server Actions request/i.test(
-        await response.text(),
-      ),
-  ).toBe(true);
-  expect(
-    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
-      .data.requests["/api/email/verify"] ?? 0,
-  ).toBe(before);
-});
