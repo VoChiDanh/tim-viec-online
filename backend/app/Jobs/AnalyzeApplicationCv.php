@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Exceptions\AiAnalysisException;
 use App\Models\Application;
 use App\Services\AiAssessmentScheduler;
+use App\Services\AiCvEligibility;
 use App\Services\GeminiService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,7 +51,7 @@ class AnalyzeApplicationCv implements ShouldQueue
                 $application->update(['ai_analysis_status' => 'completed', 'ai_analysis_error' => null]);
                 return;
             }
-            if (! config('ai.enabled') || $application->isWithdrawn()) {
+            if (! config('ai.enabled') || $application->isWithdrawn() || AiCvEligibility::isDemo($application->cv_path)) {
                 $application->update(['ai_analysis_status' => 'deferred', 'ai_analysis_error' => null]);
                 return;
             }
@@ -60,6 +61,10 @@ class AnalyzeApplicationCv implements ShouldQueue
                 $service->analyze($application);
                 $application->update(['ai_analysis_status' => 'completed', 'ai_analysis_error' => null]);
             } catch (\Throwable $exception) {
+                if ($exception instanceof AiAnalysisException && $exception->getMessage() === AiAnalysisException::DEMO_CV) {
+                    $application->update(['ai_analysis_status' => 'deferred', 'ai_analysis_error' => null]);
+                    return;
+                }
                 $safe = $exception instanceof AiAnalysisException
                     ? $exception : new AiAnalysisException('Không thể phân tích CV lúc này. Vui lòng thử lại sau.', false);
                 $retry = $safe->retryable && $this->job && $this->attempts() < $this->tries;

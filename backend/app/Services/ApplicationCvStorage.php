@@ -15,7 +15,7 @@ class ApplicationCvStorage
         if (! Storage::disk($disk)->exists($source)) {
             throw new \RuntimeException('Profile CV is missing.');
         }
-        $target = 'application_cvs/'.Str::uuid().'.pdf';
+        $target = 'application_cvs/'.(AiCvEligibility::isDemo($source) ? 'demo-seed/' : '').Str::uuid().'.pdf';
         $stream = Storage::disk($disk)->readStream($source);
         if (! is_resource($stream)) {
             throw new \RuntimeException('Profile CV could not be read.');

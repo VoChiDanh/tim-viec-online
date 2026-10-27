@@ -317,6 +317,76 @@ class AiLifecycleTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_seeded_demo_cv_cannot_be_requested_scheduled_or_processed(): void
+    {
+        [, $employer, $application] = $this->fixture();
+        $application->update(['cv_path' => 'demo-seed/recruitment-demo-v1/applications/123.pdf']);
+        $this->actingAs($employer, 'sanctum')->getJson('/api/applications/'.$application->id.'/ai-analysis')
+            ->assertOk()->assertJsonPath('data.retryable', false);
+        $this->postJson('/api/applications/'.$application->id.'/ai-analyze')->assertUnprocessable();
+        app(\App\Services\AiAssessmentScheduler::class)->schedule($application);
+        $application->update(['ai_analysis_status' => 'pending']);
+        $this->app->call([new AnalyzeApplicationCv($application->id), 'handle']);
+        $this->assertSame('deferred', $application->fresh()->ai_analysis_status);
+        $this->assertNull($application->fresh()->aiAnalysis);
+        Queue::assertNothingPushed();
+        Http::assertNothingSent();
+    }
+
+    public function test_renamed_seed_cv_is_blocked_even_when_calling_provider_service_directly(): void
+    {
+        [, , $application] = $this->fixture();
+        $source = (new \Database\Seeders\Demo\DemoAssets)->cv(0, 'Synthetic Candidate', 'Developer', ['PHP'], 3);
+        $copy = app(\App\Services\ApplicationCvStorage::class)->snapshot($source);
+        $this->assertStringStartsWith('application_cvs/demo-seed/', $copy);
+        // Older copies lost their seed directory: their exact embedded seed marker still excludes them.
+        Storage::disk('private')->copy($copy, 'application_cvs/old-copy.pdf');
+        $application->update(['cv_path' => 'application_cvs/old-copy.pdf']);
+        try {
+            app(\App\Services\GeminiService::class)->analyze($application);
+            $this->fail('Synthetic seed CV must never reach the provider.');
+        } catch (\App\Exceptions\AiAnalysisException $exception) {
+            $this->assertFalse($exception->retryable);
+        }
+        $this->app->call([new AnalyzeApplicationCv($application->id), 'handle']);
+        $this->assertSame('deferred', $application->fresh()->ai_analysis_status);
+        $this->assertNull($application->fresh()->aiAnalysis);
+        Http::assertNothingSent();
+    }
+
+    public function test_genuine_upload_by_demo_account_remains_eligible_but_original_seed_does_not(): void
+    {
+        [$candidate, $employer, $seeded] = $this->fixture();
+        $candidate->update(['email' => 'candidate.00001@demo.timviec.test']);
+        $source = (new \Database\Seeders\Demo\DemoAssets)->cv(0, 'Synthetic Candidate', 'Developer', ['PHP'], 3);
+        $seeded->update(['cv_path' => $source]);
+        $profile = $candidate->candidateProfile;
+        $profile->update(['cv_file_path' => $source]);
+        $demoCvJob = $seeded->job->replicate();
+        $demoCvJob->save();
+        $this->actingAs($candidate->fresh(), 'sanctum')->postJson('/api/jobs/'.$demoCvJob->id.'/apply', ['cv_source' => 'profile'])->assertCreated();
+        $demoCopy = Application::where('job_id', $demoCvJob->id)->firstOrFail();
+        $this->assertStringStartsWith('application_cvs/demo-seed/', $demoCopy->cv_path);
+        $this->assertSame('deferred', $demoCopy->ai_analysis_status);
+        Queue::assertNothingPushed();
+        Http::assertNothingSent();
+        $newJob = $seeded->job->replicate();
+        $newJob->save();
+        $this->actingAs($candidate, 'sanctum')->postJson('/api/candidate/cv', [
+            'cv_file' => \Illuminate\Http\UploadedFile::fake()->createWithContent('genuine.pdf', $this->pdf()),
+        ])->assertSuccessful();
+        $this->actingAs($candidate->fresh(), 'sanctum')->postJson('/api/jobs/'.$newJob->id.'/apply', ['cv_source' => 'profile'])->assertCreated();
+        $genuine = Application::where('job_id', $newJob->id)->firstOrFail();
+        Queue::assertPushed(AnalyzeApplicationCv::class, 1);
+        $this->assertSame('pending', $genuine->ai_analysis_status);
+        Http::fake(['*' => Http::response($this->providerAssessment())]);
+        $this->app->call([new AnalyzeApplicationCv($genuine->id, $genuine->ai_request_id), 'handle']);
+        $this->assertSame('completed', $genuine->fresh()->ai_analysis_status);
+        Http::assertSentCount(1);
+        $this->actingAs($employer, 'sanctum')->postJson('/api/applications/'.$seeded->id.'/ai-analyze')->assertUnprocessable();
+        Http::assertSentCount(1);
+    }
+
     private function completed(Application $application): void
     {
         AiCvAnalysis::create(['application_id' => $application->id] + $this->assessment());

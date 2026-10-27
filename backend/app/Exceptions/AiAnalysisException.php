@@ -6,6 +6,7 @@ namespace App\Exceptions;
 class AiAnalysisException extends \RuntimeException
 {
     public const CONFIGURATION = 'CV analysis provider is not configured.';
+    public const DEMO_CV = 'Seeded demo CV is excluded from AI analysis.';
 
     public const UNREADABLE_CV = 'Unreadable CV text.';
 

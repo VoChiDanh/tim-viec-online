@@ -7,6 +7,7 @@ use App\Http\Requests\AnalyzeApplicationRequest;
 use App\Http\Resources\AiAnalysisResource;
 use App\Models\Application;
 use App\Services\AiAssessmentScheduler;
+use App\Services\AiCvEligibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,6 +19,7 @@ class AiAnalysisController extends Controller
         if ($application->aiAnalysis) {
             return $this->state($application);
         }
+        abort_if(AiCvEligibility::isDemo($application->cv_path), 422, 'CV dữ liệu mẫu không được gửi sang dịch vụ AI.');
         abort_unless(config('ai.enabled'), 503, 'Phân tích AI chưa được bật.');
         abort_unless($application->cv_path, 422, 'Đơn ứng tuyển này chưa có file CV để phân tích.');
         abort_if($application->isWithdrawn(), 422, 'Hồ sơ đã rút không thể yêu cầu phân tích.');
@@ -53,6 +55,7 @@ class AiAnalysisController extends Controller
                 'analysis' => $application->aiAnalysis ? new AiAnalysisResource($application->aiAnalysis) : null,
                 'error' => $status === 'failed' ? $application->ai_analysis_error : null,
                 'retryable' => (bool) config('ai.enabled') && ! $application->aiAnalysis && ! $application->isWithdrawn()
+                    && ! AiCvEligibility::isDemo($application->cv_path)
                     && ! AiAssessmentScheduler::isActive($application),
             ],
         ], $httpStatus);

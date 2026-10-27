@@ -28,10 +28,17 @@ class GeminiService
         if ($existing) {
             return $existing;
         }
+        if (AiCvEligibility::isDemo($application->cv_path)) {
+            throw new AiAnalysisException(AiAnalysisException::DEMO_CV);
+        }
         [$provider, $model, $key] = $this->configuration();
+        $cvText = $this->extractTextFromPdf($application->cv_path);
+        if (str_contains($cvText, AiCvEligibility::DEMO_MARKER)) {
+            throw new AiAnalysisException(AiAnalysisException::DEMO_CV);
+        }
         $input = $this->encode([
             'job_description' => $this->jobDescription($application),
-            'cv_text' => $this->extractTextFromPdf($application->cv_path),
+            'cv_text' => $cvText,
         ]);
         [$result, $usage] = $provider === 'groq'
             ? $this->groq($model, $key, $input)

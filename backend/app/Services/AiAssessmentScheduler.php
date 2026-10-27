@@ -30,7 +30,15 @@ class AiAssessmentScheduler
 
         try {
             $application->refresh()->load(['aiAnalysis', 'job.skills']);
-            if ($application->aiAnalysis || self::isActive($application)) {
+            if ($application->aiAnalysis) {
+                return $application;
+            }
+            if (AiCvEligibility::isDemo($application->cv_path)) {
+                $application->update(['ai_analysis_status' => 'deferred', 'ai_analysis_error' => null,
+                    'ai_request_id' => null, 'ai_requested_at' => null]);
+                return $application;
+            }
+            if (self::isActive($application)) {
                 return $application;
             }
             $requestId = (string) Str::uuid();
