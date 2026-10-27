@@ -46,7 +46,7 @@ test("home follows the reference sections and submits the shared job search", as
   await expect(page.getByTestId("job-card").first()).toContainText("React");
 });
 
-test("featured jobs resolve to their own details and guest save restores focus", async ({
+test("featured jobs resolve to their own details and guest save opens login", async ({
   page,
 }) => {
   await page.goto("/");
@@ -61,12 +61,11 @@ test("featured jobs resolve to their own details and guest save restores focus",
   expect(new Set(links).size).toBe(6);
   const save = cards
     .first()
-    .getByRole("button", { name: "Lưu việc làm", exact: true });
+    .getByRole("link", { name: "Lưu việc làm", exact: true });
   await save.click();
-  await expect(page.getByRole("dialog")).toContainText("Vui lòng đăng nhập");
-  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/login\?returnTo=/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(save).toBeFocused();
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(links[0]);
   for (let index = 0; index < links.length; index++) {
     await page.goto(links[index]);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(

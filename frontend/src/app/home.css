@@ -535,7 +535,7 @@
   flex-shrink: 0;
 }
 
-.home-save button {
+.home-save :is(button, a) {
   width: 24px;
   height: 24px;
   padding: 0;
@@ -546,12 +546,12 @@
   box-shadow: none;
 }
 
-.home-save button:hover {
+.home-save :is(button, a):hover {
   background: var(--home-red-soft);
   color: var(--home-red);
 }
 
-.home-save button svg {
+.home-save :is(button, a) svg {
   width: 14.4px;
   height: 14.4px;
 }

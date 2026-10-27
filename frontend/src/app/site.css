@@ -794,7 +794,7 @@ main {
   .job-card-top {
     gap: 5px;
   }
-  .job-save > button {
+  .job-save > :is(button, a) {
     width: 36px;
     height: 36px;
   }

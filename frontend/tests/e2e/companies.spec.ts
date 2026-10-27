@@ -176,14 +176,11 @@ test("company vacancies exclude closed jobs and link to the correct job and comp
     .click();
   await expect(page).toHaveURL(/\/companies\/1$/);
   await page
-    .getByRole("button", { name: "Lưu việc làm", exact: true })
+    .getByRole("link", { name: "Lưu việc làm", exact: true })
     .first()
     .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "Lưu việc làm", exact: true }).first(),
-  ).toBeFocused();
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fjobs%2F1$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("company discovery opens the directory and sharing copies the profile URL", async ({

@@ -10,15 +10,6 @@ import type { AuthRole } from "@/features/auth/types";
 import { useOptionalWorkspace } from "@/components/candidate/workspace-provider";
 import { ApplyDialog } from "./apply-dialog";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogClose,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/modules/cores/shadcn/components/ui/dialog";
 
 export function GuestActions({
   jobId,
@@ -131,50 +122,30 @@ export function GuestActions({
           <SaveIcon aria-hidden="true" fill={saved ? "currentColor" : "none"} />
           {!compact && (saved ? "Đã lưu" : "Lưu việc làm")}
         </Button>
+      ) : !viewerRole ? (
+        <Button
+          asChild
+          variant="outline"
+          className={compact ? "size-11 rounded-full" : "h-11"}
+        >
+          <Link href={loginUrl} aria-label="Lưu việc làm">
+            <SaveIcon aria-hidden="true" />
+            {!compact && "Lưu việc làm"}
+          </Link>
+        </Button>
       ) : (
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className={compact ? "size-11 rounded-full" : "h-11"}
-              aria-label={compact ? "Lưu việc làm" : undefined}
-            >
-              {appearance === "home" ? (
-                <Heart aria-hidden="true" />
-              ) : (
-                <Bookmark aria-hidden="true" />
-              )}
-              {!compact && "Lưu việc làm"}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="feedback-message">
-            <span className="feedback-symbol" aria-hidden="true">
-              <Bookmark />
-            </span>
-            <DialogHeader>
-              <DialogTitle>Lưu cơ hội bạn quan tâm</DialogTitle>
-              <DialogDescription>
-                {viewerRole === "candidate"
-                  ? "Hiện chưa thể lưu việc làm. Bạn có thể lưu liên kết để xem lại công việc."
-                  : viewerRole
-                    ? "Lưu việc làm dành cho tài khoản ứng viên."
-                    : "Vui lòng đăng nhập tài khoản ứng viên để lưu việc làm và xem lại trong hồ sơ của bạn."}
-              </DialogDescription>
-            </DialogHeader>
-            {viewerRole ? (
-              <DialogClose asChild>
-                <Button className="h-11">Đã hiểu</Button>
-              </DialogClose>
-            ) : (
-              <Button asChild className="h-11">
-                <Link href={loginUrl}>
-                  Đến trang đăng nhập
-                  <ArrowRight aria-hidden="true" />
-                </Link>
-              </Button>
-            )}
-          </DialogContent>
-        </Dialog>
+        <Button
+          variant="outline"
+          className={compact ? "size-11 rounded-full" : "h-11"}
+          aria-label="Lưu việc làm"
+          disabled={viewerRole !== "candidate"}
+          onClick={() =>
+            toast.info("Đang tải thông tin việc làm. Vui lòng thử lại.")
+          }
+        >
+          <SaveIcon aria-hidden="true" />
+          {!compact && "Lưu việc làm"}
+        </Button>
       )}
       {!compact && (
         <Button

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
-  test(`menus, dialogs and sheets settle and return focus with motion=${reducedMotion}`, async ({
+  test(`menus and sheets settle and guest save navigates with motion=${reducedMotion}`, async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion });
@@ -40,33 +40,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     }
 
     const save = page
-      .getByRole("button", { name: "Lưu việc làm", exact: true })
+      .getByRole("link", { name: "Lưu việc làm", exact: true })
       .first();
-    const headerBeforeDialog = await page.locator(".site-header").boundingBox();
     await save.click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await dialog.evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations()
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
-    const bounds = (await dialog.boundingBox())!;
-    const contentWidth = await page.evaluate(
-      () => document.documentElement.getBoundingClientRect().width,
-    );
-    expect(
-      Math.abs(bounds.x + bounds.width / 2 - contentWidth / 2),
-    ).toBeLessThan(2);
-    expect(await page.locator(".site-header").boundingBox()).toEqual(
-      headerBeforeDialog,
-    );
-    expect(Math.abs(bounds.y + bounds.height / 2 - 450)).toBeLessThan(2);
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await expect(save).toBeFocused();
+    await expect(page).toHaveURL(/\/login\?returnTo=/);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.goto("/jobs");
 
     const bell = page.getByRole("button", {
       name: "Trung tâm thông báo",

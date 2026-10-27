@@ -10,7 +10,7 @@ test("locked menus retain desktop spacing after resizing from mobile", async ({
     content: "::-webkit-scrollbar {width:17px;height:17px}",
   });
   await page
-    .getByRole("button", { name: "Lưu việc làm", exact: true })
+    .getByRole("button", { name: "Trung tâm thông báo", exact: true })
     .first()
     .click();
   await expect(page.locator("body")).toHaveAttribute("data-scroll-locked");
@@ -64,7 +64,7 @@ for (const width of [901, 1440]) {
           .click();
       else
         await page
-          .getByRole("button", { name: "Lưu việc làm", exact: true })
+          .getByRole("button", { name: "Trung tâm thông báo", exact: true })
           .first()
           .click();
       await expect(page.locator("body")).toHaveAttribute("data-scroll-locked");
@@ -103,7 +103,7 @@ for (const width of [901, 1440]) {
       ).toBeGreaterThan(0);
       const screenshot = await page.screenshot({
         path: testInfo.outputPath("edge.png"),
-        // Select closes on viewport resize; use the fixed dialog on home to
+        // Select closes on viewport resize; use the fixed sheet on home to
         // also inspect the footer in a full-page capture.
         fullPage: area === "home",
         animations: "disabled",

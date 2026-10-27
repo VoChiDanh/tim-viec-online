@@ -121,21 +121,20 @@ test("multiple categories, type and salary combine; clear removes query", async 
   await expect(page.getByTestId("job-card")).toHaveCount(6);
 });
 
-test("save requests login; dialog supports Escape and restores focus", async ({
+test("save opens login directly and retains the selected job", async ({
   page,
 }) => {
   await page.goto("/jobs");
   const save = page
-    .getByRole("button", { name: "Lưu việc làm", exact: true })
+    .getByRole("link", { name: "Lưu việc làm", exact: true })
     .first();
+  const target = await save.getAttribute("href");
   await save.click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(save).toBeFocused();
-  await page.keyboard.press("Enter");
-  await page.getByRole("link", { name: "Đến trang đăng nhập" }).click();
   await expect(page).toHaveURL(/\/login\?returnTo=/);
+  expect(new URL(page.url()).searchParams.get("returnTo")).toBe(
+    new URL(target!, page.url()).searchParams.get("returnTo"),
+  );
 });
 
 test("closed, expired and invalid jobs have honest states", async ({
@@ -160,7 +159,7 @@ test("closed, expired and invalid jobs have honest states", async ({
   await expect(page.locator("main#main")).toHaveCount(1);
 });
 
-test("search, details and guest dialog pass automated accessibility checks", async ({
+test("search, details and guest login pass automated accessibility checks", async ({
   page,
 }) => {
   // Audit settled colors, rather than opacity during staggered card entry.
@@ -188,14 +187,14 @@ test("search, details and guest dialog pass automated accessibility checks", asy
     page.getByRole("button", { name: "Ngành nghề", exact: true }),
   ).toBeFocused();
   await page
-    .getByRole("button", { name: "Lưu việc làm", exact: true })
+    .getByRole("link", { name: "Lưu việc làm", exact: true })
     .first()
     .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  const dialog = await new AxeBuilder({ page })
+  await expect(page).toHaveURL(/\/login\?returnTo=/);
+  const login = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
-  expect(dialog.violations).toEqual([]);
+  expect(login.violations).toEqual([]);
 });
 
 for (const width of [360, 390, 768, 1024, 1440]) {
