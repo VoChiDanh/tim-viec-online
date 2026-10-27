@@ -124,11 +124,17 @@ for (const width of [360, 1440]) {
         color: style.color,
       };
     };
-    const expected = await page
+    // Streamed HTML may exist in a hidden wrapper before Next.js reveals it.
+    // Hidden flex children report min-width: 0px instead of the visible auto.
+    const reference = page
       .locator('.pagination [aria-current="page"]')
-      .evaluate(dimensions);
+      .filter({ visible: true });
+    await expect(reference).toBeVisible();
+    const expected = await reference.evaluate(dimensions);
     await login(page);
-    const current = page.locator('.pagination [aria-current="page"]');
+    const current = page
+      .locator('.pagination [aria-current="page"]')
+      .filter({ visible: true });
     await expect(current).toBeVisible();
     expect(await current.evaluate(dimensions)).toEqual(expected);
     await expect(page.locator(".pagination button")).toHaveCount(3);
