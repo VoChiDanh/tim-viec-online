@@ -77,13 +77,15 @@ Chưa chạy worker thì thư thông báo chờ trong `queue_jobs`, còn chat v�
 
 ### Đổi mật khẩu khi đang đăng nhập
 
-1. Mở `/account/security` bằng tài khoản ứng viên, tuyển dụng hoặc admin; nhập mật khẩu hiện tại và mật khẩu mới. Sau khi bấm **Đổi mật khẩu**, trang báo đã gửi email xác nhận. Mật khẩu cũ và các phiên hiện có vẫn hoạt động.
+1. Xác nhận email đăng ký trước tại `/verify-email`. Sau đó mở `/account/security` bằng tài khoản ứng viên, tuyển dụng hoặc admin; nhập mật khẩu hiện tại và mật khẩu mới. Sau khi bấm **Đổi mật khẩu**, trang báo đã gửi email xác nhận. Mật khẩu cũ và các phiên hiện có vẫn hoạt động. Tài khoản chưa xác nhận chỉ thấy hướng dẫn xác nhận email; backend từ chối yêu cầu đổi mật khẩu với 403 `email_verification_required`.
 2. Mở email và liên kết `/confirm-password-change`. Kiểm tra địa chỉ tài khoản rồi bấm **Xác nhận đổi mật khẩu**. Chỉ mở thư hoặc tải lại trang chưa áp dụng thay đổi.
 3. Sau xác nhận, mật khẩu mới có hiệu lực và toàn bộ phiên của tài khoản bị thu hồi; đăng nhập lại bằng mật khẩu mới. Trình duyệt đang đăng nhập tài khoản khác vẫn giữ phiên của tài khoản đó.
 
 Liên kết có hạn **15 phút**, dùng một lần. Yêu cầu mới thay thế yêu cầu cũ. Liên kết mất hiệu lực khi đã reset/đổi mật khẩu hoặc đổi địa chỉ email, kể cả đổi về địa chỉ cũ. Database `password_change_requests` chỉ lưu hash mật khẩu mới, hash token và thông tin ràng buộc với tài khoản; không lưu mật khẩu mới dạng rõ và không đưa hash/token vào API response.
 
 Yêu cầu đổi mật khẩu có giới hạn 1 lần/phút, 3 lần/15 phút mỗi tài khoản, kèm giới hạn IP; xác nhận có giới hạn IP riêng. SMTP lỗi trả thông báo gửi thất bại, giữ nguyên mật khẩu và phiên đăng nhập. Người dùng có thể gửi lại từ trang bảo mật sau thời gian chờ. Nếu không yêu cầu đổi mật khẩu, bỏ qua thư.
+
+Quên mật khẩu cũng yêu cầu email đã xác nhận riêng từ trước. Email chưa xác nhận, không tồn tại hoặc tài khoản không hoạt động đều nhận phản hồi chung; không tạo token hay gửi thư khôi phục. Dùng `/verify-email` để yêu cầu thư xác nhận đăng ký trước. Khi trạng thái xác nhận bị thu hồi, liên kết reset/đổi mật khẩu đang chờ cũng không sử dụng được. Reset và đổi mật khẩu không tự cập nhật `email_verified_at`, kể cả khi thành công.
 
 Migration mới bổ sung `user_id` và `credential_hash` vào `password_reset_tokens`. Các liên kết reset phát hành trước khi nâng cấp chưa có ràng buộc này cần yêu cầu lại thư mới. Không reset database hay tự xác nhận email của các tài khoản cũ.
 
