@@ -539,7 +539,7 @@ test("verification GET leaves links unused until explicit confirmation and repla
   await page
     .getByRole("button", { name: "Xác thực email", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "hết hạn hoặc không hợp lệ",
   );
   await expect(
@@ -557,7 +557,7 @@ test("verification handles malformed links, unavailable services and account-neu
   page,
 }) => {
   await page.goto("/verify-email?email=person%40example.test&token=malformed");
-  await expect(page.getByRole("alert")).toContainText("không hợp lệ");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("không hợp lệ");
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toHaveCount(0);
@@ -567,7 +567,7 @@ test("verification handles malformed links, unavailable services and account-neu
   await page
     .getByRole("button", { name: "Xác thực email", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("Không thể kết nối");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Không thể kết nối");
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toBeEnabled();
@@ -575,7 +575,7 @@ test("verification handles malformed links, unavailable services and account-neu
   await page
     .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText("quá nhiều lần");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("quá nhiều lần");
   await page
     .getByLabel("Email nhận liên kết xác thực")
     .fill("missing@example.test");

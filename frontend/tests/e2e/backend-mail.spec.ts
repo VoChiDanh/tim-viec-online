@@ -26,7 +26,7 @@ function decoded(letter: Letter) {
   ).toString("utf8");
 }
 
-test("real SMTP delivers welcome and recovery mail; browser resets once and logs in with the new password", async ({
+test("real SMTP verifies ownership and delivers recovery mail; browser confirms explicitly and resets once", async ({
   page,
 }) => {
   const email = "recovery@frontend-e2e.test";
@@ -43,11 +43,46 @@ test("real SMTP delivers welcome and recovery mail; browser resets once and logs
   await page
     .getByRole("button", { name: "Tạo tài khoản", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/login\?notice=registered$/);
+  await expect(page).toHaveURL(/\/verify-email\?email=/);
   await expect.poll(() => letters(email).length).toBe(1);
-  expect(decoded(letters(email)[0])).toContain("http://localhost:3127/login");
+  const verificationSource = decoded(letters(email)[0]);
+  const verificationUrl = verificationSource
+    .match(/href="([^"]*\/verify-email\?[^\"]+)"/)?.[1]
+    ?.replaceAll("&amp;", "&");
+  expect(verificationUrl).toBeTruthy();
+  expect(new URL(verificationUrl!).origin).toBe("http://localhost:3127");
   expect(letters(email)[0].raw).toContain("multipart/alternative");
   expect(letters(email)[0].raw).not.toContain(original);
+  const login = await page.request.post("http://127.0.0.1:8127/api/login", {
+    data: { email, password: original },
+  });
+  expect(login.ok()).toBeTruthy();
+  const auth = (await login.json()).data;
+  expect(auth.user.email_verified_at).toBeNull();
+  const authorization = { Authorization: `Bearer ${auth.token}` };
+  const blocked = await page.request.post("http://127.0.0.1:8127/api/jobs/1/apply", {
+    headers: authorization,
+    data: {},
+  });
+  expect(blocked.status()).toBe(403);
+  expect((await blocked.json()).code).toBe("email_verification_required");
+  await page.goto(verificationUrl!);
+  await page.reload();
+  const before = await page.request.get("http://127.0.0.1:8127/api/user", {
+    headers: authorization,
+  });
+  expect((await before.json()).data.email_verified_at).toBeNull();
+  await page.getByRole("button", { name: "Xác thực email", exact: true }).click();
+  await expect(page).toHaveURL(/\/login\?notice=verified$/);
+  const after = await page.request.get("http://127.0.0.1:8127/api/user", {
+    headers: authorization,
+  });
+  expect((await after.json()).data.email_verified_at).toBeTruthy();
+  const verification = new URL(verificationUrl!);
+  const replay = await page.request.post("http://127.0.0.1:8127/api/email/verify", {
+    data: Object.fromEntries(verification.searchParams),
+  });
+  expect(replay.status()).toBe(400);
 
   await page.goto("/forgot-password");
   await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
