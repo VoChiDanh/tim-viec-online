@@ -50,7 +50,7 @@ test("featured jobs resolve to their own details and guest save opens login", as
   page,
 }) => {
   await page.goto("/");
-  const cards = page.getByTestId("home-job-card");
+  const cards = page.getByTestId("home-job-card").filter({ visible: true });
   await expect(cards).toHaveCount(6);
   // Read paired values atomically after the streamed carousel has arrived.
   const entries = await cards
