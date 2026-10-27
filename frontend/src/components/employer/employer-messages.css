@@ -375,6 +375,47 @@
   color: var(--ep-muted, #667891);
   font-size: 11px;
 }
+.em-chat-composer-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 8px;
+  min-width: 0;
+}
+.em-chat-attach {
+  min-height: 40px;
+  color: var(--ep-text, #142b47);
+  font-size: 12px;
+}
+.em-chat-attachment-hint {
+  color: var(--ep-muted, #667891);
+  font-size: 11px;
+}
+.em-chat-attachment {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  padding-left: 10px;
+  border: 1px solid var(--ep-border, #e2e8f0);
+  border-radius: 9px;
+  background: var(--ep-bg, #f4f6fa);
+  color: var(--ep-text, #142b47);
+  font-size: 12px;
+}
+.em-chat-attachment > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.em-chat-attachment > button {
+  flex-shrink: 0;
+  min-width: 40px;
+  min-height: 40px;
+}
 .em-chat-empty {
   display: flex;
   flex-direction: column;

@@ -12,6 +12,7 @@ import {
   BriefcaseBusiness,
   Info,
   MessageSquare,
+  Paperclip,
   Search,
   Send,
   ShieldCheck,
@@ -104,6 +105,7 @@ export function EmployerMessages() {
     file: File;
   } | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const attachmentInput = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousRequested = useRef(requested);
@@ -518,50 +520,6 @@ export function EmployerMessages() {
                 }}
               >
                 <Field data-invalid={!!activeError}>
-                  {state.apiMode && (
-                    <div>
-                      <label htmlFor="em-attachment">
-                        Ảnh đính kèm (tối đa 5 MB)
-                      </label>
-                      <input
-                        id="em-attachment"
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
-                        disabled={state.messageSending[conversation.id]}
-                        onChange={(event) => {
-                          const file = event.currentTarget.files?.[0];
-                          event.currentTarget.value = "";
-                          if (!file || !conversation) return;
-                          if (
-                            !/^image\/(jpeg|png|gif|webp)$/.test(file.type) ||
-                            file.size > 5 * 1024 * 1024
-                          ) {
-                            setError({
-                              id: conversation.id,
-                              text: "Chọn ảnh JPEG, PNG, GIF hoặc WebP tối đa 5 MB.",
-                            });
-                            return;
-                          }
-                          setAttachment({
-                            conversationId: conversation.id,
-                            file,
-                          });
-                          setError(null);
-                        }}
-                      />
-                      {attachment?.conversationId === conversation.id && (
-                        <span>
-                          {attachment.file.name}{" "}
-                          <button
-                            type="button"
-                            onClick={() => setAttachment(null)}
-                          >
-                            Bỏ ảnh
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  )}
                   <FieldLabel htmlFor="em-message" className="sr-only">
                     Tin nhắn của bạn
                   </FieldLabel>
@@ -594,6 +552,74 @@ export function EmployerMessages() {
                   </div>
                   <FieldError id="em-message-error">{activeError}</FieldError>
                 </Field>
+                {state.apiMode && (
+                  <div className="em-chat-composer-tools">
+                    <input
+                      ref={attachmentInput}
+                      id="em-attachment"
+                      type="file"
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-label="Ảnh đính kèm"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      disabled={state.messageSending[conversation.id]}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = "";
+                        if (!file || !conversation) return;
+                        if (
+                          !file.size ||
+                          !/^image\/(jpeg|png|gif|webp)$/.test(file.type) ||
+                          file.size > 5 * 1024 * 1024
+                        ) {
+                          setError({
+                            id: conversation.id,
+                            text: "Chọn ảnh JPEG, PNG, GIF hoặc WebP tối đa 5 MB.",
+                          });
+                          return;
+                        }
+                        setAttachment({
+                          conversationId: conversation.id,
+                          file,
+                        });
+                        setError(null);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="em-chat-attach"
+                      aria-describedby="em-attachment-hint"
+                      disabled={state.messageSending[conversation.id]}
+                      onClick={() => attachmentInput.current?.click()}
+                    >
+                      <Paperclip size={16} aria-hidden="true" />
+                      Đính kèm ảnh
+                    </Button>
+                    <span
+                      id="em-attachment-hint"
+                      className="em-chat-attachment-hint"
+                    >
+                      JPEG, PNG, GIF, WebP · Tối đa 5 MB
+                    </span>
+                    {attachment?.conversationId === conversation.id && (
+                      <div className="em-chat-attachment">
+                        <span title={attachment.file.name}>
+                          {attachment.file.name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Bỏ ảnh đính kèm"
+                          onClick={() => setAttachment(null)}
+                        >
+                          <X size={16} aria-hidden="true" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="em-chat-composer-meta">
                   <span id="em-message-hint">
                     Enter để gửi · Ctrl/⌘ + Enter để xuống dòng
