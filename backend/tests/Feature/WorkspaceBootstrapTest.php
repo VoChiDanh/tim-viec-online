@@ -112,8 +112,12 @@ class WorkspaceBootstrapTest extends TestCase
         foreach (['users', 'jobs', 'categories', 'skills'] as $section) {
             $existing = $this->getJson('/api/admin/'.$section.'?per_page=100')->assertOk();
             $this->assertSame($existing->json('meta.total'), count($response->json('data.'.$section)));
-            $this->assertSame($existing->json('data.0'), $response->json('data.'.$section.'.0'));
+            $this->assertSame($existing->json('data.0.id'), $response->json('data.'.$section.'.0.id'));
         }
+        $response->assertJsonMissingPath('data.jobs.0.company')
+            ->assertJsonMissingPath('data.jobs.0.category')
+            ->assertJsonMissingPath('data.users.0.candidate_profile');
+        $this->assertSame($this->getJson('/api/admin/jobs?per_page=100')->json('data.0.description'), $response->json('data.jobs.0.description'));
         $this->assertSame($this->getJson('/api/admin/stats?days=14')->json('data'), $response->json('data.stats'));
     }
 

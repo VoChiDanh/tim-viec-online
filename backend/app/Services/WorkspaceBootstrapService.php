@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\CandidateProfileController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Resources\AdminWorkspaceJobResource;
 use App\Http\Resources\ApplicationResource;
 use App\Http\Resources\JobResource;
 use App\Models\Application;
@@ -95,8 +96,8 @@ class WorkspaceBootstrapService
     {
         return [
             'role' => 'admin',
-            'users' => JsonResource::collection(User::with(['candidateProfile', 'company'])->orderByDesc('id')->get())->resolve($request),
-            'jobs' => JobResource::collection(Job::with(['company.user', 'category', 'skills'])->withCount('applications')->orderByDesc('id')->get())->resolve($request),
+            'users' => JsonResource::collection(User::select(['id', 'name', 'email', 'phone', 'role', 'status', 'created_at'])->with('company')->orderByDesc('id')->get())->resolve($request),
+            'jobs' => AdminWorkspaceJobResource::collection(Job::with('skills:id,name')->withCount('applications')->orderByDesc('id')->get())->resolve($request),
             'categories' => JsonResource::collection(Category::withCount('jobs')->orderByDesc('id')->get())->resolve($request),
             'skills' => JsonResource::collection(Skill::withCount(['jobs', 'candidateProfiles'])->orderByDesc('id')->get())->resolve($request),
             'stats' => app(AdminController::class)->stats($request->duplicate(['days' => 14]))->getData(true)['data'],

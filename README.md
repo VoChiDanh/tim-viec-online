@@ -44,7 +44,7 @@ tim-viec-online/
    # Cấu hình DB_DATABASE, GEMINI_API_KEY, REVERB/PUSHER trong file .env
    php artisan migrate --seed
    php artisan storage:link
-   php artisan serve --port=8000
+   php scripts/serve-local.php --port=8000
    ```
 2. **Cấu hình Frontend (`/frontend`):**
    ```bash
@@ -56,6 +56,8 @@ tim-viec-online/
    ```
 
 3. **Email đăng ký và quên mật khẩu:** Cấu hình Gmail SMTP hoặc nhà cung cấp của bạn theo [hướng dẫn email](docs/mail-setup.md). Chạy `php artisan mail:check` trong `backend/` để kiểm tra cấu hình; chỉ dùng `--to=...` khi muốn gửi thư thử. Mailer `log` mặc định không giao thư đến hộp thư thật.
+
+4. **Chat và hiệu suất local:** Giữ `php artisan reverb:start` chạy trong terminal riêng. Xem [hướng dẫn hiệu suất](docs/performance.md) về OPcache, dữ liệu workspace và kết quả đo tải trang.
 
 ---
 
