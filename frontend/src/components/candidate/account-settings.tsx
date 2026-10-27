@@ -45,7 +45,10 @@ export function AccountSettings() {
         {needsVerification && (
           <p className="cu-muted">
             Xác thực email trước khi bật thông báo.{" "}
-            <Link href="/verify-email" className="cu-link">
+            <Link
+              href={`/verify-email?${new URLSearchParams({ email: state.profile.email })}`}
+              className="cu-link"
+            >
               Xác thực email
             </Link>
           </p>

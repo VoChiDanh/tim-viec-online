@@ -325,7 +325,17 @@ export function AuthForm({
       {kind === "forgot" && (
         <p className="auth-form-note">
           Bạn cần xác thực email trước khi khôi phục mật khẩu.{" "}
-          <Link href="/verify-email">Xác thực email / gửi lại liên kết</Link>
+          <Link
+            href={
+              values.email &&
+              !validateAuthValues("forgot", { email: values.email }, today)
+                .email
+                ? `/verify-email?${new URLSearchParams({ email: values.email.trim().toLowerCase() })}`
+                : "/verify-email"
+            }
+          >
+            Xác thực email / gửi lại liên kết
+          </Link>
         </p>
       )}
       {kind !== "change" &&

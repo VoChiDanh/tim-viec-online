@@ -374,6 +374,43 @@ test("duplicate registration email preserves non-secret values and never creates
   ).toBe(false);
 });
 
+test("verification entry points prefill and lock the account email while preserving mailed link identity", async ({
+  page,
+  context,
+}) => {
+  await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  await page.goto("/account/settings");
+  await page.getByRole("link", { name: "Xác thực email", exact: true }).click();
+  const email = page.getByLabel("Email nhận liên kết xác thực");
+  await expect(email).toHaveValue("candidate@example.test");
+  await expect(email).not.toBeEditable();
+
+  await page.goto("/verify-email");
+  await expect(email).toHaveValue("candidate@example.test");
+  await expect(email).not.toBeEditable();
+
+  await page.goto(
+    `/verify-email?email=other%40example.test&token=${"v".repeat(64)}`,
+  );
+  await expect(email).toHaveValue("other@example.test");
+  await expect(email).not.toBeEditable();
+
+  await context.clearCookies();
+  await page.goto("/forgot-password");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("candidate@example.test");
+  await page
+    .getByRole("link", {
+      name: "Xác thực email / gửi lại liên kết",
+      exact: true,
+    })
+    .click();
+  await expect(email).toHaveValue("candidate@example.test");
+  await expect(email).not.toBeEditable();
+});
+
 test("successful registration opens verification instructions without silently authenticating", async ({
   page,
   context,
@@ -381,6 +418,12 @@ test("successful registration opens verification instructions without silently a
   await registration(page, "new@example.test");
   await page.getByRole("button", { name: /Đăng ký|Tạo tài khoản/ }).click();
   await expect(page).toHaveURL(/\/verify-email\?email=new%40example.test$/);
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).toHaveValue(
+    "new@example.test",
+  );
+  await expect(
+    page.getByLabel("Email nhận liên kết xác thực"),
+  ).not.toBeEditable();
   await expect(
     page.getByRole("button", { name: "Gửi lại email xác thực", exact: true }),
   ).toBeVisible();
@@ -770,7 +813,9 @@ test("verification handles malformed links, unavailable services and account-neu
   await expect(page.getByLabel("Email nhận liên kết xác thực")).toHaveValue(
     "throttled@example.test",
   );
-  await expect(page.getByLabel("Email nhận liên kết xác thực")).not.toBeEditable();
+  await expect(
+    page.getByLabel("Email nhận liên kết xác thực"),
+  ).not.toBeEditable();
   await page
     .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
     .click();

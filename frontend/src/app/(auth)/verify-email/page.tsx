@@ -4,6 +4,7 @@ import { AuthLoading } from "@/components/auth/auth-loading";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { EmailVerificationForm } from "@/components/auth/email-verification-form";
 import { readVerificationLink } from "@/features/auth/email-verification";
+import { getCurrentUser } from "@/services/auth-session";
 
 export const metadata: Metadata = {
   title: "Xác thực email",
@@ -29,7 +30,14 @@ async function VerificationScreen({
 }: {
   searchParams: Promise<Params>;
 }) {
-  const link = readVerificationLink(await searchParams);
+  const params = await searchParams;
+  const currentUser =
+    params.email === undefined && params.token === undefined
+      ? await getCurrentUser()
+      : null;
+  const link = readVerificationLink(
+    currentUser ? { ...params, email: currentUser.email } : params,
+  );
   return (
     <AuthShell
       kind="verify"
