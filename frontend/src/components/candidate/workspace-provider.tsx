@@ -250,6 +250,22 @@ function useWorkspaceState(initial: WorkspaceInitial) {
         contact: String(record(item.partner).name ?? ""),
       })),
     );
+    setMessages((current) =>
+      mergeChatMessages(
+        current,
+        rows(conversationData).flatMap((item) =>
+          item.last_message
+            ? [
+                candidateMessageFromApi(
+                  item.last_message,
+                  Number(initial.userId),
+                  Number(item.id),
+                ),
+              ]
+            : [],
+        ),
+      ),
+    );
     applicationRecords.current = rows(applicationData).map(
       candidateApplicationFromApi,
     );

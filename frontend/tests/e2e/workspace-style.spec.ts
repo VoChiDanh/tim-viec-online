@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginMock } from "./helpers/mock-auth";
+import { waitForSettledWorkspace } from "./helpers/workspace-ready";
 
 async function appearance(locator: Locator, properties: string[]) {
   return locator.first().evaluate((element, keys) => {
@@ -16,6 +17,8 @@ async function accountMenu(
   screenshotPath?: string,
 ) {
   const trigger = page.getByRole("button", { name: triggerName, exact: true });
+  await trigger.scrollIntoViewIfNeeded();
+  await waitForSettledWorkspace(page);
   const before = await page.getByRole("main").boundingBox();
   await trigger.click();
   const menu = page.getByRole("menu");
@@ -156,7 +159,7 @@ for (const width of [390, 1440]) {
       "/admin/jobs/7",
     ]) {
       await page.goto(route);
-      await expect(page.locator("main h1")).toBeVisible();
+      await waitForSettledWorkspace(page);
       expect(
         await appearance(page.locator(".ap-page-heading h1"), typography),
       ).toEqual(reference.heading);

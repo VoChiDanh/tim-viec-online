@@ -47,6 +47,8 @@ export function useChatMessages<T extends Message>(
     mapper.current = decode;
   });
   const loading = useRef(new Map<number, Promise<void>>());
+  // Preview and WebSocket messages may jump ahead of fully reconciled history.
+  const reconciled = useRef(new Map<number, number>());
   const locks = useRef(new Set<number>());
   const outbox = useRef(new Map<string, Outgoing>());
   useEffect(
@@ -92,7 +94,7 @@ export function useChatMessages<T extends Message>(
             throw new Error("Không tải được lịch sử tin nhắn.");
           const next = response.data.map((item) => mapper.current(item, id));
           // Catch up a burst beyond the newest window without re-reading old history.
-          const newestKnown = ids.length ? Math.max(...ids) : 0;
+          const newestKnown = reconciled.current.get(id) ?? 0;
           if (
             !older &&
             previous?.loaded &&
@@ -106,6 +108,8 @@ export function useChatMessages<T extends Message>(
               const gap = await apiRequest<unknown[]>(
                 messageHistoryPath(id, "newer", cursor),
               );
+              if (!Array.isArray(gap.data))
+                throw new Error("Không tải được lịch sử tin nhắn.");
               const batch = gap.data.map((item) => mapper.current(item, id));
               if (!batch.length) break;
               next.push(...batch);
@@ -115,6 +119,11 @@ export function useChatMessages<T extends Message>(
               more = Boolean(gap.meta?.has_more);
             }
           }
+          if (!older)
+            reconciled.current.set(
+              id,
+              Math.max(newestKnown, ...next.map((item) => Number(item.id))),
+            );
           setMessages((current) => {
             const oldest = next.length
               ? Math.min(...next.map((item) => Number(item.id)))
@@ -136,7 +145,7 @@ export function useChatMessages<T extends Message>(
               loaded: true,
               loading: false,
               hasOlder:
-                older || !previous?.loaded
+                older || !previous?.loaded || !newestKnown
                   ? Boolean(response.meta?.has_more)
                   : (current[id]?.hasOlder ?? false),
             },

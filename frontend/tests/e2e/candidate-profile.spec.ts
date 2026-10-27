@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { loginMock } from "./helpers/mock-auth";
+import { waitForSettledWorkspace } from "./helpers/workspace-ready";
 
 test.beforeEach(async ({ page }) => {
   await loginMock(page);
@@ -233,7 +234,7 @@ for (const width of [360, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/account/profile");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await waitForSettledWorkspace(page);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth - innerWidth,

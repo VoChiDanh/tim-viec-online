@@ -64,6 +64,7 @@ function useEmployerState(initial: EmployerData) {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
+  const revision = useRef(0);
   const [loadError, setLoadError] = useState("");
   const mock = {
     ...initial,
@@ -249,6 +250,7 @@ function useEmployerState(initial: EmployerData) {
   };
   const refresh = useCallback(async () => {
     if (!apiMode || busy.current) return;
+    const version = revision.current;
     try {
       const data = await loadEmployerApi(
         apiRequest,
@@ -256,6 +258,7 @@ function useEmployerState(initial: EmployerData) {
         initial.cities,
         vietnamToday(new Date()),
       );
+      if (busy.current || version !== revision.current) return;
       setCompany(data.company);
       setJobs(data.jobs);
       setApplications(data.applications);
@@ -264,6 +267,7 @@ function useEmployerState(initial: EmployerData) {
       setMessages((current) => mergeChatMessages(current, data.messages));
       setLoadError("");
     } catch (error) {
+      if (busy.current || version !== revision.current) return;
       setLoadError(
         error instanceof Error ? error.message : "Không tải được cập nhật.",
       );
@@ -360,6 +364,7 @@ function useEmployerState(initial: EmployerData) {
   async function write<T>(operation: () => Promise<T>): Promise<T> {
     if (busy.current) throw new Error("Đang lưu thay đổi, vui lòng chờ.");
     busy.current = true;
+    revision.current++;
     setPending(true);
     try {
       return await operation();
@@ -391,6 +396,7 @@ function useEmployerState(initial: EmployerData) {
           })
         ).data,
       );
+      revision.current++;
       setApplications((current) =>
         current.map((app) =>
           app.id === id
@@ -408,6 +414,7 @@ function useEmployerState(initial: EmployerData) {
     [],
   );
   const requestAnalysis = useCallback(async (id: number): Promise<AiState> => {
+    revision.current++;
     const result = parseAiState(
       (
         await apiRequest<unknown>(`/applications/${id}/ai-analyze`, {
@@ -415,6 +422,7 @@ function useEmployerState(initial: EmployerData) {
         })
       ).data,
     );
+    revision.current++;
     setApplications((current) =>
       current.map((app) =>
         app.id === id

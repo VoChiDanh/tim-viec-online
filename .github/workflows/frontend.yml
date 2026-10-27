@@ -1,0 +1,52 @@
+name: Frontend
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
+      - name: Unit and server tests
+        run: |
+          npm test
+          npm run test:mock-auth
+      - name: Production build
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser regression tests
+        run: |
+          npm run test:e2e
+          npm run test:auth
+          npx playwright test --config playwright.ai.config.ts
+          npm run test:admin-performance

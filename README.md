@@ -94,8 +94,8 @@ Bao gồm tất cả quyền của Khách, kèm theo:
   * [ ] **Lưu việc làm:** Lưu lại các công việc quan tâm và xem lại trong trang "Việc làm đã lưu".
   * [ ] **Nộp hồ sơ ứng tuyển (Apply):** Chọn CV đã có hoặc upload file CV mới, viết thư giới thiệu (Cover Letter) để ứng tuyển vào công việc.
   * [ ] **Hủy ứng tuyển (Rút hồ sơ):** Chỉ rút hồ sơ `applied` chưa được nhà tuyển dụng xem. Mỗi ứng viên chỉ nộp một lần cho một tin, kể cả sau khi rút.
-  * [ ] **Lịch sử ứng tuyển:** Backend hiện dùng `applied`, `waiting`, `accepted`, `rejected`, `withdrawn`; cần hoàn thiện UI để xem và theo dõi.
-* **Đánh giá AI:** Không hiển thị cho ứng viên theo yêu cầu cập nhật. Phân tích dành cho nhà tuyển dụng được hoãn ở đợt tích hợp hiện tại.
+  * [ ] **Lịch sử ứng tuyển:** Xem và theo dõi các trạng thái `applied`, `waiting`, `accepted`, `rejected`, `withdrawn` trên giao diện ứng viên.
+* **Đánh giá AI:** Không hiển thị cho ứng viên theo yêu cầu cập nhật. Sau khi nộp CV thật, hệ thống tự phân tích qua queue; nhà tuyển dụng sở hữu tin và quản trị viên được xem kết quả. CV demo không được gửi sang dịch vụ AI.
 * **Nhắn tin Realtime (Chat):**
   * [ ] Khung chat trực tiếp 1-1 với Nhà tuyển dụng của các công việc mình đã ứng tuyển để trao đổi thêm thông tin (vẫn duy trì trao đổi ngay cả khi tin đã đóng).
   * [ ] Nhận tin nhắn tức thì từ Nhà tuyển dụng mà không cần tải lại trang.

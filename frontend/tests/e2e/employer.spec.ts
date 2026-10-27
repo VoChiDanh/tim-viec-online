@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { loginMock, logoutMock, mockAccounts } from "./helpers/mock-auth";
+import { waitForSettledWorkspace } from "./helpers/workspace-ready";
 
 const backendTitle = "Lập trình viên Backend Laravel (Middle)";
 const employerNavigation = (page: Page) =>
@@ -580,7 +581,7 @@ for (const width of [360, 768, 1440]) {
       ["notifications", "/employer/notifications"],
     ]) {
       await page.goto(path);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await waitForSettledWorkspace(page);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth - innerWidth,

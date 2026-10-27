@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { waitForSettledWorkspace } from "./helpers/workspace-ready";
 
 async function loginAdmin(page: Page, path = "/admin") {
   await page.goto(`/login?returnTo=${encodeURIComponent(path)}`);
@@ -187,7 +188,7 @@ for (const width of [360, 1440]) {
           .click();
       }
       await expect(page).toHaveURL(new RegExp(`${path}$`));
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await waitForSettledWorkspace(page);
       await expect(page.locator(".ap-header")).toHaveAttribute(
         "data-test-persistent",
         "yes",

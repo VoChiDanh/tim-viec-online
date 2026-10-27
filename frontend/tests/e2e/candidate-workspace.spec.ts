@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { loginMock } from "./helpers/mock-auth";
+import { waitForSettledWorkspace } from "./helpers/workspace-ready";
 
 test.beforeEach(async ({ page }) => {
   await loginMock(page);
@@ -312,13 +313,17 @@ test("notification read state and account preferences persist between preview pa
     })),
   ).toEqual({ local: 0, session: 0 });
   await page.reload();
-  await expect(preference).toBeChecked();
+  // Preview preferences live only in the mounted workspace. API persistence is
+  // covered separately by backend-email-preferences.spec.ts against Laravel.
+  await expect(preference).not.toBeChecked();
 });
 
 for (const width of [360, 768, 1440]) {
   test(`candidate workspace pages remain accessible at ${width}px`, async ({
     page,
   }, testInfo) => {
+    // Audit the settled page, not intermediate colors in its entrance fade.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height: 900 });
     for (const path of [
       "jobs",
@@ -327,7 +332,7 @@ for (const width of [360, 768, 1440]) {
       "settings",
     ]) {
       await page.goto(`/account/${path}`);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await waitForSettledWorkspace(page);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth - innerWidth,
