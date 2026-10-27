@@ -8,6 +8,7 @@ import {
   SearchX,
 } from "lucide-react";
 import { CompanyAvatar } from "@/components/companies/company-avatar";
+import { CompanyCityFilter } from "@/components/companies/company-city-filter";
 import { Pagination } from "@/components/layout/pagination";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import {
@@ -83,14 +84,7 @@ export default async function CompaniesPage({
           </div>
           <div>
             <label htmlFor="company-city">Tỉnh / Thành phố</label>
-            <select id="company-city" name="city" defaultValue={query.city}>
-              <option value="">Tất cả địa điểm</option>
-              {cities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
+            <CompanyCityFilter cities={cities} initialCity={query.city} />
           </div>
           <Button type="submit" className="h-11">
             <Search size={16} aria-hidden="true" />

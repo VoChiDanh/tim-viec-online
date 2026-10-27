@@ -80,6 +80,19 @@ test("avatar selection previews an image, rejects disguised content and can be r
   await expect(
     page.getByRole("img", { name: "Ảnh đại diện đã chọn", exact: true }),
   ).toHaveCount(2);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const upload = page.getByRole("button", {
+      name: "Chọn ảnh đại diện",
+      exact: true,
+    });
+    const remove = page.getByRole("button", { name: "Xóa ảnh", exact: true });
+    await remove.scrollIntoViewIfNeeded();
+    const uploadBounds = (await upload.boundingBox())!;
+    const removeBounds = (await remove.boundingBox())!;
+    expect(Math.abs(uploadBounds.y - removeBounds.y)).toBeLessThan(2);
+    expect(removeBounds.x).toBeGreaterThan(uploadBounds.x + uploadBounds.width);
+  }
   await page.getByRole("button", { name: "Xóa ảnh", exact: true }).click();
   await expect(
     page.getByRole("img", { name: "Ảnh đại diện đã chọn", exact: true }),

@@ -631,49 +631,53 @@ export function ProfileEditor({
                     aria-describedby="avatar-description avatar-error"
                   />
                 )}
-                <div className="cu-file-picker">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      !hydrated || !!reading.avatar || workspace.pending.avatar
-                    }
-                    onClick={() => avatarInput.current?.click()}
-                  >
-                    <Upload aria-hidden="true" />
-                    Chọn ảnh đại diện
-                  </Button>
+                <div className="cu-file-picker cu-avatar-picker">
+                  <div className="cu-file-actions">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={
+                        !hydrated ||
+                        !!reading.avatar ||
+                        workspace.pending.avatar
+                      }
+                      onClick={() => avatarInput.current?.click()}
+                    >
+                      <Upload aria-hidden="true" />
+                      Chọn ảnh đại diện
+                    </Button>
+                    {(avatar || workspace.avatarUrl) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-fit"
+                        disabled={workspace.pending.avatar}
+                        onClick={async () => {
+                          reads.current.avatar++;
+                          setReading((state) => ({ ...state, avatar: false }));
+                          try {
+                            await workspace.deleteFile("avatar");
+                          } catch (error) {
+                            toast.error(
+                              error instanceof Error
+                                ? error.message
+                                : "Không thể xóa ảnh.",
+                            );
+                          }
+                          setFileErrors((state) => ({ ...state, avatar: "" }));
+                        }}
+                      >
+                        <Trash2 aria-hidden="true" />
+                        Xóa ảnh
+                      </Button>
+                    )}
+                  </div>
                   <span>{avatar ? avatar.name : "Chưa chọn ảnh"}</span>
                 </div>
                 <FieldDescription id="avatar-description">
                   JPEG, PNG hoặc WebP, tối đa 2 MB.
                 </FieldDescription>
                 <FieldError id="avatar-error">{fileErrors.avatar}</FieldError>
-                {(avatar || workspace.avatarUrl) && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-fit"
-                    disabled={workspace.pending.avatar}
-                    onClick={async () => {
-                      reads.current.avatar++;
-                      setReading((state) => ({ ...state, avatar: false }));
-                      try {
-                        await workspace.deleteFile("avatar");
-                      } catch (error) {
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Không thể xóa ảnh.",
-                        );
-                      }
-                      setFileErrors((state) => ({ ...state, avatar: "" }));
-                    }}
-                  >
-                    <Trash2 />
-                    Xóa ảnh
-                  </Button>
-                )}
               </Field>
             </div>
             <div className="cu-form-footer">

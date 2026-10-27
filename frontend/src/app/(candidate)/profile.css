@@ -264,6 +264,15 @@
   min-height: 40px;
   font-size: 12px;
 }
+.cu-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cu-avatar-picker > span {
+  flex: 1 1 160px;
+}
 .cu-file-picker span {
   min-width: 0;
   overflow-wrap: anywhere;

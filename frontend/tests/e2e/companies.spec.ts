@@ -78,6 +78,48 @@ test("company search resets pagination and opens the matching profile", async ({
   await expect(page).toHaveURL(/\/companies$/);
 });
 
+test("company city picker searches without accents and submits the selected city", async ({
+  page,
+}) => {
+  await page.goto("/companies?page=2");
+  const city = page.getByRole("combobox", {
+    name: "Tỉnh / Thành phố",
+    exact: true,
+  });
+  await city.click();
+  const search = page.getByRole("textbox", {
+    name: "Tìm tỉnh/thành phố",
+    exact: true,
+  });
+  await expect(search).toBeFocused();
+  await search.fill("ha noi");
+  await search.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(city).toContainText("Hà Nội");
+  await expect(city).toBeFocused();
+  await expect(page).toHaveURL(/page=2$/);
+  await page
+    .getByRole("button", { name: "Tìm doanh nghiệp", exact: true })
+    .click();
+  expect(new URL(page.url()).searchParams.get("city")).toBe("Hà Nội");
+  expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+  await expect(page.locator(".company-directory-card").first()).toBeVisible();
+  for (const location of await page
+    .locator(".company-directory-location")
+    .allTextContents()) {
+    expect(location).toContain("Hà Nội");
+  }
+  await page
+    .getByRole("button", { name: "Xóa tỉnh / thành phố", exact: true })
+    .click();
+  await expect(city).toContainText("Tất cả địa điểm");
+  await page
+    .getByRole("button", { name: "Tìm doanh nghiệp", exact: true })
+    .click();
+  expect(new URL(page.url()).searchParams.get("city")).toBe("");
+  await expect(page.locator(".company-directory-card")).toHaveCount(12);
+});
+
 test("company search has a recoverable empty state and bounds invalid pages", async ({
   page,
 }) => {
@@ -99,8 +141,8 @@ test("company search has a recoverable empty state and bounds invalid pages", as
   await expect(page).toHaveURL(/\/companies$/);
   await expect(page.getByLabel("Tên công ty hoặc từ khóa")).toHaveValue("");
   await expect(
-    page.getByLabel("Tỉnh / Thành phố", { exact: true }),
-  ).toHaveValue("");
+    page.getByRole("combobox", { name: "Tỉnh / Thành phố", exact: true }),
+  ).toContainText("Tất cả địa điểm");
   await expect(page.locator(".company-directory-card")).toHaveCount(12);
   for (const invalidPage of ["0", "-1", "invalid"]) {
     await page.goto(`/companies?page=${invalidPage}`);

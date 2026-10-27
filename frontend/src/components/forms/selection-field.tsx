@@ -130,6 +130,7 @@ export function SelectionField({
 }
 
 export function SearchableSelectionField({
+  id: controlId,
   label,
   placeholder,
   name,
@@ -144,6 +145,7 @@ export function SearchableSelectionField({
   popupOwner,
   popupTitle,
 }: CommonProps & {
+  id?: string;
   value: string;
   onValueChange: (value: string) => void;
   searchLabel?: string;
@@ -194,6 +196,7 @@ export function SearchableSelectionField({
       <Popover open={open} onOpenChange={changeOpen}>
         <PopoverTrigger asChild>
           <button
+            id={controlId}
             ref={trigger}
             className="selection-trigger"
             type="button"
