@@ -454,6 +454,7 @@ export function EmployerMessages() {
                               href={message.image_url}
                               target="_blank"
                               rel="noreferrer"
+                              aria-label="Xem ảnh đính kèm"
                             >
                               <Image
                                 src={message.image_url}

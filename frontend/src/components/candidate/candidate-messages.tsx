@@ -1,6 +1,7 @@
 "use client";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -388,16 +389,28 @@ export function CandidateMessages() {
                         <span className="sr-only">
                           {message.outgoing ? "Bạn" : conversation.contact}
                         </span>
-                        <p>{message.message}</p>
                         {message.image_url && (
                           <a
                             href={message.image_url}
                             target="_blank"
                             rel="noreferrer"
+                            aria-label="Xem ảnh đính kèm"
                           >
-                            Xem ảnh đính kèm
+                            <Image
+                              src={message.image_url}
+                              alt="Ảnh đính kèm trong hội thoại"
+                              width={240}
+                              height={180}
+                              unoptimized
+                              style={{
+                                objectFit: "contain",
+                                maxWidth: "100%",
+                                height: "auto",
+                              }}
+                            />
                           </a>
                         )}
+                        {message.message && <p>{message.message}</p>}
                         <small>
                           <time
                             dateTime={message.created_at}

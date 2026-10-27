@@ -411,6 +411,57 @@ test.describe.serial("Laravel integration without AI", () => {
       const anon = await browser.newContext({ baseURL: origin });
       expect((await anon.request.get(image!)).status()).toBe(401);
       await anon.close();
+      // Both participants must see a loaded inline preview without opening the link.
+      for (const participant of [page, employer]) {
+        const preview = participant
+          .getByRole("img", {
+            name: "Ảnh đính kèm trong hội thoại",
+            exact: true,
+          })
+          .last();
+        await expect(preview).toBeVisible();
+        await expect
+          .poll(() =>
+            preview.evaluate(
+              (node: HTMLImageElement) =>
+                node.complete && node.naturalWidth > 0,
+            ),
+          )
+          .toBe(true);
+      }
+      await employer.bringToFront();
+      await employer
+        .getByLabel("Ảnh đính kèm", { exact: true })
+        .setInputFiles({
+          name: "reply.png",
+          mimeType: "image/png",
+          buffer: png,
+        });
+      await employer
+        .getByRole("button", { name: "Gửi tin nhắn", exact: true })
+        .click();
+      await page.bringToFront();
+      const receivedImage = page
+        .locator(".cc-message:not(.cc-outgoing)")
+        .getByRole("img", { name: "Ảnh đính kèm trong hội thoại", exact: true })
+        .last();
+      await expect(receivedImage).toBeVisible();
+      await expect
+        .poll(() =>
+          receivedImage.evaluate(
+            (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+      await page.reload();
+      await expect(receivedImage).toBeVisible();
+      await expect
+        .poll(() =>
+          receivedImage.evaluate(
+            (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
     } finally {
       await otherContext.close();
     }
