@@ -74,6 +74,30 @@ test("CV checks exact five-MiB boundary, extension, MIME and signature without c
     assert.ok(await validateCv(file));
 });
 
+test("CV accepts leading line breaks and a UTF-8 BOM without accepting disguised non-PDF files", async () => {
+  const pdf = "%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n%%EOF";
+  for (const prefix of ["\n", "\r\n", " \t\n", "\uFEFF\n"]) {
+    assert.equal(
+      await validateCv(
+        new File([prefix, pdf], "cv.pdf", { type: "application/pdf" }),
+      ),
+      null,
+    );
+  }
+  for (const prefix of [
+    "<html>\n",
+    "<script>alert(1)</script>\n",
+    "MZ",
+    " ".repeat(1024),
+  ]) {
+    assert.ok(
+      await validateCv(
+        new File([prefix, pdf], "fake.pdf", { type: "application/pdf" }),
+      ),
+    );
+  }
+});
+
 test("avatar rejects executable formats and MIME-disguised image data", async () => {
   const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal(

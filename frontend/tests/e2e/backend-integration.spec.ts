@@ -106,7 +106,7 @@ test.describe.serial("Laravel integration without AI", () => {
     await page.getByLabel("Chọn CV PDF", { exact: true }).setInputFiles({
       name: "updated-cv.pdf",
       mimeType: "application/pdf",
-      buffer: pdf(),
+      buffer: Buffer.concat([Buffer.from("\n"), pdf()]),
     });
     await expect
       .poll(async () => (await api(page, "/candidate/cv/file")).status())

@@ -76,8 +76,12 @@ export async function validateCv(file: File): Promise<string | null> {
     (file.type && file.type !== "application/pdf")
   )
     return "Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB";
-  const bytes = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-  return String.fromCharCode(...bytes) === "%PDF-"
+  // Some PDF exports include a BOM or blank lines before the header. Only
+  // tolerate whitespace there; backend MIME validation still checks the file.
+  const header = new TextDecoder().decode(
+    await file.slice(0, 1024).arrayBuffer(),
+  );
+  return /^[\uFEFF\t\n\f\r ]*%PDF-/.test(header)
     ? null
     : "Tệp không có định dạng PDF hợp lệ.";
 }
