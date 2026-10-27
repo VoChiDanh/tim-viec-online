@@ -86,6 +86,7 @@ export function EmailVerificationForm({
             maxLength={100}
             required
             defaultValue={email}
+            readOnly={Boolean(email)}
             aria-invalid={!!resend.errors?.email}
             aria-describedby={
               resend.errors?.email ? "verification-email-error" : undefined

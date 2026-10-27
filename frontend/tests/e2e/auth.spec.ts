@@ -767,12 +767,18 @@ test("verification handles malformed links, unavailable services and account-neu
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toBeEnabled();
   await page.goto("/verify-email?email=throttled%40example.test");
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).toHaveValue(
+    "throttled@example.test",
+  );
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).not.toBeEditable();
   await page
     .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
     .click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "quá nhiều lần",
   );
+  await page.goto("/verify-email");
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).toBeEditable();
   await page
     .getByLabel("Email nhận liên kết xác thực")
     .fill("missing@example.test");
