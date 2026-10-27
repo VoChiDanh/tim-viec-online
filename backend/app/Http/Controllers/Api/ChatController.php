@@ -13,6 +13,7 @@ use App\Models\Job;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\NotificationEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -459,6 +460,12 @@ class ChatController extends Controller
                 'message_id' => $message->id,
                 'exception' => $exception->getMessage(),
             ]);
+        }
+
+        try {
+            app(NotificationEmailService::class)->message($message);
+        } catch (\Throwable) {
+            Log::error('Chat email notification could not be queued', ['message_id' => $message->id]);
         }
 
         return response()->json([

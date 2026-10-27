@@ -10,6 +10,7 @@ use App\Models\Application;
 use App\Models\Job;
 use App\Models\Notification;
 use App\Services\ApplicationCvStorage;
+use App\Services\NotificationEmailService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -485,6 +486,14 @@ class ApplicationController extends Controller
                     'application_id' => $application->id,
                     'exception' => $exception->getMessage(),
                 ]);
+            }
+        }
+
+        if ($previousStatus !== $request->status) {
+            try {
+                app(NotificationEmailService::class)->application($application);
+            } catch (\Throwable) {
+                Log::error('Application email notification could not be queued', ['application_id' => $application->id]);
             }
         }
 
