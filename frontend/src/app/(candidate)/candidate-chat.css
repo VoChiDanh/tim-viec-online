@@ -246,6 +246,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: auto;
+  overflow-anchor: none;
 }
 .cc-messages:focus-visible {
   outline: 2px solid var(--field-focus-border);

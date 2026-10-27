@@ -1,7 +1,6 @@
 "use client";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -17,6 +16,7 @@ import {
 import { isJobOpen } from "@/features/jobs/formatters";
 import { normalizeSearch } from "@/features/jobs/query";
 import { handleMessageComposerKeyDown } from "@/lib/message-composer";
+import { ChatAttachment } from "@/features/chat/chat-attachment";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { Textarea } from "@/modules/cores/shadcn/components/ui/textarea";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
@@ -165,6 +165,7 @@ export function CandidateMessages() {
         [conversation.id]: undefined,
       }));
     scrollBottom();
+    composer.current?.focus({ preventScroll: true });
     const nextError = await result;
     setError(nextError ?? "");
     if (!nextError) {
@@ -172,14 +173,12 @@ export function CandidateMessages() {
         ...current,
         [conversation.id]: undefined,
       }));
-      scrollBottom();
       setAnnouncement(
         state.isApi
           ? "Tin nhắn đã gửi."
           : "Tin nhắn đã được thêm vào bản xem trước, chưa gửi tới nhà tuyển dụng.",
       );
     }
-    composer.current?.focus({ preventScroll: true });
   };
   const filtered = state.conversations.filter((item) => {
     const itemJob = state.jobs.find((job) => job.id === item.job_id);
@@ -390,25 +389,7 @@ export function CandidateMessages() {
                           {message.outgoing ? "Bạn" : conversation.contact}
                         </span>
                         {message.image_url && (
-                          <a
-                            href={message.image_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label="Xem ảnh đính kèm"
-                          >
-                            <Image
-                              src={message.image_url}
-                              alt="Ảnh đính kèm trong hội thoại"
-                              width={240}
-                              height={180}
-                              unoptimized
-                              style={{
-                                objectFit: "contain",
-                                maxWidth: "100%",
-                                height: "auto",
-                              }}
-                            />
-                          </a>
+                          <ChatAttachment src={message.image_url} />
                         )}
                         {message.message && <p>{message.message}</p>}
                         <small>

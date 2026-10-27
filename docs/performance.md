@@ -64,3 +64,10 @@ Các số dưới đây là mẫu đo tải đủ HTTP response trên cùng máy
 | Tổng quan admin | 16,01 giây | 1,94 giây |
 
 Kiểm tra trình duyệt trên tài khoản demo có 60 hội thoại: hai yêu cầu xác thực WebSocket, thay vì đăng ký toàn bộ hội thoại. Bộ kiểm thử tích hợp kiểm tra sự kiện WebSocket thật, hai vai trò gửi/nhận, ảnh riêng tư, pending/thử lại và tải lịch sử cũ.
+
+### Giữ ổn định khung chat (27/10)
+
+- Đồng bộ nền không chèn/xóa dòng tải trong lịch sử đã mở; chỉ lần tải đầu và thao tác xem tin cũ mới hiển thị trạng thái tải.
+- Khi gửi tin, chỉ đưa xuống cuối và đặt con trỏ lúc bắt đầu gửi. Phản hồi chậm không tự kéo người đang đọc tin cũ xuống cuối hoặc giành lại con trỏ.
+- Hai vai trò dùng chung khung ảnh có tỷ lệ cố định để ảnh xem trước và ảnh tải từ API chiếm cùng không gian. Khung chat ứng viên tắt cuộn neo tự động của trình duyệt để không tranh chấp với cơ chế giữ vị trí hiện có.
+- Đã tái hiện regression dòng tải xuất hiện khi đồng bộ nền. Sau sửa: 7 kiểm thử chat với Laravel/Reverb trên database riêng, 115 unit tests, ESLint và production build đạt. Kiểm thử vị trí so sánh tọa độ nội dung trước/trong/sau đồng bộ và sau xác nhận gửi chậm (sai lệch tối đa 1 px); đây không phải phép đo FPS hay tải đồng thời.

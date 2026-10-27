@@ -430,13 +430,11 @@ test.describe.serial("Laravel integration without AI", () => {
           .toBe(true);
       }
       await employer.bringToFront();
-      await employer
-        .getByLabel("Ảnh đính kèm", { exact: true })
-        .setInputFiles({
-          name: "reply.png",
-          mimeType: "image/png",
-          buffer: png,
-        });
+      await employer.getByLabel("Ảnh đính kèm", { exact: true }).setInputFiles({
+        name: "reply.png",
+        mimeType: "image/png",
+        buffer: png,
+      });
       await employer
         .getByRole("button", { name: "Gửi tin nhắn", exact: true })
         .click();
@@ -468,6 +466,157 @@ test.describe.serial("Laravel integration without AI", () => {
   });
 
   for (const role of ["candidate", "employer"] as const) {
+    test(`${role} chat refresh keeps the reading position without inserting a loading row`, async ({
+      page,
+    }) => {
+      const ids = fixture();
+      let holdRefresh = false;
+      let finish!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      let refreshStarted = false;
+      await page.route(
+        `**/api/backend/conversations/${ids.conversation_id}/messages?*`,
+        async (route) => {
+          if (holdRefresh) {
+            refreshStarted = true;
+            await gate;
+          }
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              success: true,
+              data: Array.from({ length: 50 }, (_, index) => ({
+                id: 20000 + index,
+                conversation_id: ids.conversation_id,
+                sender_id: ids.employer_id,
+                message: `Stable history ${index}`,
+                created_at: `2026-10-26T12:${String(index).padStart(2, "0")}:00Z`,
+                is_read: true,
+              })),
+              meta: { has_more: false },
+            }),
+          });
+        },
+      );
+      try {
+        await login(
+          page,
+          role,
+          `/${role === "candidate" ? "account" : "employer"}/messages?conversation=${ids.conversation_id}`,
+        );
+        const region = page.getByRole("region", {
+          name: /^Nội dung hội thoại với/,
+        });
+        const anchor = region.getByText("Stable history 20", { exact: true });
+        await expect(anchor).toBeVisible();
+        await expect(
+          region.getByRole("button", {
+            name: "Đang tải tin nhắn…",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+        await region.evaluate((node) => {
+          node.scrollTop = 1100;
+        });
+        const before = await anchor.evaluate(
+          (node) => node.getBoundingClientRect().top,
+        );
+        holdRefresh = true;
+        await page.evaluate(() =>
+          window.dispatchEvent(new Event("backend:refresh")),
+        );
+        await expect.poll(() => refreshStarted).toBe(true);
+        await expect(
+          region.getByRole("button", {
+            name: "Đang tải tin nhắn…",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+        expect(
+          Math.abs(
+            (await anchor.evaluate(
+              (node) => node.getBoundingClientRect().top,
+            )) - before,
+          ),
+        ).toBeLessThanOrEqual(1);
+        const refreshed = page.waitForResponse(
+          (response) =>
+            response.request().method() === "GET" &&
+            new URL(response.url()).pathname ===
+              `/api/backend/conversations/${ids.conversation_id}/messages`,
+        );
+        finish();
+        await refreshed;
+        await expect
+          .poll(async () =>
+            Math.abs(
+              (await anchor.evaluate(
+                (node) => node.getBoundingClientRect().top,
+              )) - before,
+            ),
+          )
+          .toBeLessThanOrEqual(1);
+
+        // A delayed acknowledgement must not pull a reader back to the bottom.
+        let acknowledge!: () => void;
+        const acknowledgement = new Promise<void>((resolve) => {
+          acknowledge = resolve;
+        });
+        const endpoint = `/api/backend/conversations/${ids.conversation_id}/messages`;
+        await page.route(`**${endpoint}`, async (route) => {
+          await acknowledgement;
+          await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+              success: true,
+              data: {
+                id: 21000,
+                conversation_id: ids.conversation_id,
+                sender_id:
+                  role === "candidate" ? ids.candidate_id : ids.employer_id,
+                message: `Delayed acknowledgement ${role}`,
+                created_at: new Date().toISOString(),
+                is_read: false,
+              },
+            }),
+          });
+        });
+        try {
+          const composer = page.getByLabel("Tin nhắn của bạn", { exact: true });
+          await composer.fill(`Delayed acknowledgement ${role}`);
+          await composer.press("Enter");
+          const pending = region.locator('[data-delivery="sending"]');
+          await expect(pending).toHaveCount(1);
+          await region.evaluate((node) => {
+            node.scrollTop = 1100;
+          });
+          await expect(
+            page.getByRole("button", { name: "Xuống cuối", exact: true }),
+          ).toBeVisible();
+          const readingPosition = await anchor.evaluate(
+            (node) => node.getBoundingClientRect().top,
+          );
+          acknowledge();
+          await expect(pending).toHaveCount(0);
+          expect(
+            Math.abs(
+              (await anchor.evaluate(
+                (node) => node.getBoundingClientRect().top,
+              )) - readingPosition,
+            ),
+          ).toBeLessThanOrEqual(1);
+        } finally {
+          acknowledge();
+        }
+      } finally {
+        finish();
+      }
+    });
+
     test(`${role} chat shows pending immediately, preserves newer drafts and retries failed sends explicitly`, async ({
       page,
     }) => {

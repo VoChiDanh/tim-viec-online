@@ -76,7 +76,8 @@ export function useChatMessages<T extends Message>(
           [id]: {
             loaded: previous?.loaded ?? false,
             hasOlder: previous?.hasOlder ?? false,
-            loading: true,
+            // Background reconciliation must not insert a row into visible history.
+            loading: older || !previous?.loaded,
           },
         }));
         try {
