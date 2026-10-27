@@ -5,10 +5,60 @@ import {
   cacheablePublicRead,
 } from "../src/features/api/paths";
 import { ApiError } from "../src/features/api/client";
+import { profileEmailVerifiedAt } from "../src/features/candidate-workspace/types";
 import {
   loadEmailPreferences,
   saveEmailPreferences,
 } from "../src/features/candidate-workspace/email-preferences";
+
+test("profile email changes invalidate ownership while authoritative timestamps refresh it", () => {
+  const verified = "2026-10-27T08:30:00.000000Z";
+  assert.equal(
+    profileEmailVerifiedAt(
+      "first@example.test",
+      "second@example.test",
+      verified,
+      undefined,
+    ),
+    null,
+  );
+  assert.equal(
+    profileEmailVerifiedAt(
+      "first@example.test",
+      " FIRST@EXAMPLE.TEST ",
+      verified,
+      undefined,
+    ),
+    verified,
+  );
+  assert.equal(
+    profileEmailVerifiedAt(
+      "first@example.test",
+      "first@example.test",
+      verified,
+      null,
+    ),
+    null,
+  );
+  assert.equal(
+    profileEmailVerifiedAt(
+      "first@example.test",
+      "first@example.test",
+      null,
+      verified,
+    ),
+    verified,
+  );
+  assert.equal(
+    profileEmailVerifiedAt(
+      "first@example.test",
+      "first@example.test",
+      verified,
+      "invalid",
+    ),
+    null,
+  );
+});
 
 test("email preference endpoints require private reads and explicit update methods", () => {
   assert.equal(allowedBackendPath("/user/email-preferences"), true);

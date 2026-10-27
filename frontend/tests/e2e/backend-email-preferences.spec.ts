@@ -42,7 +42,7 @@ test("email switches persist server choices, roll back failed saves, and retry f
   await expect(applications).toBeDisabled();
   await expect(messages).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(applications).not.toBeChecked();
   await expect(applications).toBeEnabled();
   await page.unroute("**/api/backend/user/email-preferences");
@@ -67,7 +67,7 @@ test("email switches persist server choices, roll back failed saves, and retry f
     { times: 1 },
   );
   await page.reload();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(applications).toBeDisabled();
   await page.getByRole("button", { name: "Thử lại", exact: true }).click();
   await expect(applications).toBeEnabled();

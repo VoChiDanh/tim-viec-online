@@ -60,6 +60,25 @@ export type CandidatePreviewData = {
   messages: PreviewMessage[];
   notifications: CandidateNotification[];
 };
+
+export function profileEmailVerifiedAt(
+  previousEmail: string,
+  nextEmail: string,
+  previousTimestamp: string | null,
+  serverTimestamp: unknown,
+): string | null {
+  if (serverTimestamp === null) return null;
+  if (serverTimestamp !== undefined)
+    return typeof serverTimestamp === "string" &&
+      /^\d{4}-\d\d-\d\dT/.test(serverTimestamp) &&
+      Number.isFinite(Date.parse(serverTimestamp))
+      ? serverTimestamp
+      : null;
+  return previousEmail.trim().toLowerCase() === nextEmail.trim().toLowerCase()
+    ? previousTimestamp
+    : null;
+}
+
 export const CANDIDATE_PAGES: { key: CandidateSection; label: string }[] = [
   { key: "profile", label: "Hồ sơ của tôi" },
   { key: "jobs", label: "Việc làm của tôi" },

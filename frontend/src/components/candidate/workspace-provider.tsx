@@ -12,6 +12,7 @@ import type {
   PreviewMessage,
   Application,
 } from "@/features/candidate-workspace/types";
+import { profileEmailVerifiedAt } from "@/features/candidate-workspace/types";
 import {
   applicationError,
   type ApplyInput,
@@ -58,6 +59,10 @@ function useWorkspaceState(initial: WorkspaceInitial) {
       throw new Error("Không thể tải hồ sơ ứng viên.");
     return initial.profile ?? createProfilePreview();
   });
+  const [emailVerifiedAt, setEmailVerifiedAt] = useState(
+    initial.emailVerifiedAt ?? null,
+  );
+  const profileEmail = useRef(profile.email);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [cv, setCv] = useState<File | null>(null);
   const [cvUrl, setCvUrl] = useState(initial.cvUrl ?? null);
@@ -112,7 +117,23 @@ function useWorkspaceState(initial: WorkspaceInitial) {
     setEmailPrefsError(null);
     setEmailPrefsSaved(false);
     try {
-      setEmailPrefs(await loadEmailPreferences());
+      const [preferences, response] = await Promise.all([
+        loadEmailPreferences(),
+        apiRequest<unknown>("/candidate/profile"),
+      ]);
+      const updatedProfile = candidateProfileFromApi(response.data);
+      const previousEmail = profileEmail.current;
+      setEmailVerifiedAt((current) =>
+        profileEmailVerifiedAt(
+          previousEmail,
+          updatedProfile.email,
+          current,
+          record(record(response.data).user).email_verified_at,
+        ),
+      );
+      profileEmail.current = updatedProfile.email;
+      setProfile(updatedProfile);
+      setEmailPrefs(preferences);
       setEmailPrefsReady(true);
     } catch (error) {
       setEmailPrefsReady(false);
@@ -244,6 +265,7 @@ function useWorkspaceState(initial: WorkspaceInitial) {
   );
   return {
     ...initial,
+    emailVerifiedAt,
     markConversationRead,
     jobs,
     conversations,
@@ -313,9 +335,19 @@ function useWorkspaceState(initial: WorkspaceInitial) {
             method: "PUT",
             body: JSON.stringify(candidateProfilePayload(next)),
           });
-          const profile = candidateProfileFromApi(response.data);
-          setProfile(profile);
-          return profile;
+          const updatedProfile = candidateProfileFromApi(response.data);
+          const previousEmail = profileEmail.current;
+          setEmailVerifiedAt((current) =>
+            profileEmailVerifiedAt(
+              previousEmail,
+              updatedProfile.email,
+              current,
+              record(record(response.data).user).email_verified_at,
+            ),
+          );
+          profileEmail.current = updatedProfile.email;
+          setProfile(updatedProfile);
+          return updatedProfile;
         });
       setProfile(next);
       return next;
