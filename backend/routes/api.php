@@ -8,13 +8,14 @@ use App\Http\Controllers\Api\CandidateProfileController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\EmailPreferenceController;
+use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\JobReportController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PasswordChangeController;
 use App\Http\Controllers\Api\SkillController;
 use App\Http\Controllers\Api\WorkspaceBootstrapController;
-use App\Http\Controllers\Api\EmailVerificationController;
-use App\Http\Controllers\Api\EmailPreferenceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,6 +34,7 @@ Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->midd
 Route::match(['get', 'post'], '/verify-reset-token', [AuthController::class, 'verifyResetToken'])->middleware('throttle:password-token');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
+Route::post('/password/change/confirm', [PasswordChangeController::class, 'confirm'])->middleware('throttle:password-change-confirm');
 
 // Reports require an authenticated account to discourage anonymous spam.
 Route::middleware('auth:sanctum')->post('/jobs/{id}/report', [JobReportController::class, 'store']);
@@ -61,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/email-preferences', [EmailPreferenceController::class, 'show']);
     Route::put('/user/email-preferences', [EmailPreferenceController::class, 'update'])->middleware('throttle:30,1,email-preferences:');
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::put('/user/change-password', [AuthController::class, 'changePassword']);
+    Route::put('/user/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:password-change');
 
     // Realtime Chat (FR-08)
     Route::get('/conversations', [ChatController::class, 'index']);

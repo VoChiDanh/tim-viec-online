@@ -17,17 +17,24 @@ class PasswordRecoveryService
 
     public function sendLink(string $email): void
     {
-        $user = User::where('email', strtolower($email))->first();
+        $email = strtolower(trim($email));
+        $token = Str::random(64);
+        $digest = hash('sha256', $token);
+        $user = DB::transaction(function () use ($email, $digest) {
+            $user = User::where('email', $email)->lockForUpdate()->first();
+            if (! $user || $user->status !== 'active') {
+                return null;
+            }
+            DB::table('password_reset_tokens')->updateOrInsert(['email' => $email], [
+                'token' => $digest, 'created_at' => now(), 'user_id' => $user->id,
+                'credential_hash' => hash('sha256', $user->password),
+            ]);
+
+            return $user;
+        });
         if (! $user) {
             return;
         }
-
-        $token = Str::random(64);
-        $digest = hash('sha256', $token);
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $user->email],
-            ['token' => $digest, 'created_at' => now()]
-        );
         $url = rtrim(config('app.frontend_url'), '/').'/reset-password?'.http_build_query(
             ['token' => $token, 'email' => $user->email], '', '&', PHP_QUERY_RFC3986
         );
@@ -44,7 +51,8 @@ class PasswordRecoveryService
     public function isValid(string $email, string $token): bool
     {
         $record = DB::table('password_reset_tokens')->where('email', strtolower($email))->first();
-        if (! $this->matches($record, $token)) {
+        $user = User::where('email', strtolower(trim($email)))->first();
+        if (! $this->matches($record, $token) || ! $this->belongsTo($record, $user)) {
             return false;
         }
         if ($this->expired($record)) {
@@ -58,11 +66,15 @@ class PasswordRecoveryService
 
     public function reset(string $email, string $token, string $password): ?User
     {
-        $email = strtolower($email);
+        $email = strtolower(trim($email));
 
         return DB::transaction(function () use ($email, $token, $password) {
+            $user = User::where('email', $email)->lockForUpdate()->first();
+            if (! $user || $user->status !== 'active') {
+                return null;
+            }
             $record = DB::table('password_reset_tokens')->where('email', $email)->lockForUpdate()->first();
-            if (! $this->matches($record, $token)) {
+            if (! $this->matches($record, $token) || ! $this->belongsTo($record, $user)) {
                 return null;
             }
             if ($this->expired($record)) {
@@ -70,11 +82,9 @@ class PasswordRecoveryService
 
                 return null;
             }
-            $user = User::where('email', $email)->lockForUpdate()->first();
-            if ($user) {
-                $user->update(['password' => Hash::make($password), 'failed_attempts' => 0, 'locked_until' => null]);
-                $user->tokens()->delete();
-            }
+            $user->update(['password' => Hash::make($password), 'failed_attempts' => 0, 'locked_until' => null]);
+            $user->tokens()->delete();
+            DB::table('password_change_requests')->where('user_id', $user->id)->delete();
             DB::table('password_reset_tokens')->where('email', $email)->delete();
 
             return $user;
@@ -84,6 +94,12 @@ class PasswordRecoveryService
     private function matches(?object $record, string $token): bool
     {
         return $record && hash_equals($record->token, hash('sha256', $token));
+    }
+
+    private function belongsTo(?object $record, ?User $user): bool
+    {
+        return $record && $user && $user->status === 'active' && (int) $record->user_id === (int) $user->id
+            && is_string($record->credential_hash) && hash_equals($record->credential_hash, hash('sha256', $user->password));
     }
 
     private function expired(object $record): bool

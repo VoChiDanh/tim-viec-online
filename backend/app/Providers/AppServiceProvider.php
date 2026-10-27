@@ -25,6 +25,13 @@ class AppServiceProvider extends ServiceProvider
     {
         Carbon::setLocale('vi');
 
+        RateLimiter::for('password-change', fn (Request $request) => [
+            Limit::perMinute(1)->by('password-change-minute:'.$request->user()?->id),
+            Limit::perMinutes(15, 3)->by('password-change-account:'.$request->user()?->id),
+            Limit::perMinutes(15, 15)->by('password-change-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('password-change-confirm', fn (Request $request) => Limit::perMinute(15)->by($request->ip()));
+
         RateLimiter::for('email-resend', function (Request $request) {
             $email = $request->input('email');
             $account = is_string($email) ? hash('sha256', strtolower(trim($email))) : 'invalid';

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\VerifyEmailMail;
 use App\Models\User;
 use App\Services\EmailVerificationService;
+use App\Services\PasswordRecoveryService;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -139,6 +140,20 @@ class EmailVerificationTest extends TestCase
         $this->assertSame('three@example.test', $user->fresh()->email);
         Mail::assertSent(VerifyEmailMail::class, 3);
         $this->putJson('/api/candidate/profile', ['title' => 'Developer'])->assertOk();
+    }
+
+    public function test_stale_profile_request_does_not_delete_reassigned_mailbox_recovery(): void
+    {
+        $user = User::factory()->create(['role' => 'candidate']);
+        $stale = $user->replicate();
+        $stale->id = $user->id;
+        $oldEmail = $user->email;
+        app(EmailVerificationService::class)->updateUser($user, ['email' => 'current-mailbox@example.test']);
+        $newOwner = User::factory()->create(['email' => $oldEmail]);
+        app(PasswordRecoveryService::class)->sendLink($newOwner->email);
+        $this->assertDatabaseHas('password_reset_tokens', ['user_id' => $newOwner->id]);
+        app(EmailVerificationService::class)->updateUser($stale, ['email' => 'third-mailbox@example.test']);
+        $this->assertDatabaseHas('password_reset_tokens', ['email' => $oldEmail, 'user_id' => $newOwner->id]);
     }
 
     public function test_active_account_expiry_boundary_wrong_token_and_mailbox_binding(): void

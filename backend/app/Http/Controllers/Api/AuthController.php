@@ -13,8 +13,9 @@ use App\Models\CandidateProfile;
 use App\Models\Company;
 use App\Models\Notification;
 use App\Models\User;
-use App\Services\PasswordRecoveryService;
 use App\Services\EmailVerificationService;
+use App\Services\PasswordChangeService;
+use App\Services\PasswordRecoveryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,95 +77,97 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = User::where('email', strtolower($request->email))->first();
+        return DB::transaction(function () use ($request) {
+            $user = User::where('email', strtolower($request->email))->lockForUpdate()->first();
 
-        // FR-02.2: Kiểm tra user có tồn tại
-        if (! $user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email hoặc mật khẩu không chính xác',
-            ], 401);
-        }
+            // FR-02.2: Kiểm tra user có tồn tại
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email hoặc mật khẩu không chính xác',
+                ], 401);
+            }
 
-        // FR-02.5: Kiểm tra tài khoản bị Admin khóa
-        if ($user->status === 'locked') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản của bạn đã bị khóa bởi quản trị viên',
-            ], 403);
-        }
+            // FR-02.5: Kiểm tra tài khoản bị Admin khóa
+            if ($user->status === 'locked') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tài khoản của bạn đã bị khóa bởi quản trị viên',
+                ], 403);
+            }
 
-        // Kiểm tra nếu thời gian khóa tạm thời đã hết thì đặt lại bộ đếm
-        if ($user->locked_until && $user->locked_until->isPast()) {
-            $user->update([
-                'failed_attempts' => 0,
-                'locked_until' => null,
-            ]);
-        }
-
-        // FR-02.4: Kiểm tra tài khoản bị tạm khóa do nhập sai nhiều lần
-        if ($user->locked_until && $user->locked_until->isFuture()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản',
-            ], 403);
-        }
-
-        // Kiểm tra mật khẩu
-        if (! Hash::check($request->password, $user->password)) {
-            $user->increment('failed_attempts');
-
-            // FR-02.3 & FR-02.4: Sau 5 lần đăng nhập sai liên tiếp, tạm khóa 15 phút
-            if ($user->failed_attempts >= 5) {
+            // Kiểm tra nếu thời gian khóa tạm thời đã hết thì đặt lại bộ đếm
+            if ($user->locked_until && $user->locked_until->isPast()) {
                 $user->update([
-                    'locked_until' => now()->addMinutes(15),
+                    'failed_attempts' => 0,
+                    'locked_until' => null,
                 ]);
+            }
 
+            // FR-02.4: Kiểm tra tài khoản bị tạm khóa do nhập sai nhiều lần
+            if ($user->locked_until && $user->locked_until->isFuture()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản',
                 ], 403);
             }
 
-            // FR-02.2: Hiển thị thông báo nếu email hoặc mật khẩu không chính xác
+            // Kiểm tra mật khẩu
+            if (! Hash::check($request->password, $user->password)) {
+                $user->increment('failed_attempts');
+
+                // FR-02.3 & FR-02.4: Sau 5 lần đăng nhập sai liên tiếp, tạm khóa 15 phút
+                if ($user->failed_attempts >= 5) {
+                    $user->update([
+                        'locked_until' => now()->addMinutes(15),
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Tài khoản bị tạm khóa do nhập sai nhiều lần, vui lòng khôi phục tài khoản',
+                    ], 403);
+                }
+
+                // FR-02.2: Hiển thị thông báo nếu email hoặc mật khẩu không chính xác
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email hoặc mật khẩu không chính xác',
+                ], 401);
+            }
+
+            // Đăng nhập đúng: đặt lại bộ đếm số lần sai về 0 và xóa khóa tạm thời
+            $user->update([
+                'failed_attempts' => 0,
+                'locked_until' => null,
+            ]);
+
+            if ($user->isCandidate()) {
+                $user->load(['candidateProfile.skills']);
+            } elseif ($user->isEmployer()) {
+                $user->load('company');
+            }
+
+            // FR-02.6: Cấp phát token & tự động điều hướng theo vai trò
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            $redirectUrl = match ($user->role) {
+                'candidate' => '/jobs',
+                'employer' => '/employer/my-jobs',
+                'admin' => '/admin/dashboard',
+                default => '/',
+            };
+
             return response()->json([
-                'success' => false,
-                'message' => 'Email hoặc mật khẩu không chính xác',
-            ], 401);
-        }
-
-        // Đăng nhập đúng: đặt lại bộ đếm số lần sai về 0 và xóa khóa tạm thời
-        $user->update([
-            'failed_attempts' => 0,
-            'locked_until' => null,
-        ]);
-
-        if ($user->isCandidate()) {
-            $user->load(['candidateProfile.skills']);
-        } elseif ($user->isEmployer()) {
-            $user->load('company');
-        }
-
-        // FR-02.6: Cấp phát token & tự động điều hướng theo vai trò
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        $redirectUrl = match ($user->role) {
-            'candidate' => '/jobs',
-            'employer' => '/employer/my-jobs',
-            'admin' => '/admin/dashboard',
-            default => '/',
-        };
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đăng nhập thành công',
-            'data' => [
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'user' => $user,
-                'redirect_url' => $redirectUrl,
-            ],
-        ], 200);
+                'success' => true,
+                'message' => 'Đăng nhập thành công',
+                'data' => [
+                    'token' => $token,
+                    'token_type' => 'Bearer',
+                    'user' => $user,
+                    'redirect_url' => $redirectUrl,
+                ],
+            ], 200);
+        });
     }
 
     /**
@@ -287,56 +290,14 @@ class AuthController extends Controller
      */
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
-        $user = $request->user();
-
-        // Kiểm tra mật khẩu hiện tại
-        if (! Hash::check($request->current_password, $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Mật khẩu hiện tại không chính xác',
-            ], 400);
-        }
-
-        $newPassword = $request->new_password ?? $request->password;
-
-        // Kiểm tra mật khẩu mới trùng với mật khẩu cũ
-        if (Hash::check($newPassword, $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Mật khẩu mới không được trùng với mật khẩu hiện tại',
-            ], 400);
-        }
-
-        $user->update([
-            'password' => Hash::make($newPassword),
-            'failed_attempts' => 0,
-            'locked_until' => null,
-        ]);
-
-        $currentToken = $user->currentAccessToken();
-        if ($currentToken && method_exists($currentToken, 'getKey')) {
-            $user->tokens()->where('id', '!=', $currentToken->getKey())->delete();
-        } else {
-            $user->tokens()->delete();
-        }
-
-        try {
-            Notification::create([
-                'user_id' => $user->id,
-                'title' => 'Đổi mật khẩu thành công',
-                'content' => 'Mật khẩu của bạn đã được cập nhật thành công vào lúc '.now()->format('H:i d/m/Y').'.',
-                'type' => 'security',
-            ]);
-        } catch (\Throwable $exception) {
-            Log::error('Password change notification could not be created', [
-                'user_id' => $user->id,
-                'exception' => $exception->getMessage(),
-            ]);
-        }
+        $email = app(PasswordChangeService::class)->request(
+            $request->user(), $request->validated('current_password'), $request->validated('new_password')
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'Đổi mật khẩu thành công',
-        ], 200);
+            'message' => 'Đã gửi email xác nhận đổi mật khẩu. Mật khẩu hiện tại vẫn có hiệu lực.',
+            'data' => ['confirmation_required' => true, 'email' => $email],
+        ], 202);
     }
 }

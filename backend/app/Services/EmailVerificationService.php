@@ -76,6 +76,7 @@ class EmailVerificationService
     {
         $changed = DB::transaction(function () use ($user, $attributes) {
             $current = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $oldEmail = $current->email;
             $changed = isset($attributes['email']) && $attributes['email'] !== $current->email;
             if ($changed) {
                 $keys = ['verification-change:user:'.$current->id => 3, 'verification-change:ip:'.request()->ip() => 15];
@@ -93,6 +94,9 @@ class EmailVerificationService
             }
             $current->fill($attributes);
             if ($changed) {
+                DB::table('password_reset_tokens')->where('user_id', $current->id)
+                    ->orWhere(fn ($query) => $query->whereNull('user_id')->where('email', $oldEmail))->delete();
+                DB::table('password_change_requests')->where('user_id', $current->id)->delete();
                 $current->email_verified_at = null;
                 DB::table('email_verification_tokens')->where('user_id', $current->id)->delete();
             }

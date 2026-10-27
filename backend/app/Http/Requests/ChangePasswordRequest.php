@@ -15,12 +15,12 @@ class ChangePasswordRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('password') && !$this->has('new_password')) {
+        if ($this->has('password') && ! $this->has('new_password')) {
             $this->merge([
                 'new_password' => $this->input('password'),
             ]);
         }
-        if ($this->has('password_confirmation') && !$this->has('new_password_confirmation')) {
+        if ($this->has('password_confirmation') && ! $this->has('new_password_confirmation')) {
             $this->merge([
                 'new_password_confirmation' => $this->input('password_confirmation'),
             ]);
@@ -30,15 +30,8 @@ class ChangePasswordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_password' => ['required', 'string'],
-            'new_password' => [
-                'required',
-                'string',
-                'min:8',
-                'max:32',
-                'confirmed',
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-#])[A-Za-z\d@$!%*?&_\-#]+$/',
-            ],
+            'current_password' => ['required', 'string', 'max:1024'],
+            'new_password' => (new ResetPasswordRequest)->rules()['password'],
         ];
     }
 
@@ -62,6 +55,6 @@ class ChangePasswordRequest extends FormRequest
             'success' => false,
             'message' => $errors->first(),
             'errors' => $errors,
-        ], 400));
+        ], 422));
     }
 }
