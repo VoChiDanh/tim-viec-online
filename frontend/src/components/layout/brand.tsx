@@ -1,9 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export function Brand() {
+export function Brand({
+  label = "TimViecOnline — Tìm việc làm",
+}: {
+  label?: string | null;
+}) {
   return (
-    <Link href="/" className="brand" aria-label="TimViecOnline — Tìm việc làm">
+    <Link href="/" className="brand" aria-label={label ?? undefined}>
       <Image
         src="/brand/logo.png"
         alt=""

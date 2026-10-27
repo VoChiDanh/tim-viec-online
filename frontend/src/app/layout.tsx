@@ -5,6 +5,7 @@ import { Be_Vietnam_Pro } from "next/font/google";
 import { AppToaster } from "@/components/feedback/app-toaster";
 import { ScrollbarLayout } from "@/components/layout/scrollbar-layout";
 import { BackendRealtimeSession } from "@/components/layout/backend-realtime-session";
+import { AppLoading } from "@/components/layout/app-loading";
 import "./globals.css";
 import "./site.css";
 import "./workspace.css";
@@ -15,6 +16,7 @@ import "./motion.css";
 import "./home.css";
 import "./application.css";
 import "./feedback.css";
+import "./loading.css";
 
 const brandFont = Be_Vietnam_Pro({
   variable: "--font-brand",
@@ -48,13 +50,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <BackendRealtimeSession />
         </Suspense>
-        <Suspense
-          fallback={
-            <main className="site-container py-16" role="status">
-              Đang tải phiên làm việc…
-            </main>
-          }
-        >
+        <Suspense fallback={<AppLoading />}>
           <CandidateWorkspaceSession>{children}</CandidateWorkspaceSession>
         </Suspense>
         <AppToaster />
