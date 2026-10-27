@@ -122,7 +122,7 @@ export function CandidateMessages() {
       !state.isApi ||
       activeId === undefined ||
       !lastIncoming ||
-      (requested === null && window.matchMedia("(max-width: 760px)").matches)
+      (requested === null && window.matchMedia("(max-width: 900px)").matches)
     )
       return;
     void currentState.current.markConversationRead(activeId).catch(() => {});
