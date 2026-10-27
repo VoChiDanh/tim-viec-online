@@ -252,6 +252,8 @@ class FrCoreFlowsTest extends TestCase
             'status' => 'active',
         ]);
 
+        $user->forceFill(['email_verified_at' => now()])->save();
+
         if ($role === 'candidate') {
             CandidateProfile::create(['user_id' => $user->id]);
         } elseif ($role === 'employer') {

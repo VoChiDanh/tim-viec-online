@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\ResetPasswordMail;
-use App\Mail\WelcomeMail;
+use App\Mail\VerifyEmailMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Env;
@@ -103,7 +103,7 @@ class MailDeliveryTest extends TestCase
         Mail::assertSent(ResetPasswordMail::class, 3);
     }
 
-    public function test_registration_sends_a_welcome_email_without_password_or_session_token(): void
+    public function test_registration_sends_a_verification_email_without_password_or_session_token(): void
     {
         Mail::fake();
         config(['app.frontend_url' => 'https://jobs.example.test']);
@@ -111,8 +111,8 @@ class MailDeliveryTest extends TestCase
             'name' => 'Người dùng mới', 'email' => 'new-account@example.test', 'dob' => '1995-01-01', 'role' => 'candidate',
             'password' => 'OriginalPass1!', 'password_confirmation' => 'OriginalPass1!',
         ])->assertCreated();
-        $mail = Mail::sent(WelcomeMail::class)->sole();
-        $mail->assertSeeInHtml('https://jobs.example.test/login');
+        $mail = Mail::sent(VerifyEmailMail::class)->sole();
+        $mail->assertSeeInHtml('https://jobs.example.test/verify-email?');
         $mail->assertSeeInText('Người dùng mới');
         $mail->assertDontSeeInHtml('OriginalPass1!');
         $mail->assertDontSeeInText('OriginalPass1!');

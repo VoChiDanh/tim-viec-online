@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\IsAdmin;
+use App\Http\Middleware\EnsureEmailVerified;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => CheckRole::class,
             'admin' => IsAdmin::class,
+            'email.verified' => EnsureEmailVerified::class,
         ]);
 
         // Đảm bảo không bao giờ redirect sang trang web HTML khi chưa đăng nhập API

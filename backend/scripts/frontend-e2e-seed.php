@@ -41,6 +41,7 @@ foreach (['candidate', 'employer', 'admin', 'outsider'] as $role) {
         'dob' => '1995-01-01',
         'phone' => '0912345678',
     ]);
+    $users[$role]->forceFill(['email_verified_at' => now()])->save();
 }
 $profile = CandidateProfile::create(['user_id' => $users['candidate']->id, 'title' => 'Backend Developer', 'city' => 'Ha Noi', 'experience_years' => 3, 'cv_file_path' => 'cvs/e2e-profile.pdf']);
 CandidateProfile::create(['user_id' => $users['outsider']->id]);

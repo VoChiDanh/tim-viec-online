@@ -9,18 +9,17 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyResetTokenRequest;
-use App\Mail\WelcomeMail;
 use App\Models\CandidateProfile;
 use App\Models\Company;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\PasswordRecoveryService;
+use App\Services\EmailVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
@@ -60,18 +59,14 @@ class AuthController extends Controller
             return $user;
         });
 
-        try {
-            Mail::to($user->email)->send(new WelcomeMail($user, rtrim(config('app.frontend_url'), '/').'/login'));
-        } catch (\Throwable $exception) {
-            Log::warning('Registration confirmation email could not be sent', ['user_id' => $user->id]);
-        }
+        app(EmailVerificationService::class)->sendLink($user->email);
 
         return response()->json([
             'success' => true,
             'message' => 'Đăng ký tài khoản thành công',
             'data' => [
                 'user' => $user,
-                'redirect_url' => '/login',
+                'redirect_url' => '/verify-email?'.http_build_query(['email' => $user->email]),
             ],
         ], 201);
     }

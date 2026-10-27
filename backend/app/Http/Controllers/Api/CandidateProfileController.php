@@ -7,6 +7,7 @@ use App\Http\Requests\CandidateProfileRequest;
 use App\Http\Requests\UploadCvRequest;
 use App\Models\CandidateProfile;
 use App\Services\ApplicationCvStorage;
+use App\Services\EmailVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -73,7 +74,7 @@ class CandidateProfileController extends Controller
             $userData['dob'] = $request->dob;
         }
         if (! empty($userData)) {
-            $user->update($userData);
+            app(EmailVerificationService::class)->updateUser($user, $userData);
         }
 
         // Xử lý upload file CV PDF (FR-03.3 - FR-03.5)

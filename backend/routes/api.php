@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\JobReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\SkillController;
 use App\Http\Controllers\Api\WorkspaceBootstrapController;
+use App\Http\Controllers\Api\EmailVerificationController;
+use App\Http\Controllers\Api\EmailPreferenceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\Route;
 
 // Authentication (Public)
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1,register:');
+Route::post('/email/verify', [EmailVerificationController::class, 'verify'])->middleware('throttle:email-verify');
+Route::post('/email/resend', [EmailVerificationController::class, 'resend'])->middleware('throttle:email-resend');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1,login:')->name('login');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-recovery');
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:password-recovery');
@@ -54,14 +58,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Auth profile & password
     Route::get('/user', [AuthController::class, 'user']);
+    Route::get('/user/email-preferences', [EmailPreferenceController::class, 'show']);
+    Route::put('/user/email-preferences', [EmailPreferenceController::class, 'update'])->middleware('throttle:30,1,email-preferences:');
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/change-password', [AuthController::class, 'changePassword']);
 
     // Realtime Chat (FR-08)
     Route::get('/conversations', [ChatController::class, 'index']);
-    Route::post('/conversations', [ChatController::class, 'startConversation']);
+    Route::post('/conversations', [ChatController::class, 'startConversation'])->middleware('email.verified');
     Route::get('/conversations/{id}/messages', [ChatController::class, 'messages']);
-    Route::post('/conversations/{id}/messages', [ChatController::class, 'sendMessage']);
+    Route::post('/conversations/{id}/messages', [ChatController::class, 'sendMessage'])->middleware('email.verified');
     Route::get('/conversations/{conversationId}/messages/{messageId}/image', [ChatController::class, 'downloadMessageImage']);
     Route::patch('/conversations/{id}/read', [ChatController::class, 'markAsRead']);
 
@@ -94,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/applications/{id}/withdraw', [ApplicationController::class, 'withdraw']);
     });
     // Candidate Job Actions (Apply & Save)
-    Route::post('/jobs/{id}/apply', [ApplicationController::class, 'apply']);
+    Route::post('/jobs/{id}/apply', [ApplicationController::class, 'apply'])->middleware('email.verified');
     Route::middleware('role:candidate')->group(function () {
         Route::post('/jobs/{id}/save', [JobController::class, 'saveJob']);
         Route::delete('/jobs/{id}/save', [JobController::class, 'unsaveJob']);
@@ -108,9 +114,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Job Management
         Route::get('/my-jobs', [JobController::class, 'myJobs']);
-        Route::post('/jobs', [JobController::class, 'store']);
-        Route::put('/jobs/{id}', [JobController::class, 'update']);
-        Route::patch('/jobs/{id}/status', [JobController::class, 'toggleStatus']);
+        Route::post('/jobs', [JobController::class, 'store'])->middleware('email.verified');
+        Route::put('/jobs/{id}', [JobController::class, 'update'])->middleware('email.verified');
+        Route::patch('/jobs/{id}/status', [JobController::class, 'toggleStatus'])->middleware('email.verified');
 
         // Applicant Management
         Route::get('/applications', [ApplicationController::class, 'employerApplications']);
