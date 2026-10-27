@@ -73,13 +73,39 @@ test("SMTP password-change confirmation keeps the old password until explicit co
     .click();
   await expect(page).toHaveURL(/\/verify-email\?email=/);
   await expect.poll(() => letters(email).length).toBe(1);
+  const forgot = await page.request.post(`${backend}/forgot-password`, {
+    data: { email },
+  });
+  expect(forgot.status()).toBe(200);
+  expect((await forgot.json()).success).toBe(true);
+  expect(letters(email)).toHaveLength(1);
+  const unverifiedToken = await loginToken(page.request, email, original);
+  const blockedChange = await page.request.put(
+    `${backend}/user/change-password`,
+    {
+      headers: { Authorization: `Bearer ${unverifiedToken}` },
+      data: {
+        current_password: original,
+        new_password: changed,
+        new_password_confirmation: changed,
+      },
+    },
+  );
+  expect(blockedChange.status()).toBe(403);
+  expect((await blockedChange.json()).code).toBe("email_verification_required");
+  expect(letters(email)).toHaveLength(1);
+  const unverifiedUser = await page.request.get(`${backend}/user`, {
+    headers: { Authorization: `Bearer ${unverifiedToken}` },
+  });
+  expect(unverifiedUser.status()).toBe(200);
+  expect((await unverifiedUser.json()).data.email_verified_at).toBeNull();
   await page.goto(actionUrl(letters(email)[0], "/verify-email"));
   await page
     .getByRole("button", { name: "Xác thực email", exact: true })
     .click();
   await expect(page).toHaveURL(/\/login\?notice=verified$/);
 
-  const firstToken = await loginToken(page.request, email, original);
+  const firstToken = unverifiedToken;
   await page.goto("/login?returnTo=%2Faccount%2Fsecurity");
   await page.getByRole("textbox", { name: "Email", exact: true }).fill(email);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(original);
