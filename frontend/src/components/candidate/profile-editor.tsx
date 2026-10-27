@@ -672,7 +672,13 @@ export function ProfileEditor({
                       </Button>
                     )}
                   </div>
-                  <span>{avatar ? avatar.name : "Chưa chọn ảnh"}</span>
+                  <span>
+                    {avatar
+                      ? avatar.name
+                      : workspace.avatarUrl
+                        ? "Ảnh đại diện đã lưu"
+                        : "Chưa chọn ảnh"}
+                  </span>
                 </div>
                 <FieldDescription id="avatar-description">
                   JPEG, PNG hoặc WebP, tối đa 2 MB.

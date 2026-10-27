@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-export function useFileUrl(file: File | null) {
+export function useFileUrl(file: File | null): string | null {
   const [current, setCurrent] = useState<{ file: File; url: string } | null>(
     null,
   );
@@ -20,5 +20,6 @@ export function useFileUrl(file: File | null) {
       setCurrent((active) => (active?.url === url ? null : active));
     };
   }, [file]);
-  return file && current?.file === file ? current.url : "";
+  // Null allows callers to fall back to the file already saved on the backend.
+  return file && current?.file === file ? current.url : null;
 }

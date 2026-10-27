@@ -84,6 +84,25 @@ test.describe.serial("Laravel integration without AI", () => {
         .getByRole("img", { name: "Ảnh đại diện đã chọn", exact: true })
         .first(),
     ).toBeVisible();
+    await page.reload();
+    const savedAvatars = page.getByRole("img", {
+      name: "Ảnh đại diện đã chọn",
+      exact: true,
+    });
+    await expect(savedAvatars).toHaveCount(2);
+    await expect(
+      page.getByText("Ảnh đại diện đã lưu", { exact: true }),
+    ).toBeVisible();
+    for (const image of await savedAvatars.all()) {
+      await expect(image).toHaveAttribute("src", /\/storage\/avatars\//);
+      await expect
+        .poll(() =>
+          image.evaluate(
+            (element) => (element as HTMLImageElement).naturalWidth,
+          ),
+        )
+        .toBeGreaterThan(0);
+    }
     await page.getByLabel("Chọn CV PDF", { exact: true }).setInputFiles({
       name: "updated-cv.pdf",
       mimeType: "application/pdf",
@@ -92,6 +111,20 @@ test.describe.serial("Laravel integration without AI", () => {
     await expect
       .poll(async () => (await api(page, "/candidate/cv/file")).status())
       .toBe(200);
+    await page.reload();
+    await expect(
+      page.getByRole("link", { name: "Tải CV xuống", exact: true }),
+    ).toHaveAttribute("href", "/api/backend/candidate/cv/file");
+    await page
+      .getByRole("button", { name: "Xem trước CV", exact: true })
+      .click();
+    await expect(page.getByTitle("Nội dung CV PDF")).toHaveAttribute(
+      "src",
+      "/api/backend/candidate/cv/file",
+    );
+    await page
+      .getByRole("button", { name: "Đóng xem trước CV", exact: true })
+      .click();
     await page.goto(`/jobs/${ids.job_id}`);
     await page
       .locator(".guest-actions")
