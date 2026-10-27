@@ -73,51 +73,53 @@ export function EmailVerificationForm({
           được thư, hãy kiểm tra thư rác hoặc yêu cầu gửi lại.
         </p>
       )}
-      <form action={resendAction} className="auth-form">
-        <Field data-invalid={!!resend.errors?.email}>
-          <FieldLabel htmlFor="verification-email">
-            Email nhận liên kết xác thực
-          </FieldLabel>
-          <Input
-            id="verification-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            maxLength={100}
-            required
-            defaultValue={email}
-            readOnly={Boolean(email)}
-            aria-invalid={!!resend.errors?.email}
-            aria-describedby={
-              resend.errors?.email ? "verification-email-error" : undefined
-            }
-          />
-          {resend.errors?.email && (
-            <FieldError id="verification-email-error">
-              {resend.errors.email}
-            </FieldError>
+      {(!token || expired) && (
+        <form action={resendAction} className="auth-form">
+          <Field data-invalid={!!resend.errors?.email}>
+            <FieldLabel htmlFor="verification-email">
+              Email nhận liên kết xác thực
+            </FieldLabel>
+            <Input
+              id="verification-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              maxLength={100}
+              required
+              defaultValue={email}
+              readOnly={Boolean(email)}
+              aria-invalid={!!resend.errors?.email}
+              aria-describedby={
+                resend.errors?.email ? "verification-email-error" : undefined
+              }
+            />
+            {resend.errors?.email && (
+              <FieldError id="verification-email-error">
+                {resend.errors.email}
+              </FieldError>
+            )}
+          </Field>
+          {resend.message && (
+            <p
+              className={`auth-status${resend.status === "success" ? " auth-status-success" : ""}`}
+              role={resend.status === "success" ? "status" : "alert"}
+            >
+              {resend.message}
+            </p>
           )}
-        </Field>
-        {resend.message && (
-          <p
-            className={`auth-status${resend.status === "success" ? " auth-status-success" : ""}`}
-            role={resend.status === "success" ? "status" : "alert"}
+          <Button
+            type="submit"
+            variant="outline"
+            className="auth-submit"
+            disabled={resending || confirming}
           >
-            {resend.message}
-          </p>
-        )}
-        <Button
-          type="submit"
-          variant="outline"
-          className="auth-submit"
-          disabled={resending || confirming}
-        >
-          {resending && (
-            <LoaderCircle aria-hidden="true" className="animate-spin" />
-          )}
-          Gửi lại email xác thực
-        </Button>
-      </form>
+            {resending && (
+              <LoaderCircle aria-hidden="true" className="animate-spin" />
+            )}
+            Gửi lại email xác thực
+          </Button>
+        </form>
+      )}
       <Link href="/login" className="auth-return">
         Đến trang đăng nhập
       </Link>

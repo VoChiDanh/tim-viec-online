@@ -393,8 +393,10 @@ test("verification entry points prefill and lock the account email while preserv
   await page.goto(
     `/verify-email?email=other%40example.test&token=${"v".repeat(64)}`,
   );
-  await expect(email).toHaveValue("other@example.test");
-  await expect(email).not.toBeEditable();
+  await expect(page.locator(".auth-form-note strong")).toHaveText(
+    "other@example.test",
+  );
+  await expect(email).toHaveCount(0);
 
   await context.clearCookies();
   await page.goto("/forgot-password");
@@ -744,6 +746,10 @@ test("verification GET leaves links unused until explicit confirmation and repla
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toBeVisible();
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Gửi lại email xác thực", exact: true }),
+  ).toHaveCount(0);
   await page.reload();
   expect(
     (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
@@ -779,6 +785,9 @@ test("verification GET leaves links unused until explicit confirmation and repla
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toHaveCount(0);
+  await expect(page.getByLabel("Email nhận liên kết xác thực")).toHaveValue(
+    "verify-once@example.test",
+  );
   await page
     .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
     .click();
