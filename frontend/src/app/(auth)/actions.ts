@@ -7,12 +7,14 @@ import {
   AuthApiError,
   parseLogin,
   parseUser,
+  parsePendingPasswordChange,
+  parseConfirmedPasswordChange,
 } from "@/features/auth/api-contract";
 import type { AuthActionState, AuthKind } from "@/features/auth/types";
 import { readAuthForm, validateAuthValues } from "@/features/auth/validation";
 import { validateVerificationInput } from "@/features/auth/email-verification";
 import { vietnamToday } from "@/features/jobs/formatters";
-import { authEnabled } from "@/services/auth-mode";
+import { authEnabled, authMockEnabled } from "@/services/auth-mode";
 import { authRequest } from "@/services/auth-request";
 import {
   assertAuthOrigin,
@@ -242,15 +244,63 @@ export async function changePasswordAction(
         "unauthorized",
         "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       );
-    await authRequest("/user/change-password", {
+    const result = await authRequest("/user/change-password", {
       method: "PUT",
       body: values,
       token,
     });
-    return { status: "success", message: "Đổi mật khẩu thành công." };
+    if (authMockEnabled())
+      return { status: "success", message: "Đổi mật khẩu thành công." };
+    parsePendingPasswordChange(result, user.email);
+    return {
+      status: "success",
+      message: `Yêu cầu đổi mật khẩu đã được gửi đến ${user.email}. Vui lòng mở email và xác nhận để cập nhật mật khẩu. Mật khẩu hiện tại vẫn sử dụng được cho đến khi xác nhận.`,
+    };
   } catch (error) {
     return failure(error);
   }
+}
+
+export async function confirmPasswordChangeAction(
+  _previous: AuthActionState,
+  form: FormData,
+): Promise<AuthActionState> {
+  try {
+    await assertAuthOrigin();
+    if (!authEnabled() || authMockEnabled())
+      return {
+        status: "preview",
+        message:
+          "Chức năng xác nhận đổi mật khẩu chưa sẵn sàng. Vui lòng thử lại sau.",
+      };
+    const rawEmail = form.get("email");
+    const rawToken = form.get("token");
+    const email =
+      typeof rawEmail === "string"
+        ? rawEmail.slice(0, 1000).trim().toLowerCase()
+        : "";
+    const token = typeof rawToken === "string" ? rawToken.slice(0, 1000) : "";
+    const errors = validateVerificationInput({ email, token }, true);
+    if (Object.keys(errors).length)
+      return {
+        status: "error",
+        code: "invalid_password_change_token",
+        message: "Liên kết đổi mật khẩu đã hết hạn hoặc không hợp lệ.",
+      };
+    // Capture the current identity before confirmation revokes the target account's tokens.
+    // An unrelated account logged into this browser keeps its session.
+    const currentUser = await getCurrentUser().catch(() => undefined);
+    parseConfirmedPasswordChange(
+      await authRequest("/password/change/confirm", { body: { email, token } }),
+      email,
+    );
+    if (currentUser === null || currentUser?.email.toLowerCase() === email)
+      (await cookies()).delete(SESSION_COOKIE);
+    revalidatePath("/", "layout");
+  } catch (error) {
+    return failure(error);
+  }
+  redirect("/login?notice=changed");
 }
 
 export async function logoutAction() {

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 
 const revokedTokens = new Set();
 const usedVerificationLinks = new Set();
+const pendingPasswordChanges = new Map();
 let loginRequests = 0;
 const requestCounts = {};
 let heldPaths = new Set();
@@ -374,7 +375,31 @@ const server = createServer(async (request, response) => {
         return send(response, 401, null, "unauthenticated");
       if (body.current_password === "WrongPass1!")
         return send(response, 400, null, "invalid_current_password");
-      return sendVoid(response);
+      if (body.current_password === "MailFail1!")
+        return send(response, 503, null, "mail_delivery_failed");
+      if (body.current_password === body.password)
+        return send(response, 400, null, "password_unchanged");
+      const entry = Object.entries(identities).find(
+        ([, user]) => token === `test-${user.role}-token`,
+      );
+      if (!entry) return send(response, 401, null, "unauthenticated");
+      pendingPasswordChanges.set(entry[0], "p".repeat(64));
+      return send(response, 202, {
+        confirmation_required: true,
+        email: entry[0],
+      });
+    }
+    if (path === "/api/password/change/confirm") {
+      if (body.token === "n".repeat(64)) return send(response, 503);
+      if (
+        pendingPasswordChanges.get(body.email) !== body.token ||
+        body.token !== "p".repeat(64)
+      )
+        return send(response, 400, null, "invalid_password_change_token");
+      pendingPasswordChanges.delete(body.email);
+      const account = identities[body.email];
+      if (account) revokedTokens.add(`test-${account.role}-token`);
+      return send(response, 200, { confirmed: true, email: body.email });
     }
     return send(response, 404);
   } catch {

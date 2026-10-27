@@ -95,9 +95,11 @@ export async function AuthScreen({
         ? "Xác thực email thành công. Vui lòng đăng nhập để tiếp tục."
         : params.notice === "reset"
           ? "Đặt lại mật khẩu thành công. Vui lòng đăng nhập."
-          : params.notice === "logout"
-            ? "Bạn đã đăng xuất."
-            : "";
+          : params.notice === "changed"
+            ? "Đổi mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới."
+            : params.notice === "logout"
+              ? "Bạn đã đăng xuất."
+              : "";
   return (
     <AuthShell kind={kind} {...content[kind]}>
       {notice && kind === "login" && authEnabled() && (

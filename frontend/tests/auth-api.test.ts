@@ -5,6 +5,8 @@ import {
   mapAuthApiError,
   parseLogin,
   parseUser,
+  parsePendingPasswordChange,
+  parseConfirmedPasswordChange,
 } from "../src/features/auth/api-contract";
 
 const user = {
@@ -25,6 +27,64 @@ test("user parser returns only known fields and preserves backend role/status", 
     "locked",
   );
   assert.equal(parseUser({ ...user, role: "admin" }).role, "admin");
+});
+
+test("password change requires a pending email confirmation contract before reporting accepted", () => {
+  assert.deepEqual(
+    parsePendingPasswordChange(
+      { confirmation_required: true, email: user.email },
+      user.email,
+    ),
+    { email: user.email },
+  );
+  assert.deepEqual(
+    parseConfirmedPasswordChange(
+      { confirmed: true, email: user.email },
+      user.email,
+    ),
+    { email: user.email },
+  );
+  for (const value of [
+    null,
+    {},
+    { confirmation_required: false, email: user.email },
+    { confirmation_required: true, email: "different@example.test" },
+  ]) {
+    assert.throws(
+      () => parsePendingPasswordChange(value, user.email),
+      AuthApiError,
+    );
+  }
+  for (const value of [
+    null,
+    {},
+    { confirmed: false, email: user.email },
+    { confirmed: true, email: "different@example.test" },
+  ]) {
+    assert.throws(
+      () => parseConfirmedPasswordChange(value, user.email),
+      AuthApiError,
+    );
+  }
+});
+
+test("password change mail and invalid confirmation errors preserve actionable safe codes", () => {
+  const invalid = mapAuthApiError(
+    400,
+    { code: "invalid_password_change_token", message: "private token" },
+    "confirm-password-change",
+  );
+  assert.equal(invalid.code, "invalid_password_change_token");
+  assert.match(invalid.message, /hết hạn|không hợp lệ/);
+  assert.doesNotMatch(invalid.message, /private/);
+  const delivery = mapAuthApiError(
+    503,
+    { code: "mail_delivery_failed", message: "SMTP password" },
+    "change-password",
+  );
+  assert.equal(delivery.code, "mail_delivery_failed");
+  assert.match(delivery.message, /gửi.*email|email.*gửi/);
+  assert.doesNotMatch(delivery.message, /SMTP password/);
 });
 
 test("user parser rejects malformed identity, role and account status", () => {

@@ -23,13 +23,13 @@ const routes: Record<
   "/logout": { kind: "logout", method: "POST" },
   "/user": { kind: "user", method: "GET" },
   "/user/change-password": { kind: "change-password", method: "PUT" },
+  "/password/change/confirm": {
+    kind: "confirm-password-change",
+    method: "POST",
+  },
 };
 
-const permitsEmptyData = new Set<AuthApiPath>([
-  "/forgot-password",
-  "/logout",
-  "/user/change-password",
-]);
+const permitsEmptyData = new Set<AuthApiPath>(["/forgot-password", "/logout"]);
 
 function configuredBase(): URL {
   try {

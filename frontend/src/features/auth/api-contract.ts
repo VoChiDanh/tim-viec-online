@@ -10,7 +10,8 @@ export type AuthApiKind =
   | "reset-password"
   | "logout"
   | "user"
-  | "change-password";
+  | "change-password"
+  | "confirm-password-change";
 
 export type AuthApiPath =
   | "/login"
@@ -22,7 +23,8 @@ export type AuthApiPath =
   | "/reset-password"
   | "/logout"
   | "/user"
-  | "/user/change-password";
+  | "/user/change-password"
+  | "/password/change/confirm";
 
 export class AuthApiError extends Error {
   constructor(
@@ -46,6 +48,28 @@ function invalidResponse(): never {
     "invalid_response",
     "Dịch vụ xác thực trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.",
   );
+}
+
+export function parsePendingPasswordChange(
+  value: unknown,
+  email: string,
+): { email: string } {
+  if (
+    !record(value) ||
+    value.confirmation_required !== true ||
+    value.email !== email
+  )
+    return invalidResponse();
+  return { email };
+}
+
+export function parseConfirmedPasswordChange(
+  value: unknown,
+  email: string,
+): { email: string } {
+  if (!record(value) || value.confirmed !== true || value.email !== email)
+    return invalidResponse();
+  return { email };
 }
 
 export function parseUser(value: unknown): AuthUser {
@@ -138,6 +162,7 @@ const allowedFields: Record<AuthApiKind, readonly string[]> = {
   logout: [],
   user: [],
   "change-password": ["current_password", "password", "password_confirmation"],
+  "confirm-password-change": ["email", "token"],
 };
 
 export function mapAuthApiError(
@@ -147,6 +172,26 @@ export function mapAuthApiError(
 ): AuthApiError {
   const code =
     record(body) && typeof body.code === "string" ? body.code : undefined;
+  if (
+    status === 400 &&
+    kind === "confirm-password-change" &&
+    code === "invalid_password_change_token"
+  )
+    return new AuthApiError(
+      400,
+      code,
+      "Liên kết đổi mật khẩu đã hết hạn hoặc không hợp lệ. Vui lòng gửi yêu cầu mới tại trang bảo mật.",
+    );
+  if (
+    status === 503 &&
+    kind === "change-password" &&
+    code === "mail_delivery_failed"
+  )
+    return new AuthApiError(
+      503,
+      code,
+      "Chưa thể gửi email xác nhận. Mật khẩu của bạn chưa thay đổi. Vui lòng thử lại sau.",
+    );
   if (
     status === 400 &&
     kind === "verify-email" &&

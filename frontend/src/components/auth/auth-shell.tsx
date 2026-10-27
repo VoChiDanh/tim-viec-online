@@ -6,7 +6,7 @@ export function AuthShell({
   description,
   children,
 }: {
-  kind: AuthKind | "verify";
+  kind: AuthKind | "verify" | "confirm-password-change";
   title: string;
   description: string;
   children: React.ReactNode;

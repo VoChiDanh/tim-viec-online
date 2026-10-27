@@ -7,6 +7,7 @@ import { AuthLoading } from "@/components/auth/auth-loading";
 import { requireUser } from "@/services/auth-session";
 import { vietnamToday } from "@/features/jobs/formatters";
 import { changePasswordAction } from "@/app/(auth)/actions";
+import { authApiEnabled } from "@/services/auth-mode";
 export const metadata: Metadata = {
   title: "Đổi mật khẩu",
   robots: { index: false },
@@ -26,7 +27,11 @@ async function SecurityForm() {
   return (
     <section className="surface auth-security">
       <h1>Đổi mật khẩu</h1>
-      <p>Nhập mật khẩu hiện tại và chọn mật khẩu mới cho tài khoản của bạn.</p>
+      <p>
+        {authApiEnabled()
+          ? "Nhập mật khẩu hiện tại và chọn mật khẩu mới. Hệ thống sẽ gửi email xác nhận; mật khẩu chỉ được cập nhật sau khi bạn xác nhận trong email."
+          : "Nhập mật khẩu hiện tại và chọn mật khẩu mới cho tài khoản của bạn."}
+      </p>
       {user.email_verified_at === null && (
         <p className="auth-status" role="status">
           Email {user.email} chưa được xác thực. Vui lòng xác thực trước khi ứng

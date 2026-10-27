@@ -461,8 +461,155 @@ test("changing a password requires a session and verifies the current password",
     })
     .click();
   await expect(
-    page.getByText("Đổi mật khẩu thành công.", { exact: true }),
+    page.locator("form.auth-form").getByRole("status"),
+  ).toContainText(
+    "Yêu cầu đổi mật khẩu đã được gửi đến candidate@example.test",
+  );
+  await expect(page).toHaveURL(/\/account\/security$/);
+});
+
+async function requestPasswordChange(page: Page, current = "OldFixture1!") {
+  await page.goto("/account/security");
+  await page.getByLabel(/^Mật khẩu hiện tại/).fill(current);
+  await page.getByLabel(/^Mật khẩu mới/).fill("NewFixture2!");
+  await page.getByLabel(/^Xác nhận mật khẩu/).fill("NewFixture2!");
+  await page.getByRole("button", { name: "Đổi mật khẩu", exact: true }).click();
+}
+
+test("pending password change keeps the session until an explicit one-use email confirmation", async ({
+  page,
+  context,
+  request,
+}) => {
+  await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  const session = (await context.cookies()).find(
+    (cookie) => cookie.name === "timviec_session",
+  )?.value;
+  await requestPasswordChange(page);
+  await expect(
+    page.locator("form.auth-form").getByRole("status"),
+  ).toContainText("Mật khẩu hiện tại vẫn sử dụng được");
+  expect(
+    (await context.cookies()).find(
+      (cookie) => cookie.name === "timviec_session",
+    )?.value,
+  ).toBe(session);
+  const before =
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/password/change/confirm"] ?? 0;
+  const url = `/confirm-password-change?email=candidate%40example.test&token=${"p".repeat(64)}`;
+  await page.goto(url);
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true }),
   ).toBeVisible();
+  await page.reload();
+  expect(
+    (await (await request.get("http://127.0.0.1:4119/__test__/stats")).json())
+      .data.requests["/api/password/change/confirm"] ?? 0,
+  ).toBe(before);
+  await expect(page.locator('meta[name="referrer"]')).toHaveAttribute(
+    "content",
+    "no-referrer",
+  );
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    /noindex/,
+  );
+  await page
+    .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/login\?notice=changed$/);
+  await expect(page.getByRole("status")).toContainText(
+    "Vui lòng đăng nhập bằng mật khẩu mới",
+  );
+  expect(
+    (await context.cookies()).some(
+      (cookie) => cookie.name === "timviec_session",
+    ),
+  ).toBe(false);
+  await page.goto(url);
+  await page
+    .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "hết hạn hoặc không hợp lệ",
+  );
+  await expect(
+    page.getByRole("link", {
+      name: "Gửi lại yêu cầu đổi mật khẩu",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "/account/security");
+});
+
+test("password change confirmation preserves another account session", async ({
+  page,
+  context,
+}) => {
+  await login(page, "employer@example.test");
+  await expect(page).toHaveURL(/\/employer$/);
+  await requestPasswordChange(page);
+  await expect(
+    page.locator("form.auth-form").getByRole("status"),
+  ).toContainText("employer@example.test");
+  await context.clearCookies();
+  await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  const session = (await context.cookies()).find(
+    (cookie) => cookie.name === "timviec_session",
+  )?.value;
+  await page.goto(
+    `/confirm-password-change?email=employer%40example.test&token=${"p".repeat(64)}`,
+  );
+  await page
+    .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/jobs$/);
+  expect(
+    (await context.cookies()).find(
+      (cookie) => cookie.name === "timviec_session",
+    )?.value,
+  ).toBe(session);
+});
+
+test("password confirmation handles bad links and network errors; mail failures do not report changed passwords", async ({
+  page,
+  context,
+}) => {
+  await page.goto(
+    "/confirm-password-change?email=person%40example.test&token=bad",
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "hết hạn hoặc không hợp lệ",
+  );
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(
+    `/confirm-password-change?email=person%40example.test&token=${"n".repeat(64)}`,
+  );
+  await page
+    .getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Không thể kết nối");
+  await expect(
+    page.getByRole("button", { name: "Xác nhận đổi mật khẩu", exact: true }),
+  ).toBeEnabled();
+  await login(page);
+  await expect(page).toHaveURL(/\/jobs$/);
+  await requestPasswordChange(page, "MailFail1!");
+  await expect(page.getByRole("alert")).toContainText(
+    "Chưa thể gửi email xác nhận",
+  );
+  expect(
+    (await context.cookies()).some(
+      (cookie) => cookie.name === "timviec_session",
+    ),
+  ).toBe(true);
+  await expect(page.locator("form.auth-form").getByRole("status")).toHaveCount(
+    0,
+  );
 });
 
 test("authentication pages are accessible and fit a 360px viewport", async ({
@@ -474,6 +621,7 @@ test("authentication pages are accessible and fit a 360px viewport", async ({
     "/register",
     "/forgot-password",
     "/verify-email?email=person%40example.test",
+    `/confirm-password-change?email=person%40example.test&token=${"p".repeat(64)}`,
     "/reset-password?email=candidate%40example.test&token=valid-reset-token",
   ]) {
     await page.goto(path);
@@ -557,7 +705,9 @@ test("verification handles malformed links, unavailable services and account-neu
   page,
 }) => {
   await page.goto("/verify-email?email=person%40example.test&token=malformed");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("không hợp lệ");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "không hợp lệ",
+  );
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toHaveCount(0);
@@ -567,7 +717,9 @@ test("verification handles malformed links, unavailable services and account-neu
   await page
     .getByRole("button", { name: "Xác thực email", exact: true })
     .click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("Không thể kết nối");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Không thể kết nối",
+  );
   await expect(
     page.getByRole("button", { name: "Xác thực email", exact: true }),
   ).toBeEnabled();
@@ -575,7 +727,9 @@ test("verification handles malformed links, unavailable services and account-neu
   await page
     .getByRole("button", { name: "Gửi lại email xác thực", exact: true })
     .click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("quá nhiều lần");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "quá nhiều lần",
+  );
   await page
     .getByLabel("Email nhận liên kết xác thực")
     .fill("missing@example.test");

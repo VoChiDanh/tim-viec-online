@@ -12,11 +12,7 @@ test("void auth actions accept Laravel success/message envelopes without respons
   globalThis.fetch = async () =>
     Response.json({ success: true, message: "Completed" });
   try {
-    for (const path of [
-      "/forgot-password",
-      "/logout",
-      "/user/change-password",
-    ] as const) {
+    for (const path of ["/forgot-password", "/logout"] as const) {
       assert.equal(await apiRequest(path), null);
     }
     for (const path of [
@@ -24,6 +20,8 @@ test("void auth actions accept Laravel success/message envelopes without respons
       "/user",
       "/register",
       "/reset-password",
+      "/user/change-password",
+      "/password/change/confirm",
     ] as const) {
       await assert.rejects(
         apiRequest(path),
