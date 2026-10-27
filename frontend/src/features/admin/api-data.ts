@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@/features/api/types";
+import { readWorkspaceSnapshot } from "@/features/api/workspace";
 import type {
   AdminCompany,
   AdminDatabase,
@@ -20,7 +21,24 @@ type UserDto = AdminUser & { company?: AdminCompany | null };
 
 export function mapAdminJob(dto: AdminJobDto): AdminJob {
   return {
-    ...dto,
+    id: dto.id,
+    company_id: dto.company_id,
+    category_id: dto.category_id,
+    title: dto.title,
+    job_level: dto.job_level,
+    quantity: dto.quantity,
+    salary_min: dto.salary_min,
+    salary_max: dto.salary_max,
+    is_negotiable: dto.is_negotiable,
+    job_type: dto.job_type,
+    city: dto.city,
+    address: dto.address,
+    deadline: dto.deadline,
+    is_reported: dto.is_reported,
+    description: dto.description,
+    requirements: dto.requirements,
+    benefits: dto.benefits,
+    applications_count: dto.applications_count,
     status: dto.status === "active" && dto.is_expired ? "expired" : dto.status,
     skills: (dto.skills ?? []).map((skill) => skill.id),
     created_at: dto.created_at?.slice(0, 10) ?? "",
@@ -53,18 +71,16 @@ export async function readAdminPages<T>(
 export async function readAdminDatabase(
   request: AdminRequest,
 ): Promise<AdminDatabase> {
-  const [users, jobs, categories, skills, stats] = await Promise.all([
-    readAdminPages<UserDto>(request, "/admin/users"),
-    readAdminPages<AdminJobDto>(request, "/admin/jobs"),
-    readAdminPages<AdminDatabase["categories"][number]>(
-      request,
-      "/admin/categories",
-    ),
-    readAdminPages<
-      AdminDatabase["skills"][number] & { candidate_profiles_count?: number }
-    >(request, "/admin/skills"),
-    request<AdminStats>("/admin/stats?days=14"),
-  ]);
+  const { users, jobs, categories, skills, stats } =
+    await readWorkspaceSnapshot<{
+      users: UserDto[];
+      jobs: AdminJobDto[];
+      categories: AdminDatabase["categories"];
+      skills: (AdminDatabase["skills"][number] & {
+        candidate_profiles_count?: number;
+      })[];
+      stats: AdminStats;
+    }>(request, "admin");
   const companies = new Map<number, AdminCompany>();
   for (const user of users) {
     if (user.company)
@@ -76,7 +92,11 @@ export async function readAdminDatabase(
   }
   return {
     users: users.map((user) => ({
-      ...user,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
       phone: user.phone ?? "",
       created_at: user.created_at?.slice(0, 10) ?? "",
     })),
@@ -89,6 +109,6 @@ export async function readAdminDatabase(
         skill.candidate_profiles_count ?? skill.candidates_count ?? 0,
     })),
     applications: [],
-    stats: stats.data,
+    stats,
   };
 }

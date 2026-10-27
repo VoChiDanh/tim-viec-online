@@ -27,6 +27,10 @@ import {
 import { useWorkspace } from "./workspace-provider";
 import { useChatScroll } from "./use-chat-scroll";
 import { useLiveRefresh } from "@/features/api/live";
+import {
+  ChatDelivery,
+  ChatHistoryControl,
+} from "@/features/chat/chat-controls";
 import { WorkspaceFrame } from "./workspace-frame";
 import { WorkspaceEmpty, WorkspaceTitle, workspaceDate } from "./workspace-ui";
 
@@ -88,6 +92,7 @@ export function CandidateMessages() {
         await currentState.current.loadMessages(activeId);
     },
     state.isApi && activeId !== undefined,
+    activeId === undefined ? [] : [activeId],
   );
   useEffect(() => {
     if (!state.isApi || activeId === undefined) return;
@@ -106,11 +111,21 @@ export function CandidateMessages() {
   const messages = state.messages.filter(
     (item) => item.conversation_id === activeId,
   );
-  const { scrollRef, onScroll, scrollBottom, atBottom } = useChatScroll(
-    activeId,
-    messages.at(-1)?.id,
-    requested,
-  );
+  const { scrollRef, onScroll, scrollBottom, atBottom, preserveScroll } =
+    useChatScroll(activeId, messages.at(-1)?.id, requested, messages[0]?.id);
+  const lastIncoming = messages
+    .filter((message) => !message.outgoing)
+    .at(-1)?.id;
+  useEffect(() => {
+    if (
+      !state.isApi ||
+      activeId === undefined ||
+      !lastIncoming ||
+      (requested === null && window.matchMedia("(max-width: 760px)").matches)
+    )
+      return;
+    void currentState.current.markConversationRead(activeId).catch(() => {});
+  }, [state.isApi, activeId, lastIncoming, requested]);
   useLayoutEffect(
     () => resizeComposer(composer.current),
     [draft, activeId, requested],
@@ -141,8 +156,15 @@ export function CandidateMessages() {
     setAnnouncement("");
   };
   const send = async () => {
-    if (!conversation) return;
-    const nextError = await state.sendPreview(conversation.id, attachment);
+    if (!conversation || state.messageSending[conversation.id]) return;
+    const result = state.sendPreview(conversation.id, attachment);
+    if (draft.trim() || attachment)
+      setAttachments((current) => ({
+        ...current,
+        [conversation.id]: undefined,
+      }));
+    scrollBottom();
+    const nextError = await result;
     setError(nextError ?? "");
     if (!nextError) {
       setAttachments((current) => ({
@@ -331,6 +353,21 @@ export function CandidateMessages() {
                   tabIndex={0}
                   aria-label={`Nội dung hội thoại với ${job.company.name}`}
                 >
+                  <ChatHistoryControl
+                    {...state.messageHistory[conversation.id]}
+                    onLoad={() => {
+                      preserveScroll();
+                      void state
+                        .loadMessages(conversation.id, true)
+                        .catch((error) =>
+                          setError(
+                            error instanceof Error
+                              ? error.message
+                              : "Không tải được tin nhắn cũ.",
+                          ),
+                        );
+                    }}
+                  />
                   {messages.map((message, index) => (
                     <Fragment key={message.id}>
                       {(index === 0 ||
@@ -346,6 +383,7 @@ export function CandidateMessages() {
                       )}
                       <article
                         className={`cc-message${message.outgoing ? " cc-outgoing" : ""}`}
+                        data-delivery={message.delivery}
                       >
                         <span className="sr-only">
                           {message.outgoing ? "Bạn" : conversation.contact}
@@ -368,7 +406,18 @@ export function CandidateMessages() {
                             {time(message.created_at)}
                           </time>
                           {message.preview && " · Chưa gửi"}
-                          {message.outgoing && message.read_at && " · Đã xem"}
+                          {message.outgoing &&
+                            !message.delivery &&
+                            message.read_at &&
+                            " · Đã xem"}
+                          <ChatDelivery
+                            delivery={message.delivery}
+                            retry={() => {
+                              void state
+                                .retryMessage(message.id)
+                                .then((issue) => setError(issue ?? ""));
+                            }}
+                          />
                         </small>
                       </article>
                     </Fragment>
@@ -418,7 +467,7 @@ export function CandidateMessages() {
                       size="icon"
                       aria-label="Gửi"
                       className="cc-send"
-                      disabled={state.pending[`message:${activeId}`]}
+                      disabled={state.messageSending[conversation.id]}
                     >
                       <Send size={18} aria-hidden="true" />
                     </Button>
@@ -463,7 +512,7 @@ export function CandidateMessages() {
                     <Button
                       type="button"
                       variant="ghost"
-                      disabled={state.pending[`message:${activeId}`]}
+                      disabled={state.messageSending[conversation.id]}
                       onClick={() => attachmentInput.current?.click()}
                     >
                       <Paperclip aria-hidden="true" /> Đính kèm ảnh

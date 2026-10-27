@@ -8,7 +8,8 @@ import { getJobRepository } from "./jobs";
 import { createCandidateWorkspace } from "@/mocks/candidate-workspace";
 import { createProfilePreview } from "@/mocks/candidate-profile";
 import type { CandidateSection } from "@/features/candidate-workspace/types";
-import { backendAll, backendRequest } from "./backend-api";
+import { backendRequest } from "./backend-api";
+import { readWorkspaceSnapshot } from "@/features/api/workspace";
 import { mapJob } from "@/features/jobs/api";
 import {
   candidateApplicationFromApi,
@@ -25,47 +26,34 @@ export const getCandidatePreview = cache(async () => {
   const user = await requireUser("candidate");
   await connection();
   if (!authMockEnabled()) {
-    const [
-      profileResponse,
+    const {
+      profile,
       skills,
-      saved,
+      saved_jobs: saved,
       applications,
-      conversationsResponse,
+      conversations,
       notifications,
-    ] = await Promise.all([
-      backendRequest<unknown>("/candidate/profile"),
-      backendAll<unknown>("/skills"),
-      backendAll<unknown>("/candidate/saved-jobs"),
-      backendAll<unknown>("/candidate/applications"),
-      backendRequest<unknown>("/conversations"),
-      backendAll<unknown>("/notifications"),
-    ]);
-    const conversationRows = rows(conversationsResponse.data);
+      conversation_jobs: conversationJobs,
+    } = await readWorkspaceSnapshot<Record<string, unknown>>(
+      backendRequest,
+      "candidate",
+    );
+    const conversationRows = rows(conversations);
     const applicationRows = rows(applications);
     const jobs = [
       ...rows(saved).map(mapJob),
       ...applicationRows
         .filter((item) => item.job)
         .map((item) => mapJob(item.job)),
+      ...rows(conversationJobs).map(mapJob),
     ];
-    const ids = new Set(jobs.map((job) => job.id));
-    for (const conversation of conversationRows) {
-      if (!ids.has(Number(conversation.job_id))) {
-        const response = await backendRequest<unknown>(
-          `/jobs/${Number(conversation.job_id)}`,
-        );
-        const job = mapJob(response.data);
-        jobs.push(job);
-        ids.add(job.id);
-      }
-    }
-    const profileData = record(record(profileResponse.data).profile);
+    const profileData = record(record(profile).profile);
     return {
       mode: "api" as const,
       userId: user.id,
       jobs: Array.from(new Map(jobs.map((job) => [job.id, job])).values()),
       today: vietnamToday(),
-      profile: candidateProfileFromApi(profileResponse.data),
+      profile: candidateProfileFromApi(profile),
       cvUrl: profileData.cv_url ? "/api/backend/candidate/cv/file" : null,
       avatarUrl:
         typeof profileData.avatar_url === "string"

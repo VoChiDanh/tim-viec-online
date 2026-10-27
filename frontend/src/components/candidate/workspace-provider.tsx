@@ -2,6 +2,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useRef,
   useState,
   type ReactNode,
@@ -20,11 +21,10 @@ import { validateCv } from "@/features/candidate-profile/validation";
 import { validateMessage } from "@/features/candidate-workspace/rules";
 import { createProfilePreview } from "@/mocks/candidate-profile";
 import type { CandidateProfile } from "@/features/candidate-profile/types";
-import { apiAll, apiRequest } from "@/features/api/client";
+import { apiRequest } from "@/features/api/client";
 import {
   candidateApplicationFromApi,
   candidateMessageFromApi,
-  candidateMessageBody,
   candidateNotificationFromApi,
   candidateProfileFromApi,
   candidateProfilePayload,
@@ -33,7 +33,17 @@ import {
 } from "@/features/candidate-workspace/api-adapter";
 import type { Job } from "@/features/jobs/types";
 import { mapJob } from "@/features/jobs/api";
-import { useLiveRefresh } from "@/features/api/live";
+import {
+  liveConversations,
+  useBackendEvent,
+  useLiveRefresh,
+} from "@/features/api/live";
+import { readWorkspaceSnapshot } from "@/features/api/workspace";
+import { useChatMessages } from "@/features/chat/use-chat-messages";
+import {
+  mergeChatMessages,
+  receiptIncludesMessage,
+} from "@/features/chat/updates";
 
 type WorkspaceInitial = CandidatePreviewData & { profile?: CandidateProfile };
 
@@ -72,80 +82,148 @@ function useWorkspaceState(initial: WorkspaceInitial) {
   const [applicationFiles, setApplicationFiles] = useState<
     Record<number, File>
   >({});
-  const [messages, setMessages] = useState(initial.messages);
+  const chat = useChatMessages(
+    initial.messages,
+    api,
+    (raw, id) => candidateMessageFromApi(raw, Number(initial.userId), id),
+    Number(initial.userId),
+  );
+  const { messages, setMessages } = chat;
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [notifications, setNotifications] = useState(initial.notifications);
   const [emailPrefs, setEmailPrefs] = useState({
     applications: true,
     messages: true,
   });
-  useLiveRefresh(
-    async () => {
-      if (locks.current.size) return;
-      const version = revision.current;
-      const [notificationData, conversationData, applicationData, savedData] =
-        await Promise.all([
-          apiAll<unknown>("/notifications"),
-          apiRequest<unknown>("/conversations"),
-          apiAll<unknown>("/candidate/applications"),
-          apiAll<unknown>("/candidate/saved-jobs"),
-        ]);
-      const additions = [
-        ...rows(savedData).map(mapJob),
-        ...rows(applicationData)
-          .filter((item) => item.job)
-          .map((item) => mapJob(item.job)),
-      ];
-      const ids = new Set(additions.map((job) => job.id));
-      const missing = rows(conversationData.data).filter(
-        (item) =>
-          !ids.has(Number(item.job_id)) &&
-          !knownJobs.current.has(Number(item.job_id)),
-      );
-      additions.push(
-        ...(await Promise.all(
-          missing.map(async (item) =>
-            mapJob(
-              (await apiRequest<unknown>(`/jobs/${Number(item.job_id)}`)).data,
-            ),
+  useBackendEvent(
+    "backend:message",
+    (message) => {
+      if (!conversations.some((item) => item.id === message.conversation_id))
+        return;
+      setMessages((current) =>
+        mergeChatMessages(current, [
+          candidateMessageFromApi(
+            message,
+            Number(initial.userId),
+            message.conversation_id,
           ),
-        )),
+        ]),
       );
-      if (version !== revision.current || locks.current.size) return;
-      additions.forEach((job) => knownJobs.current.add(job.id));
-      setJobs((current) =>
-        Array.from(
-          new Map(
-            [...current, ...additions].map((job) => [job.id, job]),
-          ).values(),
-        ),
-      );
-      setNotifications(
-        rows(notificationData).map(candidateNotificationFromApi),
-      );
-      setConversations(
-        rows(conversationData.data).map((item) => ({
-          id: Number(item.id),
-          job_id: Number(item.job_id),
-          contact: String(record(item.partner).name ?? ""),
-        })),
-      );
-      applicationRecords.current = rows(applicationData).map(
-        candidateApplicationFromApi,
-      );
-      setApplications(applicationRecords.current);
-      setSavedIds(rows(savedData).map((item) => Number(item.id)));
     },
     api,
-    conversations.map((item) => item.id),
+  );
+  useBackendEvent(
+    "backend:messages-read",
+    (receipt) => {
+      setMessages((current) =>
+        current.map((message) =>
+          message.outgoing &&
+          receiptIncludesMessage(receipt, message, Number(initial.userId))
+            ? { ...message, read_at: receipt.read_at }
+            : message,
+        ),
+      );
+    },
+    api,
+  );
+  useBackendEvent(
+    "backend:notification",
+    (notification) => {
+      const mapped = candidateNotificationFromApi(notification);
+      setNotifications((current) => [
+        mapped,
+        ...current.filter((item) => item.id !== mapped.id),
+      ]);
+      if (
+        notification.data?.conversation_id &&
+        !conversations.some(
+          (item) => item.id === notification.data?.conversation_id,
+        )
+      )
+        window.dispatchEvent(new Event("backend:refresh"));
+      else if (
+        notification.type === "new_message" &&
+        notification.data?.conversation_id &&
+        !liveConversations().includes(notification.data.conversation_id)
+      ) {
+        const id = notification.data.conversation_id;
+        void apiRequest<unknown[]>(
+          `/conversations/${id}/messages?latest=1&per_page=1`,
+        )
+          .then((response) =>
+            setMessages((current) =>
+              mergeChatMessages(
+                current,
+                response.data.map((raw) =>
+                  candidateMessageFromApi(raw, Number(initial.userId), id),
+                ),
+              ),
+            ),
+          )
+          .catch(() => {});
+      }
+    },
+    api,
+  );
+  useLiveRefresh(async () => {
+    if (locks.current.size) return;
+    const version = revision.current;
+    const data = await readWorkspaceSnapshot<Record<string, unknown>>(
+      apiRequest,
+      "candidate",
+    );
+    const notificationData = data.notifications;
+    const conversationData = data.conversations;
+    const applicationData = data.applications;
+    const savedData = data.saved_jobs;
+    const additions = [
+      ...rows(data.conversation_jobs).map(mapJob),
+      ...rows(savedData).map(mapJob),
+      ...rows(applicationData)
+        .filter((item) => item.job)
+        .map((item) => mapJob(item.job)),
+    ];
+    if (version !== revision.current || locks.current.size) return;
+    additions.forEach((job) => knownJobs.current.add(job.id));
+    setJobs((current) =>
+      Array.from(
+        new Map(
+          [...current, ...additions].map((job) => [job.id, job]),
+        ).values(),
+      ),
+    );
+    setNotifications(rows(notificationData).map(candidateNotificationFromApi));
+    setConversations(
+      rows(conversationData).map((item) => ({
+        id: Number(item.id),
+        job_id: Number(item.job_id),
+        contact: String(record(item.partner).name ?? ""),
+      })),
+    );
+    applicationRecords.current = rows(applicationData).map(
+      candidateApplicationFromApi,
+    );
+    setApplications(applicationRecords.current);
+    setSavedIds(rows(savedData).map((item) => Number(item.id)));
+  }, api);
+  const markConversationRead = useCallback(
+    async (id: number) => {
+      if (api)
+        await apiRequest(`/conversations/${id}/read`, { method: "PATCH" });
+    },
+    [api],
   );
   return {
     ...initial,
+    markConversationRead,
     jobs,
     conversations,
     cvUrl,
     avatarUrl,
     pending,
+    messageSending: chat.sending,
+    messageHistory: chat.history,
+    retryMessage: chat.retryMessage,
     isApi: api,
     profile,
     setProfile,
@@ -349,24 +427,7 @@ function useWorkspaceState(initial: WorkspaceInitial) {
         );
         return id;
       }),
-    loadMessages: async (id: number) => {
-      if (!api) return;
-      const data = await apiAll<unknown>(`/conversations/${id}/messages`);
-      const next = rows(data).map((item) =>
-        candidateMessageFromApi(item, Number(initial.userId), id),
-      );
-      setMessages((current) =>
-        Array.from(
-          new Map(
-            [...current, ...next].map((item) => [item.id, item]),
-          ).values(),
-        ).sort(
-          (a, b) =>
-            a.created_at.localeCompare(b.created_at) ||
-            Number(a.id) - Number(b.id),
-        ),
-      );
-    },
+    loadMessages: chat.loadMessages,
     setDraft: (id: number, value: string) =>
       setDrafts((current) => ({ ...current, [id]: value })),
     sendPreview: async (id: number, image?: File | null) => {
@@ -375,36 +436,18 @@ function useWorkspaceState(initial: WorkspaceInitial) {
       if (error || !conversations.some((item) => item.id === id))
         return error ?? "Không tìm thấy hội thoại.";
       if (api) {
-        try {
-          await command(`message:${id}`, async () => {
-            const response = await apiRequest<unknown>(
-              `/conversations/${id}/messages`,
-              {
-                method: "POST",
-                body: candidateMessageBody(text, image),
-              },
-            );
-            const message = candidateMessageFromApi(
-              response.data,
-              Number(initial.userId),
-              id,
-            );
-            setMessages((current) =>
-              current.some((item) => item.id === message.id)
-                ? current
-                : [...current, message],
-            );
-            setDrafts((current) => ({
-              ...current,
-              [id]: current[id] === text ? "" : current[id],
-            }));
-          });
-          return null;
-        } catch (error) {
-          return error instanceof Error
-            ? error.message
-            : "Không thể gửi tin nhắn.";
-        }
+        if (
+          image &&
+          (!/^image\/(jpeg|png|gif|webp)$/.test(image.type) ||
+            image.size > 5 * 1024 * 1024)
+        )
+          return "Chọn ảnh JPEG, PNG, GIF hoặc WebP tối đa 5 MB.";
+        if (chat.sending[id]) return "Tin nhắn đang được gửi, vui lòng chờ.";
+        setDrafts((current) => ({
+          ...current,
+          [id]: current[id] === text ? "" : current[id],
+        }));
+        return chat.sendMessage(id, text, image);
       }
       const message: PreviewMessage = {
         id: crypto.randomUUID(),

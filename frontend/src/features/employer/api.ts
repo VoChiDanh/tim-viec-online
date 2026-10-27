@@ -1,4 +1,5 @@
 import type { ApiResponse } from "@/features/api/types";
+import { readWorkspaceSnapshot } from "@/features/api/workspace";
 import type { AuthUser } from "@/features/auth/types";
 import type { Category } from "@/features/jobs/types";
 import type {
@@ -198,24 +199,24 @@ export async function loadEmployerApi(
   cities: string[],
   today: string,
 ): Promise<EmployerData> {
-  const [
-    companyResponse,
-    rawJobs,
-    rawApplications,
-    conversationsResponse,
-    rawNotifications,
+  const {
+    company: rawCompany,
+    jobs: rawJobs,
+    applications: rawApplications,
+    conversations,
+    notifications: rawNotifications,
     categories,
     skills,
-  ] = await Promise.all([
-    request<RawCompany>("/employer/company"),
-    allPages<EmployerJob>(request, "/employer/my-jobs"),
-    allPages<RawApplication>(request, "/employer/applications"),
-    request<RawConversation[]>("/conversations"),
-    allPages<RawNotification>(request, "/notifications"),
-    allPages<Category>(request, "/categories"),
-    allPages<{ id: number; name: string }>(request, "/skills"),
-  ]);
-  const company = mapCompany(companyResponse.data, user.id);
+  } = await readWorkspaceSnapshot<{
+    company: RawCompany;
+    jobs: EmployerJob[];
+    applications: RawApplication[];
+    conversations: RawConversation[];
+    notifications: RawNotification[];
+    categories: Category[];
+    skills: { id: number; name: string }[];
+  }>(request, "employer");
+  const company = mapCompany(rawCompany, user.id);
   const applications = rawApplications.map(mapApplication);
   return {
     mode: "api",
@@ -224,10 +225,10 @@ export async function loadEmployerApi(
     company,
     jobs: rawJobs.map((j) => mapJob(j, company)),
     applications,
-    conversations: conversationsResponse.data.map((c) =>
+    conversations: conversations.map((c) =>
       mapConversation(c, applications, user.id),
     ),
-    messages: conversationsResponse.data.flatMap((c) =>
+    messages: conversations.flatMap((c) =>
       c.last_message
         ? [mapMessage({ ...c.last_message, conversation_id: c.id })]
         : [],

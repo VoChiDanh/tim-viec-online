@@ -74,13 +74,11 @@ test.describe.serial("Laravel integration without AI", () => {
     await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue(
       "E2E Candidate Updated",
     );
-    await page
-      .getByLabel("Ảnh đại diện", { exact: true })
-      .setInputFiles({
-        name: "avatar.png",
-        mimeType: "image/png",
-        buffer: png,
-      });
+    await page.getByLabel("Ảnh đại diện", { exact: true }).setInputFiles({
+      name: "avatar.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
     await expect(
       page
         .getByRole("img", { name: "Ảnh đại diện đã chọn", exact: true })
@@ -361,6 +359,14 @@ test.describe.serial("Laravel integration without AI", () => {
           .getByRole("link", { name: "Xem ảnh đính kèm", exact: true })
           .last(),
       ).toBeVisible();
+      await expect(
+        page
+          .getByRole("link", { name: "Xem ảnh đính kèm", exact: true })
+          .last(),
+      ).toHaveAttribute(
+        "href",
+        /^\/api\/backend\/conversations\/\d+\/messages\/\d+\/image$/,
+      );
       const image = await page
         .getByRole("link", { name: "Xem ảnh đính kèm", exact: true })
         .last()
@@ -376,6 +382,186 @@ test.describe.serial("Laravel integration without AI", () => {
       await otherContext.close();
     }
   });
+
+  for (const role of ["candidate", "employer"] as const) {
+    test(`${role} chat shows pending immediately, preserves newer drafts and retries failed sends explicitly`, async ({
+      page,
+    }) => {
+      const ids = fixture();
+      const destination = role === "candidate" ? "account" : "employer";
+      await login(
+        page,
+        role,
+        `/${destination}/messages?conversation=${ids.conversation_id}`,
+      );
+      const composer = page.getByLabel("Tin nhắn của bạn", { exact: true });
+      const bubbles = page.locator(
+        role === "candidate" ? ".cc-message" : ".em-chat-message",
+      );
+      const resource = `**/api/backend/conversations/${ids.conversation_id}/messages`;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(resource, async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        await gate;
+        await route.continue();
+      });
+      try {
+        const text = `Pending ${role} message`;
+        await composer.fill(text);
+        await composer.press("Enter");
+        const pending = bubbles.filter({ hasText: text });
+        await expect(pending).toHaveAttribute("data-delivery", "sending", {
+          timeout: 1000,
+        });
+        await expect(composer).toHaveValue("");
+        await composer.fill("Newer draft must remain");
+        release();
+        await expect(pending).toHaveCount(1);
+        await expect(pending).not.toHaveAttribute("data-delivery", "sending");
+        await expect(composer).toHaveValue("Newer draft must remain");
+      } finally {
+        release();
+        await page.unroute(resource);
+      }
+
+      let reject!: () => void;
+      const failure = new Promise<void>((resolve) => {
+        reject = resolve;
+      });
+      await page.route(resource, async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        await failure;
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ success: false, message: "Unavailable" }),
+        });
+      });
+      const failedText = `Retry ${role} message`;
+      try {
+        await composer.fill(failedText);
+        await composer.press("Enter");
+        await expect(bubbles.filter({ hasText: failedText })).toHaveAttribute(
+          "data-delivery",
+          "sending",
+        );
+        await composer.fill("A separate draft");
+        reject();
+        await expect(bubbles.filter({ hasText: failedText })).toHaveAttribute(
+          "data-delivery",
+          "failed",
+        );
+        await expect(composer).toHaveValue("A separate draft");
+      } finally {
+        reject();
+        await page.unroute(resource);
+      }
+      await bubbles
+        .filter({ hasText: failedText })
+        .getByRole("button", { name: "Thử lại", exact: true })
+        .click();
+      await expect(bubbles.filter({ hasText: failedText })).toHaveCount(1);
+      await expect(bubbles.filter({ hasText: failedText })).not.toHaveAttribute(
+        "data-delivery",
+        "failed",
+      );
+      await expect(bubbles.filter({ hasText: failedText })).not.toHaveAttribute(
+        "data-delivery",
+        "sending",
+      );
+      await expect(composer).toHaveValue("A separate draft");
+    });
+
+    test(`${role} chat loads only the newest window and exposes older messages without scrolling away`, async ({
+      page,
+    }) => {
+      const ids = fixture();
+      const sender = role === "candidate" ? ids.candidate_id : ids.employer_id;
+      const historyCalls: string[] = [];
+      await page.route(
+        `**/api/backend/conversations/${ids.conversation_id}/messages?*`,
+        async (route) => {
+          const url = new URL(route.request().url());
+          historyCalls.push(url.search);
+          const older = url.searchParams.has("before_id");
+          const messages = Array.from(
+            { length: older ? 3 : 50 },
+            (_, index) => ({
+              id: (older ? 9997 : 10000) + index,
+              conversation_id: ids.conversation_id,
+              sender_id: sender,
+              message: `History message ${(older ? 9997 : 10000) + index}`,
+              created_at: `2026-10-${older ? "26" : "27"}T12:${String(index).padStart(2, "0")}:00Z`,
+              is_read: false,
+            }),
+          );
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              success: true,
+              data: messages,
+              meta: {
+                has_more: !older,
+                oldest_id: messages[0].id,
+                newest_id: messages.at(-1)?.id,
+              },
+            }),
+          });
+        },
+      );
+      await login(
+        page,
+        role,
+        `/${role === "candidate" ? "account" : "employer"}/messages?conversation=${ids.conversation_id}`,
+      );
+      const region = page.getByRole("region", {
+        name: /^Nội dung hội thoại với/,
+      });
+      const bubbles = region.locator(
+        role === "candidate" ? ".cc-message" : ".em-chat-message",
+      );
+      await expect(bubbles).toHaveCount(50);
+      expect(historyCalls.length).toBeGreaterThan(0);
+      expect(
+        historyCalls.every((query) => query === "?per_page=50&latest=1"),
+      ).toBe(true);
+      await region.evaluate((node) => {
+        node.scrollTop = 0;
+      });
+      await region
+        .getByRole("button", { name: "Xem tin nhắn cũ hơn", exact: true })
+        .click();
+      await expect(bubbles).toHaveCount(53);
+      await expect(
+        region.getByRole("button", {
+          name: "Xem tin nhắn cũ hơn",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      // A WebSocket connection may reconcile the latest window while it
+      // establishes subscriptions. It must never walk every legacy page.
+      expect(
+        historyCalls.filter((query) => query.includes("before_id")),
+      ).toEqual(["?per_page=50&before_id=10000"]);
+      expect(
+        historyCalls.every(
+          (query) =>
+            query === "?per_page=50&latest=1" ||
+            query === "?per_page=50&before_id=10000",
+        ),
+      ).toBe(true);
+      const position = await region.evaluate((node) => ({
+        top: node.scrollTop,
+        bottom: node.scrollHeight - node.scrollTop - node.clientHeight,
+      }));
+      expect(position.top).toBeGreaterThan(0);
+      expect(position.bottom).toBeGreaterThan(100);
+    });
+  }
 
   test("admin catalog CRUD persists and locking revokes candidate sessions", async ({
     page,

@@ -31,6 +31,10 @@ import {
   FieldLabel,
 } from "@/modules/cores/shadcn/components/ui/field";
 import { useChatScroll } from "@/components/candidate/use-chat-scroll";
+import {
+  ChatDelivery,
+  ChatHistoryControl,
+} from "@/features/chat/chat-controls";
 import { useEmployer } from "./employer-provider";
 import "./employer-messages.css";
 
@@ -103,11 +107,8 @@ export function EmployerMessages() {
   const searchInput = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const previousRequested = useRef(requested);
-  const { scrollRef, onScroll, scrollBottom, atBottom } = useChatScroll(
-    activeId,
-    messages.at(-1)?.id,
-    requested,
-  );
+  const { scrollRef, onScroll, scrollBottom, atBottom, preserveScroll } =
+    useChatScroll(activeId, messages.at(-1)?.id, requested, messages[0]?.id);
   useEffect(() => {
     if (requested === null && window.matchMedia("(max-width: 760px)").matches)
       return;
@@ -128,7 +129,11 @@ export function EmployerMessages() {
     )
       await loadConversation(activeId);
   };
-  useLiveRefresh(refreshActive, state.apiMode);
+  useLiveRefresh(
+    refreshActive,
+    state.apiMode,
+    activeId === undefined ? [] : [activeId],
+  );
   useLayoutEffect(
     () => resizeComposer(composer.current),
     [draft, activeId, requested],
@@ -156,14 +161,17 @@ export function EmployerMessages() {
     setAnnouncement("");
   };
   const send = async () => {
-    if (!conversation || state.pending) return;
-    const issue = await state.sendMessage(
+    if (!conversation || state.messageSending[conversation.id]) return;
+    const result = state.sendMessage(
       conversation.id,
       attachment?.conversationId === conversation.id ? attachment.file : null,
     );
+    if (draft.trim() || attachment?.conversationId === conversation.id)
+      setAttachment(null);
+    scrollBottom();
+    const issue = await result;
     setError(issue ? { id: conversation.id, text: issue } : null);
     if (!issue) {
-      setAttachment(null);
       scrollBottom();
       setAnnouncement(
         state.apiMode
@@ -394,16 +402,24 @@ export function EmployerMessages() {
                   tabIndex={0}
                   aria-label={`Nội dung hội thoại với ${application.name}`}
                 >
-                  {!messages.length && (
-                    <div className="em-chat-empty">
-                      <MessageSquare aria-hidden="true" />
-                      <strong>Bắt đầu trao đổi với {application.name}</strong>
-                      <p>
-                        Giới thiệu về vị trí hoặc hẹn thời gian trao đổi phù
-                        hợp.
-                      </p>
-                    </div>
-                  )}
+                  <ChatHistoryControl
+                    {...state.messageHistory[conversation.id]}
+                    onLoad={() => {
+                      preserveScroll();
+                      void loadConversation(conversation.id, true);
+                    }}
+                  />
+                  {!messages.length &&
+                    !state.messageHistory[conversation.id]?.loading && (
+                      <div className="em-chat-empty">
+                        <MessageSquare aria-hidden="true" />
+                        <strong>Bắt đầu trao đổi với {application.name}</strong>
+                        <p>
+                          Giới thiệu về vị trí hoặc hẹn thời gian trao đổi phù
+                          hợp.
+                        </p>
+                      </div>
+                    )}
                   {messages.map((message, index) => {
                     const outgoing = message.sender_id === state.user.id;
                     const messageDay = vietnamToday(
@@ -426,6 +442,7 @@ export function EmployerMessages() {
                         <article
                           className="em-chat-message"
                           data-outgoing={outgoing}
+                          data-delivery={message.delivery}
                         >
                           <span className="sr-only">
                             {outgoing ? "Bạn" : application.name}
@@ -458,7 +475,23 @@ export function EmployerMessages() {
                             >
                               {time(message.created_at)}
                             </time>
-                            {outgoing && message.is_read ? " · Đã xem" : ""}
+                            {outgoing && !message.delivery && message.is_read
+                              ? " · Đã xem"
+                              : ""}
+                            <ChatDelivery
+                              delivery={message.delivery}
+                              retry={() => {
+                                void state
+                                  .retryMessage(message.id)
+                                  .then((issue) =>
+                                    setError(
+                                      issue
+                                        ? { id: conversation.id, text: issue }
+                                        : null,
+                                    ),
+                                  );
+                              }}
+                            />
                           </small>
                         </article>
                       </Fragment>
@@ -494,7 +527,7 @@ export function EmployerMessages() {
                         id="em-attachment"
                         type="file"
                         accept="image/jpeg,image/png,image/gif,image/webp"
-                        disabled={state.pending}
+                        disabled={state.messageSending[conversation.id]}
                         onChange={(event) => {
                           const file = event.currentTarget.files?.[0];
                           event.currentTarget.value = "";
@@ -551,7 +584,7 @@ export function EmployerMessages() {
                       }
                     />
                     <Button
-                      disabled={state.pending}
+                      disabled={state.messageSending[conversation.id]}
                       type="submit"
                       size="icon"
                       aria-label="Gửi tin nhắn"

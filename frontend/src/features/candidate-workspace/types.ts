@@ -24,6 +24,7 @@ export type Application = {
   can_withdraw?: boolean;
 };
 export type PreviewMessage = {
+  delivery?: "sending" | "failed";
   id: string;
   conversation_id: number;
   message: string;

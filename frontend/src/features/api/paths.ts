@@ -1,4 +1,5 @@
-const publicReads = /^\/(?:categories(?:\/\d+)?|skills(?:\/\d+)?|companies(?:\/\d+)?|jobs(?:\/\d+)?|locations\/cities)$/;
+const publicReads =
+  /^\/(?:categories(?:\/\d+)?|skills(?:\/\d+)?|companies(?:\/\d+)?|jobs(?:\/\d+)?|locations\/cities)$/;
 const routes: [RegExp, string[]][] = [
   [publicReads, ["GET"]],
   [/^\/candidate\/profile$/, ["GET", "POST", "PUT"]],
@@ -34,15 +35,35 @@ const routes: [RegExp, string[]][] = [
   [/^\/admin\/(?:categories|skills)$/, ["GET", "POST"]],
   [/^\/admin\/(?:categories|skills)\/\d+$/, ["PUT", "DELETE"]],
   [/^\/broadcasting\/auth$/, ["POST"]],
+  [/^\/workspace\/bootstrap$/, ["GET"]],
 ];
 
 export function allowedBackendPath(path: string, method = "GET"): boolean {
   if (path.length > 6000 || /[\\#\x00-\x20]/.test(path)) return false;
   const [pathname] = path.split("?");
-  return routes.some(([pattern, methods]) => pattern.test(pathname) && methods.includes(method));
+  return routes.some(
+    ([pattern, methods]) => pattern.test(pathname) && methods.includes(method),
+  );
 }
 
-export const isPublicBackendRead = (path: string) => publicReads.test(path.split("?")[0]);
+export const isPublicBackendRead = (path: string) =>
+  publicReads.test(path.split("?")[0]);
+
+// Job detail reads count a view; leave them uncached. All private workspace
+// reads must always use the current session and bypass shared directory data.
+export const cacheablePublicRead = (path: string, method = "GET") =>
+  method === "GET" &&
+  allowedBackendPath(path, method) &&
+  isPublicBackendRead(path) &&
+  !/^\/jobs\/\d+$/.test(path.split("?")[0]);
+
+export const invalidatesPublicDirectory = (path: string, method: string) =>
+  !["GET", "HEAD"].includes(method) &&
+  /^\/(?:employer\/(?:company|jobs(?:\/\d+(?:\/status)?)?)|jobs\/\d+\/apply|admin\/(?:jobs(?:\/\d+(?:\/report)?)?|users\/\d+\/(?:status|toggle-lock)|(?:categories|skills)(?:\/\d+)?))$/.test(
+    path.split("?")[0],
+  );
 
 export const protectedFilePath = (path: string) =>
-  /^\/(?:candidate\/cv\/file|applications\/\d+\/cv|conversations\/\d+\/messages\/\d+\/image)$/.test(path.split("?")[0]);
+  /^\/(?:candidate\/cv\/file|applications\/\d+\/cv|conversations\/\d+\/messages\/\d+\/image)$/.test(
+    path.split("?")[0],
+  );

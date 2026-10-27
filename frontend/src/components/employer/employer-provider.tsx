@@ -7,7 +7,16 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useLiveRefresh } from "@/features/api/live";
+import {
+  liveConversations,
+  useBackendEvent,
+  useLiveRefresh,
+} from "@/features/api/live";
+import { useChatMessages } from "@/features/chat/use-chat-messages";
+import {
+  mergeChatMessages,
+  receiptIncludesMessage,
+} from "@/features/chat/updates";
 import type {
   ApplicationStatus,
   CompanyValues,
@@ -23,13 +32,13 @@ import {
 } from "@/features/employer/rules";
 import { apiRequest } from "@/features/api/client";
 import {
-  allPages,
   jobPayload,
   loadEmployerApi,
   mapApplication,
   mapCompany,
   mapJob,
   mapMessage,
+  mapNotification,
   type RawApplication,
   type RawMessage,
 } from "@/features/employer/api";
@@ -37,18 +46,24 @@ import type { EmployerJob } from "@/features/employer/types";
 import { vietnamToday } from "@/features/jobs/formatters";
 
 function useEmployerState(initial: EmployerData) {
+  const apiMode = initial.mode === "api";
   const [company, setCompany] = useState(initial.company);
   const [logo, setLogo] = useState<File | null>(null);
   const [jobs, setJobs] = useState(initial.jobs);
   const [applications, setApplications] = useState(initial.applications);
   const [conversations, setConversations] = useState(initial.conversations);
-  const [messages, setMessages] = useState(initial.messages);
+  const chat = useChatMessages(
+    initial.messages,
+    apiMode,
+    (raw) => mapMessage(raw as RawMessage),
+    initial.user.id,
+  );
+  const { messages, setMessages, loadMessages } = chat;
   const [notifications, setNotifications] = useState(initial.notifications);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
   const [loadError, setLoadError] = useState("");
-  const apiMode = initial.mode === "api";
   const mock = {
     ...initial,
     company,
@@ -245,22 +260,78 @@ function useEmployerState(initial: EmployerData) {
       setApplications(data.applications);
       setConversations(data.conversations);
       setNotifications(data.notifications);
-      setMessages((current) => {
-        const known = new Map(current.map((message) => [message.id, message]));
-        for (const message of data.messages) known.set(message.id, message);
-        return [...known.values()];
-      });
+      setMessages((current) => mergeChatMessages(current, data.messages));
       setLoadError("");
     } catch (error) {
       setLoadError(
         error instanceof Error ? error.message : "Không tải được cập nhật.",
       );
     }
-  }, [apiMode, initial.user, initial.cities]);
-  useLiveRefresh(
-    refresh,
+  }, [apiMode, initial.user, initial.cities, setMessages]);
+  useLiveRefresh(refresh, apiMode);
+  useBackendEvent(
+    "backend:message",
+    (message) => {
+      if (!conversations.some((item) => item.id === message.conversation_id))
+        return;
+      setMessages((current) =>
+        mergeChatMessages(current, [
+          mapMessage({
+            ...message,
+            image_url: message.image_url ?? undefined,
+            is_read: Boolean(message.is_read),
+          }),
+        ]),
+      );
+    },
     apiMode,
-    conversations.map((conversation) => conversation.id),
+  );
+  useBackendEvent(
+    "backend:messages-read",
+    (receipt) => {
+      setMessages((current) =>
+        current.map((message) =>
+          receiptIncludesMessage(receipt, message, message.sender_id)
+            ? { ...message, is_read: true }
+            : message,
+        ),
+      );
+    },
+    apiMode,
+  );
+  useBackendEvent(
+    "backend:notification",
+    (notification) => {
+      const mapped = mapNotification(notification);
+      setNotifications((current) => [
+        mapped,
+        ...current.filter((item) => item.id !== mapped.id),
+      ]);
+      if (
+        notification.data?.conversation_id &&
+        !conversations.some(
+          (item) => item.id === notification.data?.conversation_id,
+        )
+      )
+        void refresh();
+      else if (
+        notification.type === "new_message" &&
+        notification.data?.conversation_id &&
+        !liveConversations().includes(notification.data.conversation_id)
+      ) {
+        const id = notification.data.conversation_id;
+        void apiRequest<RawMessage[]>(
+          `/conversations/${id}/messages?latest=1&per_page=1`,
+        )
+          .then((response) =>
+            setMessages((current) =>
+              mergeChatMessages(current, response.data.map(mapMessage)),
+            ),
+          )
+          .catch(() => {});
+      }
+    },
+    apiMode,
   );
   function errors(error: unknown): Record<string, string> {
     const result: Record<string, string> = {};
@@ -297,24 +368,10 @@ function useEmployerState(initial: EmployerData) {
     }
   }
   const loadConversation = useCallback(
-    async (id: number) => {
+    async (id: number, older = false) => {
       if (!apiMode) return;
       try {
-        const rows = await allPages<RawMessage>(
-          apiRequest,
-          `/conversations/${id}/messages`,
-        );
-        setMessages((current) => {
-          const known = new Map(
-            current.map((message) => [message.id, message]),
-          );
-          for (const row of rows) known.set(String(row.id), mapMessage(row));
-          return [...known.values()].sort(
-            (a, b) =>
-              a.created_at.localeCompare(b.created_at) ||
-              Number(a.id) - Number(b.id),
-          );
-        });
+        await loadMessages(id, older);
         setLoadError("");
       } catch (error) {
         setLoadError(
@@ -322,7 +379,7 @@ function useEmployerState(initial: EmployerData) {
         );
       }
     },
-    [apiMode],
+    [apiMode, loadMessages],
   );
   const markConversationRead = useCallback(
     async (id: number) => {
@@ -345,13 +402,16 @@ function useEmployerState(initial: EmployerData) {
         );
       }
     },
-    [apiMode, initial.user.id],
+    [apiMode, initial.user.id, setMessages],
   );
   return {
     ...mock,
     apiMode,
     pending,
     loadError,
+    messageHistory: chat.history,
+    messageSending: chat.sending,
+    retryMessage: chat.retryMessage,
     refresh,
     saveCompany: async (values: CompanyValues) => {
       if (!apiMode) return mock.saveCompany(values);
@@ -517,31 +577,12 @@ function useEmployerState(initial: EmployerData) {
           image.size > 5 * 1024 * 1024)
       )
         return "Chọn ảnh JPEG, PNG, GIF hoặc WebP tối đa 5 MB.";
-      try {
-        await write(async () => {
-          const form = new FormData();
-          form.set("message", message);
-          if (image) form.set("image", image);
-          const response = await apiRequest<RawMessage>(
-            `/conversations/${id}/messages`,
-            {
-              method: "POST",
-              body: image ? form : JSON.stringify({ message }),
-            },
-          );
-          setMessages((current) => [
-            ...current.filter((m) => m.id !== String(response.data.id)),
-            mapMessage(response.data),
-          ]);
-          setDrafts((current) => ({
-            ...current,
-            [id]: current[id]?.trim() === message ? "" : current[id],
-          }));
-        });
-        return null;
-      } catch (error) {
-        return Object.values(errors(error))[0];
-      }
+      if (chat.sending[id]) return "Tin nhắn đang được gửi, vui lòng chờ.";
+      setDrafts((current) => ({
+        ...current,
+        [id]: current[id]?.trim() === message ? "" : current[id],
+      }));
+      return chat.sendMessage(id, message, image);
     },
     loadConversation,
     markConversationRead,

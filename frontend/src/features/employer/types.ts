@@ -82,6 +82,7 @@ export interface EmployerConversation {
   application_id: number;
 }
 export interface EmployerMessage {
+  delivery?: "sending" | "failed";
   image_url?: string;
   id: string;
   conversation_id: number;

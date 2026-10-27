@@ -49,6 +49,10 @@ test("admin projection uses actual backend totals and trend without fabricated a
         name: "Employer",
         role: "employer",
         phone: null,
+        candidate_profile: {
+          bio: "Unneeded profile payload",
+          cv_file_path: "private-file.pdf",
+        },
         created_at: "2026-10-26T04:00:00Z",
         company: { id: 7, name: "Company" },
       },
@@ -59,6 +63,12 @@ test("admin projection uses actual backend totals and trend without fabricated a
         company_id: 7,
         created_at: "2026-10-26T04:00:00Z",
         skills: [{ id: 4, name: "PHP" }],
+        company: {
+          id: 7,
+          name: "Company",
+          description: "Repeated company payload",
+        },
+        category: { id: 3, name: "Engineering" },
       },
     ],
     "/admin/categories": [{ id: 3, name: "Engineering" }],
@@ -69,13 +79,23 @@ test("admin projection uses actual backend totals and trend without fabricated a
       trends: [{ date: "2026-10-26", jobs_count: 12, applications_count: 34 }],
     },
   };
+  const visited: string[] = [];
   const request: AdminRequest = async <T>(
     path: string,
-  ): Promise<ApiResponse<T>> => ({
-    success: true,
-    data: records[path.split("?")[0]] as T,
-    meta: { last_page: 1 },
-  });
+  ): Promise<ApiResponse<T>> => {
+    visited.push(path);
+    return {
+      success: true,
+      data: {
+        role: "admin",
+        users: records["/admin/users"],
+        jobs: records["/admin/jobs"],
+        categories: records["/admin/categories"],
+        skills: records["/admin/skills"],
+        stats: records["/admin/stats"],
+      } as T,
+    };
+  };
   const db = await readAdminDatabase(request);
   assert.equal(db.companies[0].user_id, 11);
   assert.equal(db.users[0].phone, "");
@@ -89,4 +109,8 @@ test("admin projection uses actual backend totals and trend without fabricated a
     applications_count: 34,
   });
   assert.deepEqual(db.applications, []);
+  assert.deepEqual(visited, ["/workspace/bootstrap"]);
+  assert.equal("company" in db.jobs[0], false);
+  assert.equal("category" in db.jobs[0], false);
+  assert.equal("candidate_profile" in db.users[0], false);
 });

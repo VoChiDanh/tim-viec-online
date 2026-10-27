@@ -5,12 +5,27 @@ export function useChatScroll(
   id: number | undefined,
   lastMessage: string | undefined,
   requested: string | null,
+  firstMessage?: string,
 ) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const positions = useRef<Record<number, { top: number; pinned: boolean }>>(
     {},
   );
   const [pinned, setPinned] = useState<Record<number, boolean>>({});
+  const prepend = useRef<{ height: number; top: number } | null>(null);
+  const preserveScroll = () => {
+    const node = scrollRef.current;
+    if (node)
+      prepend.current = { height: node.scrollHeight, top: node.scrollTop };
+  };
+  useLayoutEffect(() => {
+    const node = scrollRef.current;
+    if (!node || !prepend.current || id === undefined) return;
+    node.scrollTop =
+      prepend.current.top + node.scrollHeight - prepend.current.height;
+    positions.current[id] = { top: node.scrollTop, pinned: false };
+    prepend.current = null;
+  }, [firstMessage, id]);
   const onScroll = () => {
     const node = scrollRef.current;
     if (!node || id === undefined || !node.clientHeight) return;
@@ -50,6 +65,7 @@ export function useChatScroll(
     scrollRef,
     onScroll,
     scrollBottom,
+    preserveScroll,
     atBottom: id === undefined || (pinned[id] ?? true),
   };
 }

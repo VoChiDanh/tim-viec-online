@@ -2,10 +2,22 @@
 import { useEffect } from "react";
 import { apiRequest } from "@/features/api/client";
 import { liveConversations } from "@/features/api/live";
+import type { PublicRealtimeConfig } from "@/features/api/realtime-config";
+import {
+  parseChatMessage,
+  parseNotification,
+  parseReadReceipt,
+} from "@/features/chat/updates";
 
-export function BackendRealtime({ userId }: { userId: number }) {
+export function BackendRealtime({
+  userId,
+  config,
+}: {
+  userId: number;
+  config: PublicRealtimeConfig;
+}) {
   useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_REVERB_APP_KEY;
+    const key = config.key;
     if (!key) return;
     let disposed = false;
     let disconnect = () => {};
@@ -15,11 +27,10 @@ export function BackendRealtime({ userId }: { userId: number }) {
         if (disposed) return;
         const client = new Pusher(key, {
           cluster: "mt1",
-          wsHost:
-            process.env.NEXT_PUBLIC_REVERB_HOST || window.location.hostname,
-          wsPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT || 8080),
-          wssPort: Number(process.env.NEXT_PUBLIC_REVERB_PORT || 443),
-          forceTLS: process.env.NEXT_PUBLIC_REVERB_SCHEME === "https",
+          wsHost: config.host || window.location.hostname,
+          wsPort: config.port,
+          wssPort: config.port,
+          forceTLS: config.tls,
           enabledTransports: ["ws", "wss"],
           channelAuthorization: {
             customHandler: (params, callback) => {
@@ -40,7 +51,19 @@ export function BackendRealtime({ userId }: { userId: number }) {
         const refresh = () =>
           window.dispatchEvent(new Event("backend:refresh"));
         const user = client.subscribe(`private-App.Models.User.${userId}`);
-        user.bind("notification.sent", refresh);
+        user.bind("notification.sent", (value: unknown) => {
+          const notification = parseNotification(value);
+          if (!notification) return;
+          window.dispatchEvent(
+            new CustomEvent("backend:notification", { detail: notification }),
+          );
+          // Chat updates merge their payloads locally; application changes still reconcile workspace data.
+          if (
+            notification.type !== "new_message" &&
+            notification.type !== "chat"
+          )
+            refresh();
+        });
         const watched = new Set<number>();
         reconcile = () => {
           const wanted = new Set(liveConversations());
@@ -52,8 +75,22 @@ export function BackendRealtime({ userId }: { userId: number }) {
           for (const id of wanted)
             if (!watched.has(id)) {
               const channel = client.subscribe(`private-chat.${id}`);
-              channel.bind("message.sent", refresh);
-              channel.bind("messages.read", refresh);
+              channel.bind("message.sent", (value: unknown) => {
+                const message = parseChatMessage(value);
+                if (message)
+                  window.dispatchEvent(
+                    new CustomEvent("backend:message", { detail: message }),
+                  );
+              });
+              channel.bind("messages.read", (value: unknown) => {
+                const receipt = parseReadReceipt(value);
+                if (receipt)
+                  window.dispatchEvent(
+                    new CustomEvent("backend:messages-read", {
+                      detail: receipt,
+                    }),
+                  );
+              });
               watched.add(id);
             }
         };
@@ -71,6 +108,6 @@ export function BackendRealtime({ userId }: { userId: number }) {
       disconnect();
       window.removeEventListener("backend:conversations", update);
     };
-  }, [userId]);
+  }, [userId, config.key, config.host, config.port, config.tls]);
   return null;
 }
