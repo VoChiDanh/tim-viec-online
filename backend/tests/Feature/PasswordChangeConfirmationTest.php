@@ -119,6 +119,8 @@ class PasswordChangeConfirmationTest extends TestCase
         $this->postJson('/api/password/change/confirm', $change)->assertStatus(400);
         $this->postJson('/api/reset-password', ['email' => $original, 'token' => $reset, 'password' => 'ResetPass3!', 'password_confirmation' => 'ResetPass3!'])->assertStatus(400);
         $this->withoutMiddleware(ThrottleRequests::class);
+        // A changed mailbox must complete its separate verification before a new request.
+        $user->refresh()->forceFill(['email_verified_at' => now()])->save();
         $change = $this->requestChange($user->fresh());
         $user->forceFill(['status' => 'locked'])->save();
         $this->postJson('/api/password/change/confirm', $change)->assertStatus(400);

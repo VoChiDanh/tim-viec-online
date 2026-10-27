@@ -22,7 +22,7 @@ class PasswordRecoveryService
         $digest = hash('sha256', $token);
         $user = DB::transaction(function () use ($email, $digest) {
             $user = User::where('email', $email)->lockForUpdate()->first();
-            if (! $user || $user->status !== 'active') {
+            if (! $user || $user->status !== 'active' || ! $user->hasVerifiedEmail()) {
                 return null;
             }
             DB::table('password_reset_tokens')->updateOrInsert(['email' => $email], [
@@ -70,7 +70,7 @@ class PasswordRecoveryService
 
         return DB::transaction(function () use ($email, $token, $password) {
             $user = User::where('email', $email)->lockForUpdate()->first();
-            if (! $user || $user->status !== 'active') {
+            if (! $user || $user->status !== 'active' || ! $user->hasVerifiedEmail()) {
                 return null;
             }
             $record = DB::table('password_reset_tokens')->where('email', $email)->lockForUpdate()->first();
@@ -98,7 +98,8 @@ class PasswordRecoveryService
 
     private function belongsTo(?object $record, ?User $user): bool
     {
-        return $record && $user && $user->status === 'active' && (int) $record->user_id === (int) $user->id
+        return $record && $user && $user->status === 'active' && $user->hasVerifiedEmail()
+            && (int) $record->user_id === (int) $user->id
             && is_string($record->credential_hash) && hash_equals($record->credential_hash, hash('sha256', $user->password));
     }
 

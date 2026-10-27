@@ -13,7 +13,7 @@ class EnsureEmailVerified
         if (! $request->user()?->hasVerifiedEmail()) {
             return response()->json([
                 'success' => false, 'code' => 'email_verification_required',
-                'message' => 'Vui lòng xác nhận email trước khi ứng tuyển, đăng tin hoặc nhắn tin.',
+                'message' => 'Vui lòng xác nhận email trước khi sử dụng chức năng này.',
                 'errors' => ['email' => ['Email chưa được xác nhận.']],
             ], 403);
         }

@@ -1,13 +1,14 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
-use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\EnsureEmailVerified;
+use App\Http\Middleware\IsAdmin;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -27,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => IsAdmin::class,
             'email.verified' => EnsureEmailVerified::class,
         ]);
+        // Reject unverified requests before consuming password-change send limits.
+        $middleware->prependToPriorityList(ThrottleRequests::class, EnsureEmailVerified::class);
 
         // Đảm bảo không bao giờ redirect sang trang web HTML khi chưa đăng nhập API
         $middleware->redirectGuestsTo(function (Request $request) {

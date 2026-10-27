@@ -63,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/email-preferences', [EmailPreferenceController::class, 'show']);
     Route::put('/user/email-preferences', [EmailPreferenceController::class, 'update'])->middleware('throttle:30,1,email-preferences:');
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::put('/user/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:password-change');
+    Route::put('/user/change-password', [AuthController::class, 'changePassword'])->middleware(['email.verified', 'throttle:password-change']);
 
     // Realtime Chat (FR-08)
     Route::get('/conversations', [ChatController::class, 'index']);

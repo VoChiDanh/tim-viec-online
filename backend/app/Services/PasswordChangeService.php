@@ -26,6 +26,9 @@ class PasswordChangeService
             if ($user->isLocked()) {
                 $this->reject(403, 'account_locked', 'Tài khoản của bạn đã bị khóa.');
             }
+            if (! $user->hasVerifiedEmail()) {
+                $this->reject(403, 'email_verification_required', 'Vui lòng xác nhận email trước khi đổi mật khẩu.');
+            }
             if (! Hash::check($currentPassword, $user->password)) {
                 $this->reject(400, 'invalid_current_password', 'Mật khẩu hiện tại không chính xác');
             }
@@ -58,7 +61,7 @@ class PasswordChangeService
     {
         $user = DB::transaction(function () use ($email, $token) {
             $user = User::where('email', strtolower(trim($email)))->lockForUpdate()->first();
-            if (! $user || $user->isLocked()) {
+            if (! $user || $user->isLocked() || ! $user->hasVerifiedEmail()) {
                 return null;
             }
             $record = DB::table('password_change_requests')->where('user_id', $user->id)->lockForUpdate()->first();
