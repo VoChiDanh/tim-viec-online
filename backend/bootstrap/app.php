@@ -37,6 +37,11 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
+            if ($request->is('api/candidate/resumes*', 'api/candidate/resume-exports*')) {
+                return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first(), 'errors' => $e->errors()], 422);
+            }
+        });
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             return response()->json([
                 'success' => false,
