@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { emptyResume, TEMPLATE_KEYS } from "../src/features/resumes/schema";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,7 +40,7 @@ test("all templates create paged Vietnamese text PDFs using local fonts", async 
       description:
         "Phân tích yêu cầu và xây dựng hệ thống quản lý tuyển dụng. Kiểm thử, triển khai và bảo trì ứng dụng cho người dùng Việt Nam. ".repeat(
           5,
-        ),
+        ) + `Kết quả công việc ${i + 1}.`,
     }));
     const file = path.join(
       output,
@@ -70,6 +71,51 @@ test("all templates create paged Vietnamese text PDFs using local fonts", async 
     assert.match(parsed.text, /Nguyễn Minh An/u);
     assert.match(parsed.text, /TypeScript/);
     assert.match(parsed.text, /Doanh nghiệp tổng hợp 10/u);
+    for (let page = 1; page <= parsed.pages; page++) {
+      assert.ok(
+        parsed.text.includes(`${page} / ${parsed.pages}`),
+        `${template}: missing page ${page} footer`,
+      );
+    }
+    const loading = getDocument({
+      data: new Uint8Array(result),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      let visibleText = "";
+      for (let index = 1; index <= pdf.numPages; index++) {
+        const page = await pdf.getPage(index);
+        const content = await page.getTextContent();
+        const visible = content.items.filter(
+          (item) =>
+            "str" in item &&
+            item.transform[5] >= 0 &&
+            item.transform[5] <= page.view[3],
+        );
+        visibleText += visible
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
+        assert.ok(
+          visible
+            .map((item) => ("str" in item ? item.str : ""))
+            .join(" ")
+            .includes(`${index} / ${pdf.numPages}`),
+          `${template}: page ${index} footer is outside the printable page`,
+        );
+      }
+      const complete = visibleText.normalize("NFC").replace(/\s/g, "");
+      for (let index = 1; index <= 10; index++)
+        assert.ok(
+          complete.includes(`Kếtquảcôngviệc${index}.`),
+          `${template}: description ${index} is missing from visible pages`,
+        );
+    } finally {
+      await loading.destroy();
+    }
   }
 });
 
@@ -112,4 +158,141 @@ test("renderer rejects invalid input and never accepts user supplied font or ima
       },
     ),
   );
+});
+
+test("section headings stay with their first entry in complete Vietnamese CVs", async () => {
+  const fixture = JSON.parse(
+    await readFile(
+      path.join(root, "../tests/fixtures/resumes/showcase.json"),
+      "utf8",
+    ),
+  );
+  for (const template of TEMPLATE_KEYS) {
+    fixture.template_key = template;
+    const file = path.join(
+      root,
+      "test-results/resume-renderer",
+      `showcase-${template}-${crypto.randomUUID()}.pdf`,
+    );
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      { input: JSON.stringify({ document: fixture }) },
+    );
+    const loading = getDocument({
+      data: new Uint8Array(await readFile(file)),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      for (let index = 1; index <= pdf.numPages; index++) {
+        const page = await pdf.getPage(index);
+        const items = (await page.getTextContent()).items;
+        assert.ok(
+          items.some(
+            (item) =>
+              "str" in item && item.str.trim() && item.transform[5] > 42,
+          ),
+          `${template}: empty trailing page ${index}`,
+        );
+        const text = items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ")
+          .normalize("NFC")
+          .replace(/\s/g, "");
+        if (text.includes("CHỨNGCHỈ"))
+          assert.ok(
+            text.includes("GoogleUXDesign"),
+            `${template}: orphaned certification heading on page ${index}`,
+          );
+        if (text.includes("DỰÁN"))
+          assert.ok(
+            text.includes("NềntảnghọctậpCùngTiến"),
+            `${template}: orphaned project heading on page ${index}`,
+          );
+      }
+    } finally {
+      await loading.destroy();
+    }
+  }
+});
+
+test("valid multiline skill details and long contact text remain visible", async () => {
+  for (const template of TEMPLATE_KEYS) {
+    const doc = emptyResume();
+    doc.template_key = template;
+    doc.content.basics.full_name = "W".repeat(120);
+    doc.content.basics.headline = "Kỹ sư phần mềm";
+    doc.content.basics.email =
+      "a".repeat(64) + "@" + "b".repeat(63) + "." + "c".repeat(63) + ".test";
+    doc.content.skills = [
+      {
+        id: crypto.randomUUID(),
+        name: "Kỹ năng",
+        detail: Array.from({ length: 65 }, (_, i) => `S${i + 1}`).join("\n"),
+      },
+    ];
+    doc.content.experience = [
+      {
+        id: crypto.randomUUID(),
+        position: "X\n".repeat(60) + "LAST",
+        company: "Công ty",
+        start_month: null,
+        end_month: null,
+        current: false,
+        description: "Hoàn thành công việc.",
+      },
+    ];
+    const file = path.join(
+      root,
+      "test-results/resume-renderer",
+      `multiline-${template}-${crypto.randomUUID()}.pdf`,
+    );
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      {
+        input: JSON.stringify({ document: doc }),
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    const loading = getDocument({
+      data: new Uint8Array(await readFile(file)),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      let visible = "";
+      for (let index = 1; index <= pdf.numPages; index++) {
+        const page = await pdf.getPage(index);
+        const items = (await page.getTextContent()).items;
+        visible += items
+          .filter(
+            (item) =>
+              "str" in item &&
+              item.transform[5] >= 0 &&
+              item.transform[5] <= page.view[3],
+          )
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
+        for (const item of items)
+          if ("str" in item && item.str.trim()) {
+            assert.ok(
+              item.transform[4] + item.width <= page.view[2] - 30,
+              `${template}: text exceeds the page right margin`,
+            );
+          }
+      }
+      assert.match(visible, /S65/, `${template}: missing final skill line`);
+      assert.match(visible, /LAST/, `${template}: missing end of job title`);
+    } finally {
+      await loading.destroy();
+    }
+  }
 });

@@ -423,10 +423,12 @@
   margin-bottom: 18px;
   font-size: 13px;
 }
-.resume-export-status a {
-  color: var(--brand-blue);
-  font-weight: 600;
-  white-space: nowrap;
+.resume-export-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .resume-mobile-tabs {
   display: none;

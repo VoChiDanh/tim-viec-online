@@ -3,19 +3,22 @@ export const RESUME_TEMPLATES = [
     key: "classic",
     version: 1,
     label: "Chuyên nghiệp",
-    description: "Một cột rõ ràng, phù hợp mọi ngành nghề.",
+    description:
+      "Một cột mạch lạc, mốc thời gian rõ ràng. Phù hợp hồ sơ chuyên môn và quản lý.",
   },
   {
     key: "modern",
     version: 1,
     label: "Hiện đại",
-    description: "Thông tin liên hệ và kỹ năng ở cột bên.",
+    description:
+      "Tiêu đề xanh đậm, hai cột cân đối. Làm nổi bật kỹ năng và kinh nghiệm của bạn.",
   },
   {
     key: "minimal",
     version: 1,
     label: "Tối giản",
-    description: "Ít trang trí, tập trung vào nội dung.",
+    description:
+      "Chữ thanh lịch, đường nét tinh gọn. Tập trung vào thành tích và dễ đọc khi in.",
   },
 ] as const;
 export const SECTION_LABELS = {

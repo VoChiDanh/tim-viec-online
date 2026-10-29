@@ -169,15 +169,25 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     ["../backend/scripts/frontend-e2e-cv-worker.php"],
     { timeout: 45000 },
   );
-  await expect(page.getByRole("link", { name: "Mở / tải PDF" })).toBeVisible({
+  await expect(
+    page.getByRole("link", { name: "Tải PDF", exact: true }),
+  ).toBeVisible({
     timeout: 15000,
   });
   const pdfUrl = await page
-    .getByRole("link", { name: "Mở / tải PDF" })
+    .getByRole("link", { name: "Xem PDF", exact: true })
     .getAttribute("href");
   const pdf = await page.request.get(pdfUrl!);
   expect(pdf.status()).toBe(200);
   expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("link", { name: "Tải PDF", exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^CV-\d+\.pdf$/);
+  const downloadedPath = info.outputPath(download.suggestedFilename());
+  await download.saveAs(downloadedPath);
+  expect(readFileSync(downloadedPath)).toEqual(await pdf.body());
   await page.screenshot({
     path: info.outputPath("editor-desktop.png"),
     fullPage: true,

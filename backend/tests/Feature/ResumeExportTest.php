@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\RenderResumePdf;
 use App\Models\ResumeExport;
 use App\Models\User;
+use App\Services\Resumes\RenderInput;
 use App\Services\Resumes\ResumePdfRenderer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -15,6 +16,20 @@ use Tests\TestCase;
 class ResumeExportTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_renderer_accepts_a_name_split_across_lines_without_losing_its_text(): void
+    {
+        Storage::fake('private');
+        $document = json_decode(file_get_contents(base_path('../tests/fixtures/resumes/minimal.json')), true);
+        $document['content']['basics']['full_name'] = "Nguyễn   Minh\nAn ".str_repeat('W', 50);
+        $result = app(ResumePdfRenderer::class)->render(new RenderInput($document));
+        $pdf = (new Parser)->parseContent(Storage::disk('private')->get($result->tempPath));
+        $this->assertStringContainsString(
+            preg_replace('/\s+/u', '', $document['content']['basics']['full_name']),
+            preg_replace('/\s+/u', '', $pdf->getText()),
+        );
+        $this->assertGreaterThan(1000, $result->size);
+    }
 
     public function test_export_snapshot_deduplicates_jobs_and_never_changes_on_later_edits(): void
     {

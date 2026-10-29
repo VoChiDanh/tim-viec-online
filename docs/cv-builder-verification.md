@@ -13,6 +13,20 @@ Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật 
 
 ## Kiểm thử
 
+### Rà soát giao diện và tải PDF
+
+- Làm mới ba mẫu: Classic một cột với thời gian căn phải; Modern tiêu đề xanh đậm, sidebar nền sáng; Minimal tiêu đề căn giữa và màu trung tính. Cùng font Be Vietnam Pro, ba bảng màu và các tùy chọn cỡ chữ/giãn dòng cũ.
+- Tách **Xem PDF** và **Tải PDF**, hỗ trợ tải từ thư viện. Tăng `renderer_version` lên `2`; bấm xuất lại sẽ tạo PDF theo thiết kế mới, không dùng lại cache của renderer cũ.
+- Kiểm tra ảnh render của hồ sơ tổng hợp đầy đủ (một trang với cả ba mẫu) và hồ sơ dài ba trang. Sửa chân trang biến mất do leading kế thừa, tiêu đề mục bị tách khỏi nội dung, trang trắng phát sinh và nội dung nhiều dòng bị cắt bởi khối không cho ngắt trang.
+- Bổ sung kiểm thử email dài, kỹ năng 65 dòng, chức danh chứa xuống dòng; giữ đủ nội dung khi phân trang và không để token dài tràn lề. Chỉ chuẩn hóa khoảng trắng của trường một dòng khi trình bày; văn bản bản nháp và đích liên kết không đổi.
+- Node renderer: **4 tests qua**; browser preview worker: **1 test qua**. PDF.js kiểm tra chân trang nằm trong trang, đủ phần cuối của 10 mô tả kinh nghiệm, mục dự án/chứng chỉ không bị bỏ lại tiêu đề và không có trang cuối rỗng.
+- Backend nhóm Resume: **18 tests / 131 assertions qua** khi chạy tuần tự. Bổ sung kiểm tra tên có khoảng trắng/xuống dòng và từ dài: bước xác nhận text PDF bỏ qua khoảng trắng do phân trang, không báo `PDF_TEXT_MISSING` chỉ vì tên được ngắt dòng. Một lượt chạy đồng thời với build bị timeout ở bài kiểm thử process tranh khóa; chạy lại riêng cả nhóm qua, không thay timeout hoặc bỏ kiểm thử.
+- Toàn bộ backend sau sửa: **192 tests / 1.906 assertions qua**.
+- Frontend unit **130**, server **11** qua; lint, typecheck và production build qua. Các số đo tải ở dưới thuộc lượt đo trước, chưa đo lại với thiết kế mới.
+- E2E Laravel + worker Node thực **1 test qua**: trình duyệt tải được `CV-<id>.pdf`, bytes trùng với bản ở nút **Xem PDF**; ứng tuyển, xóa bản nháp và employer đọc lại bản PDF riêng vẫn qua. Kiểm tra editor ở 360/768/1440px và axe qua. Review độc lập xác nhận hai lỗi cắt nội dung đã hết sau khi chạy lại đúng trường hợp tái hiện.
+
+Các kết quả CI và bảng bên dưới ghi lại lượt kiểm chứng nền tảng trước lần làm mới mẫu.
+
 Windows: PHP 8.2.12, Node 22.23.2, MySQL/MariaDB disposable trên 33063. PHP CLI kiểm thử bật GD bằng `-d extension=gd`; không sửa `php.ini` đang dùng.
 
 | Bộ kiểm tra | Kết quả đã chạy |

@@ -73,7 +73,7 @@ Trên Linux dùng process manager để tự khởi động lại worker. Khởi
 
 1. Đăng nhập candidate → **CV của tôi** → tạo mới → chọn mẫu.
 2. Điền nội dung, chờ “Đã lưu”; tải lại trang kiểm tra dữ liệu còn nguyên.
-3. “Xuất PDF”, chờ trạng thái sẵn sàng, mở/tải file PDF. PDF mới tối đa 5 trang và 5 MB.
+3. “Xuất PDF”, chờ trạng thái sẵn sàng. Chọn **Xem PDF** để mở bản xuất hoặc **Tải PDF** để lưu file về máy; cũng có thể tải bản đã xuất trong thư viện CV. PDF mới tối đa 5 trang và 5 MB.
 4. Mở tin đang tuyển → Ứng tuyển → CV tạo trên TimViecOnline → chọn tên và phiên bản PDF.
 5. Xem trước đúng bản được chọn rồi xác nhận ứng tuyển. Tài khoản vẫn phải xác nhận email trước khi ứng tuyển.
 6. Sửa hoặc xóa bản nháp sau đó; hồ sơ đã nộp vẫn giữ PDF riêng. Employer chỉ được đọc PDF qua đơn thuộc công ty mình; không đọc được bản nháp.

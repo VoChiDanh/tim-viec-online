@@ -3,7 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Download, Save, Upload, Copy, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Save,
+  Upload,
+  Copy,
+  Trash2,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "@/features/api/client";
 import { documentFromDetail, resumeFileUrl } from "@/features/resumes/client";
@@ -360,13 +368,25 @@ function Editor({ initial }: { initial: ResumeDetail }) {
                 : "Đang tạo PDF…"}
           </span>
           {exported.file_url && (
-            <a
-              href={resumeFileUrl(exported.file_url)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Mở / tải PDF
-            </a>
+            <div className="resume-export-actions">
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={resumeFileUrl(exported.file_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink size={16} /> Xem PDF
+                </a>
+              </Button>
+              <Button asChild size="sm">
+                <a
+                  href={resumeFileUrl(exported.file_url)}
+                  download={`CV-${exported.id}.pdf`}
+                >
+                  <Download size={16} /> Tải PDF
+                </a>
+              </Button>
+            </div>
           )}
           {pollExpired && (
             <Button variant="outline" onClick={checkExport}>

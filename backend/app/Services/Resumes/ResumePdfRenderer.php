@@ -37,7 +37,10 @@ class ResumePdfRenderer
             if ($pages > 5 || $pages < 1) {
                 throw new \RuntimeException('PDF_PAGE_LIMIT');
             }
-            if (! str_contains($pdf->getText(), $input->document['content']['basics']['full_name'])) {
+            // PDF extraction inserts whitespace at visual line breaks.
+            $extractedText = preg_replace('/\s+/u', '', $pdf->getText());
+            $expectedName = preg_replace('/\s+/u', '', $input->document['content']['basics']['full_name']);
+            if (! str_contains($extractedText, $expectedName)) {
                 throw new \RuntimeException('PDF_TEXT_MISSING');
             }
 

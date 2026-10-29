@@ -265,10 +265,9 @@ export function ResumeLibrary({
                     {item.latest_export?.file_url && (
                       <a
                         href={resumeFileUrl(item.latest_export.file_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        download={`CV-${item.latest_export.id}.pdf`}
                       >
-                        PDF v{item.latest_export.revision}
+                        Tải PDF v{item.latest_export.revision}
                       </a>
                     )}
                     <Button
