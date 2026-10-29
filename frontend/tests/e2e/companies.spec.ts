@@ -286,6 +286,35 @@ for (const width of [360, 390, 768, 1024, 1440]) {
     for (const path of ["/companies", "/companies/1", "/companies/201"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      // The heading can arrive before the streamed vacancies and their entrance
+      // animation. Measure the complete page, rather than a partially faded frame.
+      if (path !== "/companies") {
+        await expect(page.locator(".company-vacancies")).toBeVisible();
+        if (path === "/companies/201") {
+          await expect(
+            page.locator(".company-vacancies .empty-state"),
+          ).toBeVisible();
+        }
+      } else {
+        await expect(page.locator(".company-directory-card")).toHaveCount(12);
+      }
+      await page.getByRole("main").evaluate(async (element) => {
+        await document.fonts.ready;
+        // Give newly revealed streamed content a rendering frame before reading
+        // its animations (reduced motion still has a nonzero CSS duration).
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => resolve()),
+        );
+        await Promise.all(
+          element
+            .getAnimations({ subtree: true })
+            .filter(
+              (animation) =>
+                animation.effect?.getTiming().iterations !== Infinity,
+            )
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth - innerWidth,

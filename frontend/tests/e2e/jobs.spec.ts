@@ -82,6 +82,13 @@ test("multiple categories, type and salary combine; clear removes query", async 
     .check();
   await page.getByRole("checkbox", { name: "Thiết kế đồ họa & UI/UX" }).check();
   await page.keyboard.press("Escape");
+  // Each category starts a navigation. Wait for both changes to commit before
+  // opening another popup, whose DOM can otherwise be replaced mid-click.
+  await expect(page).toHaveURL(/category_ids=1&category_ids=4/);
+  await expect(page.locator(".search-panel form")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   await page
     .getByRole("combobox", { name: "Hình thức làm việc", exact: true })
     .click();
