@@ -14,6 +14,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useEmployer } from "./employer-provider";
+import { CompanyLogo } from "./company-logo";
 import { effectiveJobStatus } from "@/features/employer/rules";
 import { EmployerJobs } from "./jobs";
 import "./employer-overview.css";
@@ -215,9 +216,7 @@ export function EmployerDashboard() {
           <section className="ep-panel ep-company">
             <h2>Hồ sơ doanh nghiệp</h2>
             <div className="ep-company-header">
-              <span className="ep-company-logo">
-                {company.name.slice(0, 3).toUpperCase()}
-              </span>
+              <CompanyLogo company={company} />
               <div>
                 <strong>{company.name}</strong>
                 <small>

@@ -214,8 +214,43 @@
   height: auto;
   box-shadow: 0 2px 12px #16243b15;
 }
+.resume-thumbnail {
+  display: block;
+  min-height: 200px;
+}
+.resume-thumbnail-loading,
+.resume-thumbnail-empty {
+  display: flex;
+  min-height: 200px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+.resume-thumbnail-loading {
+  border: 1px solid var(--border);
+  background: var(--card);
+}
 .resume-document-info {
   padding: 18px;
+}
+.resume-delete-dialog [data-slot="alert-dialog-media"] {
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 16%, var(--card));
+  background: color-mix(in srgb, var(--destructive) 7%, var(--card));
+}
+.resume-delete-dialog [data-slot="alert-dialog-description"] {
+  overflow-wrap: anywhere;
+}
+.resume-delete-dialog [data-slot="alert-dialog-action"] {
+  color: var(--primary-foreground);
+  background: var(--destructive);
+}
+.resume-delete-dialog [data-slot="alert-dialog-action"]:hover {
+  background: color-mix(in srgb, var(--destructive) 85%, var(--foreground));
 }
 .resume-document-info h2 {
   font-size: 16px;
@@ -664,6 +699,13 @@
   outline: none;
   border-color: var(--field-focus-border);
   box-shadow: 0 0 0 2px var(--field-focus-halo);
+}
+@media (forced-colors: active) {
+  .resume-month-trigger:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
 .resume-month-grid button:focus-visible {
   outline: 2px solid var(--brand-blue);

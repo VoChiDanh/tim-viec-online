@@ -25,6 +25,7 @@ import {
   Users,
 } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
+import { CompanyLogo } from "./company-logo";
 import { EMPLOYER_PAGES } from "@/features/employer/types";
 import { useEmployer } from "./employer-provider";
 import { logoutAction } from "@/app/(auth)/actions";
@@ -220,9 +221,7 @@ export function EmployerShell({ children }: { children: ReactNode }) {
         <aside className="ep-sidebar">
           {nav}
           <div className="ep-sidebar-bottom">
-            <span className="ep-company-logo">
-              {company.name.slice(0, 3).toUpperCase()}
-            </span>
+            <CompanyLogo company={company} />
             <p>
               <strong>{company.name}</strong>
               <br />

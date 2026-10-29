@@ -9,6 +9,7 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   FileText,
+  FileUser,
   LogIn,
   LogOut,
   Menu,
@@ -407,8 +408,14 @@ export function HeaderControls({
                   <>
                     <DropdownMenuItem asChild>
                       <Link href="/account/profile">
-                        <FileText />
+                        <FileUser />
                         Hồ Sơ Của Tôi
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/account/resumes">
+                        <FileText />
+                        CV của tôi
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

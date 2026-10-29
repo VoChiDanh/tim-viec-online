@@ -80,6 +80,14 @@
   outline: 2px solid var(--header-brand-sky);
   outline-offset: 0;
 }
+@media (forced-colors: active) {
+  .header-search:has(input:focus-visible) {
+    outline-color: Highlight;
+  }
+  .header-search input:focus-visible {
+    outline: none;
+  }
+}
 .header-search-divider {
   height: 14.4px;
   width: 1px;

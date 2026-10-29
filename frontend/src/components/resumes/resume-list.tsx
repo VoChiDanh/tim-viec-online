@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -20,6 +26,28 @@ import type { ResumeDetail, ResumeList } from "@/features/resumes/types";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { Pagination } from "@/components/layout/pagination";
+import { ResumeThumbnail } from "./resume-thumbnail";
+import type { ResumeThumbnailRenderer } from "@/features/resumes/thumbnail-renderer";
+import classicCover from "../../../public/resume-templates/classic.png";
+import modernCover from "../../../public/resume-templates/modern.png";
+import minimalCover from "../../../public/resume-templates/minimal.png";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/modules/cores/shadcn/components/ui/alert-dialog";
+
+const templateCovers = {
+  classic: classicCover,
+  modern: modernCover,
+  minimal: minimalCover,
+};
 
 export function ResumeLibrary({
   connected,
@@ -36,6 +64,41 @@ export function ResumeLibrary({
   const [name, setName] = useState("CV của tôi");
   const [selected, setSelected] = useState("classic");
   const [prefill, setPrefill] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const deletePending = useRef(false);
+  const deleted = useRef(false);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+  const libraryHeading = useRef<HTMLHeadingElement>(null);
+  // Close the portal when App Router hides this page during navigation.
+  useLayoutEffect(() => () => setDeleteTarget(null), []);
+  const thumbnailRenderer = useRef<Promise<ResumeThumbnailRenderer> | null>(
+    null,
+  );
+  const renderThumbnail = useCallback(
+    async (id: number, signal: AbortSignal) => {
+      signal.throwIfAborted();
+      thumbnailRenderer.current ??=
+        import("@/features/resumes/thumbnail-renderer").then(
+          ({ ResumeThumbnailRenderer }) => new ResumeThumbnailRenderer(),
+        );
+      const renderer = await thumbnailRenderer.current;
+      signal.throwIfAborted();
+      return renderer.render(id, signal);
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      const renderer = thumbnailRenderer.current;
+      thumbnailRenderer.current = null;
+      void renderer?.then((instance) => instance.dispose()).catch(() => {});
+    },
+    [],
+  );
   useEffect(() => {
     if (!connected) return;
     let active = true;
@@ -73,22 +136,32 @@ export function ResumeLibrary({
     }
   }
   async function remove(id: number) {
-    if (
-      !window.confirm(
-        "Xóa bản nháp CV này? Hồ sơ đã ứng tuyển vẫn được giữ nguyên.",
-      )
-    )
-      return;
+    if (deletePending.current) return;
+    deletePending.current = true;
+    setDeleteError("");
+    setError("");
     setBusy(true);
     try {
       await apiRequest(`/candidate/resumes/${id}`, { method: "DELETE" });
+      deleted.current = true;
+      setDeleteTarget(null);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.filter((item) => item.id !== id),
+            }
+          : null,
+      );
+      toast.success("Đã xóa CV.");
       const updated = await fetchResumes(page);
       setData(updated);
       setPage(updated.meta.current_page);
-      toast.success("Đã xóa CV.");
     } catch (e) {
-      setError((e as Error).message);
+      if (deleted.current) setError((e as Error).message);
+      else setDeleteError((e as Error).message);
     } finally {
+      deletePending.current = false;
       setBusy(false);
     }
   }
@@ -115,7 +188,9 @@ export function ResumeLibrary({
     <section className="resume-library">
       <header className="resume-page-heading">
         <div>
-          <h1>{create ? "Tạo CV" : "CV của tôi"}</h1>
+          <h1 ref={libraryHeading} tabIndex={-1}>
+            {create ? "Tạo CV" : "CV của tôi"}
+          </h1>
           <p>
             {create
               ? "Chọn mẫu CV để chỉnh sửa."
@@ -209,10 +284,9 @@ export function ResumeLibrary({
                 />
                 <div className="resume-template-art">
                   <Image
-                    src={`/resume-templates/${template.key}.png`}
+                    src={templateCovers[template.key]}
                     alt={`Bố cục mẫu ${template.label}`}
-                    width={300}
-                    height={420}
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 50vw, 33vw"
                   />
                 </div>
                 <strong>{template.label}</strong>
@@ -262,12 +336,12 @@ export function ResumeLibrary({
                 <Link
                   className="resume-document-cover"
                   href={`/account/resumes/${item.id}/edit`}
+                  aria-label={`Chỉnh sửa ${item.name}`}
                 >
-                  <Image
-                    src={`/resume-templates/${item.template_key}.png`}
-                    alt=""
-                    width={220}
-                    height={310}
+                  <ResumeThumbnail
+                    key={`${item.id}:${item.revision}`}
+                    id={item.id}
+                    render={renderThumbnail}
                   />
                 </Link>
                 <div className="resume-document-info">
@@ -309,7 +383,12 @@ export function ResumeLibrary({
                       variant="ghost"
                       size="icon-sm"
                       disabled={busy}
-                      onClick={() => remove(item.id)}
+                      onClick={(event) => {
+                        deleteTrigger.current = event.currentTarget;
+                        deleted.current = false;
+                        setDeleteError("");
+                        setDeleteTarget({ id: item.id, name: item.name });
+                      }}
                       aria-label={`Xóa ${item.name}`}
                     >
                       <Trash2 size={16} />
@@ -331,6 +410,65 @@ export function ResumeLibrary({
           )}
         </>
       )}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletePending.current) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent
+          className="resume-delete-dialog"
+          onEscapeKeyDown={(event) => {
+            if (deletePending.current) event.preventDefault();
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const target = deleted.current
+              ? libraryHeading.current
+              : deleteTrigger.current;
+            if (target?.isConnected && target.getClientRects().length)
+              target.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash2 aria-hidden="true" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Xóa CV này?</AlertDialogTitle>
+            <AlertDialogDescription>
+              CV <strong>“{deleteTarget?.name}”</strong> sẽ bị xóa khỏi thư
+              viện. Hồ sơ đã ứng tuyển vẫn được giữ nguyên.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="resume-error" role="alert">
+              {deleteError}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={busy}
+              aria-busy={busy}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget) void remove(deleteTarget.id);
+              }}
+            >
+              {busy ? (
+                <LoaderCircle
+                  className="animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Trash2 aria-hidden="true" />
+              )}
+              {busy ? "Đang xóa…" : "Xóa CV"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

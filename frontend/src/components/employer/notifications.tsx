@@ -149,7 +149,6 @@ export function EmployerNotifications() {
               </p>
             </div>
             <div className="em-not-actions">
-              <span className="ep-pill">{inPeriod.length} thông báo</span>
               <Button
                 type="button"
                 variant="outline"
@@ -166,35 +165,37 @@ export function EmployerNotifications() {
               </Button>
             </div>
           </div>
-          <NotificationPeriodSelect
-            value={period}
-            onChange={(next) =>
-              router.push(
-                notificationUrl("/employer/notifications", filter, next),
-                { scroll: false },
-              )
-            }
-          />
-          <nav className="em-not-tabs" aria-label="Lọc trạng thái đọc">
-            {[
-              ["all", "Tất cả", inPeriod.length],
-              ["unread", "Chưa đọc", periodUnread],
-              ["read", "Đã đọc", inPeriod.length - periodUnread],
-            ].map(([value, label, count]) => (
-              <Link
-                key={value}
-                href={notificationUrl(
-                  "/employer/notifications",
-                  String(value),
-                  period,
-                )}
-                aria-current={filter === value ? "page" : undefined}
-              >
-                {label}
-                <small>{count}</small>
-              </Link>
-            ))}
-          </nav>
+          <div className="em-not-toolbar">
+            <nav className="em-not-tabs" aria-label="Lọc trạng thái đọc">
+              {[
+                ["all", "Tất cả", inPeriod.length],
+                ["unread", "Chưa đọc", periodUnread],
+                ["read", "Đã đọc", inPeriod.length - periodUnread],
+              ].map(([value, label, count]) => (
+                <Link
+                  key={value}
+                  href={notificationUrl(
+                    "/employer/notifications",
+                    String(value),
+                    period,
+                  )}
+                  aria-current={filter === value ? "page" : undefined}
+                >
+                  {label}
+                  <small>{count}</small>
+                </Link>
+              ))}
+            </nav>
+            <NotificationPeriodSelect
+              value={period}
+              onChange={(next) =>
+                router.push(
+                  notificationUrl("/employer/notifications", filter, next),
+                  { scroll: false },
+                )
+              }
+            />
+          </div>
           {!items.length && (
             <div className="em-not-empty" role="status">
               <Bell size={36} aria-hidden="true" />

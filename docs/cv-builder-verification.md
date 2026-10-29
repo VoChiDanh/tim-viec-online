@@ -2,6 +2,14 @@
 
 Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật và chạy: [cv-builder-setup.md](cv-builder-setup.md). Các kết quả CI/benchmark bên dưới thuộc lượt triển khai ban đầu trên database riêng cổng 33063. Lượt chỉnh giao diện mới được ghi riêng dưới đây.
 
+## Ảnh xem trước trong thư viện CV
+
+Xác nhận xóa CV dùng AlertDialog của hệ thống, hiển thị tên bản nháp, nút Hủy và Xóa CV. Browser API thật đã kiểm tra Hủy/Escape không xóa, trả focus về nút mở, xóa thành công trả focus về tiêu đề thư viện; lỗi 503 giữ hộp thoại để thử lại, trong lúc chờ không gửi lặp hoặc đóng hộp thoại. Đã kiểm tra bố cục 360px và axe trên dialog; build/TypeScript/lint đạt. Dữ liệu kiểm tra được dọn sau lượt chạy.
+
+Ảnh thu nhỏ được dựng từ trang đầu của bản nháp đã lưu, dùng cùng renderer với editor. Nội dung, mẫu, màu và ảnh cá nhân lấy qua API riêng tư của CV; không dùng ảnh mẫu hoặc bản PDF xuất cũ. Không cần xuất PDF để có ảnh thu nhỏ. Chỉ tải các thẻ gần vùng nhìn thấy, dùng chung một worker và xử lý tuần tự; hủy tác vụ, giải phóng worker/blob URL khi rời thư viện. Thẻ lỗi hiển thị trạng thái riêng và vẫn mở được editor.
+
+Kiểm chứng cục bộ: tái hiện ảnh mẫu cố định trước sửa; sau sửa, đổi tên/chức danh và upload ảnh qua editor, lưu rồi quay lại thư viện cho ảnh PNG khác đúng nội dung mới. Ba mẫu tạo được ảnh riêng khi chưa có export; một API chi tiết trả 503 không chặn hai thẻ còn lại, tải lại khôi phục ảnh. Điều hướng khỏi rồi quay lại, giao diện 360px và axe trên thư viện đều qua. Production build/TypeScript, lint và 135 unit tests đạt. Dữ liệu và token kiểm tra được dọn; không chạy lại toàn bộ E2E CI hoặc sửa backend trong lượt này.
+
 ## Kiểm tra giao diện theo bước và nội dung mẫu
 
 Lượt chỉnh dropdown/tải file: ba dropdown giao diện dùng `SelectionField` chung, có trạng thái disabled rõ ràng; viền menu đo trên browser là 1px, không có outline hiển thị. Lựa chọn lưu qua reload, popup không tràn ở 360px, axe không ghi nhận vi phạm trong menu đã kiểm tra. Kỹ năng giảm cỡ chữ/độ đậm/khoảng cách, renderer tăng lên 4 và rebuild artifact. Ba nút tải (thanh trạng thái, bước xuất, thư viện) đều tải thực tế tên `Nguyễn Ngọc Bình CV.pdf`; response có Unicode `filename*`, vẫn xem inline được. Bộ kiểm tra: production build/TypeScript/lint đạt, frontend unit 133/133, renderer 5/5, backend Resume 21/21 (167 assertions) trên DB test riêng. Test tên file bao gồm dấu tiếng Việt, loại ký tự đường dẫn/control và giữ tên từ snapshot sau khi bản nháp được sửa.

@@ -461,6 +461,13 @@ main {
   outline: none;
   box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
+@media (forced-colors: active) {
+  .job-sort .job-sort-trigger:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
 .job-sort-menu {
   min-width: 220px;
 }
