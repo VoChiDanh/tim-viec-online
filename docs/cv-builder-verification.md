@@ -18,7 +18,7 @@ Windows: PHP 8.2.12, Node 22.23.2, MySQL/MariaDB disposable trên 33063. PHP CLI
 | Bộ kiểm tra | Kết quả đã chạy |
 |---|---|
 | Backend toàn bộ, sau bản vá dependency | Linux CI: 191 tests / 1.904 assertions qua; Windows: 190 tests / 1.894 assertions qua trước khi bổ sung test giới hạn, sau đó riêng `ResumeApiTest` 4 tests / 35 assertions qua |
-| Frontend unit / server | 129 / 11 tests qua |
+| Frontend unit / server | 130 / 11 tests qua |
 | Node PDF renderer / browser render worker | 2 / 1 tests qua; ba mẫu PDF nhiều trang trích xuất được tiếng Việt |
 | Lint / typecheck / production build | Qua |
 | E2E Laravel + Node queue thực | Qua: tạo, lưu, reload, upload lỗi, xung đột hai tab, sao chép dirty buffer, export, ứng tuyển, xóa bản nháp, employer tải lại đúng PDF |
@@ -27,6 +27,8 @@ Windows: PHP 8.2.12, Node 22.23.2, MySQL/MariaDB disposable trên 33063. PHP CLI
 | Hồi quy CI cũ | Search/company 18/18 lượt kiểm thử qua; lượt tập trung cuối company/selection 16/16 qua, lặp hai lần và không retry |
 
 Ba lỗi tìm thấy qua review đã sửa và có kiểm thử tái hiện trước khi sửa: file export bị mất không thể tạo lại; deadlock khi copy/export đồng thời; đổi tên trong lúc upload bị ghi đè. Kiểm thử deadlock dùng hai process và khóa MySQL thực.
+
+Đã thêm kiểm thử và sửa việc xóa CV cuối ở trang 2: danh sách tự trở về trang hợp lệ, không báo rỗng khi trang 1 vẫn còn CV.
 
 CI Linux đã chạy cả renderer và bộ browser regression. Bước audit ban đầu phát hiện Symfony Mime 7.4.19 cần bản vá; lockfile đã nâng riêng gói này lên 7.4.22, `composer audit --locked` qua. [Backend CI](https://github.com/ngocbinh15/tim-viec-online/actions/runs/40815764489) đã qua. Kết quả cuối cùng xem checks của [nhánh triển khai](https://github.com/ngocbinh15/tim-viec-online/tree/feature/cv-builder).
 

@@ -73,7 +73,9 @@ export function ResumeLibrary({
     setBusy(true);
     try {
       await apiRequest(`/candidate/resumes/${id}`, { method: "DELETE" });
-      setData(await fetchResumes(page));
+      const updated = await fetchResumes(page);
+      setData(updated);
+      setPage(updated.meta.current_page);
       toast.success("Đã xóa CV.");
     } catch (e) {
       setError((e as Error).message);
@@ -296,7 +298,7 @@ export function ResumeLibrary({
           </div>
           {data && (
             <Pagination
-              page={page}
+              page={data.meta.current_page}
               lastPage={data.meta.last_page}
               onPageChange={(next) => {
                 setPage(next);

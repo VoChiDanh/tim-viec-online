@@ -21,6 +21,7 @@ export async function fetchResumes(page = 1): Promise<ResumeList> {
       enabled: z.boolean(),
     })
     .parse(response.meta);
+  if (page > meta.last_page) return fetchResumes(meta.last_page);
   return { items: response.data, meta };
 }
 export function documentFromDetail(value: ResumeDetail) {
