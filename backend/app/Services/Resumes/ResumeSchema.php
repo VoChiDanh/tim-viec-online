@@ -34,7 +34,8 @@ class ResumeSchema
             'content.basics.links' => 'present|array|max:10', 'content.basics.links.*' => 'array:id,label,url',
             'content.basics.links.*.id' => 'required|uuid', 'content.basics.links.*.label' => 'present|string|max:100', 'content.basics.links.*.url' => 'present|string|max:1000',
             'content.basics.photo_asset_id' => 'present|nullable|integer|min:1',
-            'settings' => 'required|array:accent,font_size,line_spacing,section_order,hidden_sections',
+            'settings' => 'required|array:accent,font_size,line_spacing,section_order,hidden_sections,starter_version',
+            'settings.starter_version' => 'sometimes|integer|in:1',
             'settings.accent' => 'required|in:blue,teal,slate', 'settings.font_size' => 'required|in:small,normal,large', 'settings.line_spacing' => 'required|in:compact,normal',
             'settings.section_order' => 'required|array|size:7', 'settings.section_order.*' => 'required|distinct|in:'.implode(',', self::SECTIONS),
             'settings.hidden_sections' => 'present|array|max:7', 'settings.hidden_sections.*' => 'required|distinct|in:'.implode(',', self::SECTIONS)];

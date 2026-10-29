@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ResumeDocument } from "@/features/resumes/schema";
 import { resumeFileUrl } from "@/features/resumes/client";
 import { ResumePdfViewer } from "./resume-pdf-viewer";
+import { FileText, MoveHorizontal, RectangleVertical } from "lucide-react";
+import { Button } from "@/modules/cores/shadcn/components/ui/button";
 
 export function ResumePreview({
   document,
@@ -16,6 +18,7 @@ export function ResumePreview({
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [fit, setFit] = useState<"width" | "page">("width");
   const photoCache = useRef<{ id: number; value: string } | null>(null);
   useEffect(() => {
     const instance = new Worker(
@@ -104,8 +107,38 @@ export function ResumePreview({
   return (
     <section className="resume-preview" aria-label="Bản xem trước CV">
       <div className="resume-preview-heading">
-        <strong>Bản xem trước A4</strong>
-        <span aria-live="polite">{loading ? "Đang cập nhật…" : ""}</span>
+        <strong>
+          <FileText size={16} aria-hidden="true" /> Bản xem trước
+        </strong>
+        <div className="resume-preview-controls">
+          <span aria-live="polite">
+            {loading ? "Đang cập nhật…" : "Khổ A4"}
+          </span>
+          <div role="group" aria-label="Thu phóng bản xem trước">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Vừa chiều rộng"
+              title="Vừa chiều rộng"
+              aria-pressed={fit === "width"}
+              onClick={() => setFit("width")}
+            >
+              <MoveHorizontal aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Vừa trang"
+              title="Vừa trang"
+              aria-pressed={fit === "page"}
+              onClick={() => setFit("page")}
+            >
+              <RectangleVertical aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
       </div>
       {error && (
         <p role="alert" className="resume-error">
@@ -114,7 +147,7 @@ export function ResumePreview({
       )}
       {url ? (
         <>
-          <ResumePdfViewer url={url} />
+          <ResumePdfViewer url={url} fit={fit} />
           <a href={url} target="_blank" rel="noopener noreferrer">
             Mở bản xem trước ở tab mới
           </a>

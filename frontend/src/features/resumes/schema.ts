@@ -150,6 +150,7 @@ export const resumeSettingsSchema = z
       .array(z.enum(SECTION_KEYS))
       .max(SECTION_KEYS.length)
       .refine((v) => new Set(v).size === v.length),
+    starter_version: z.literal(1).optional(),
   })
   .strict();
 export const resumeDocumentSchema = z

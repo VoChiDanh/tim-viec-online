@@ -11,6 +11,7 @@ use App\Http\Resources\ResumeDetailResource;
 use App\Http\Resources\ResumeSummaryResource;
 use App\Services\Resumes\ResumeSchema;
 use App\Services\Resumes\ResumeService;
+use App\Services\Resumes\ResumeStarter;
 use Illuminate\Http\Request;
 
 class ResumeController extends Controller
@@ -19,7 +20,7 @@ class ResumeController extends Controller
 
     public function templates()
     {
-        return response()->json(['success' => true, 'data' => array_map(fn ($key) => ['key' => $key, 'version' => 1], ResumeSchema::TEMPLATES), 'meta' => ['enabled' => (bool) config('resumes.enabled')]]);
+        return response()->json(['success' => true, 'data' => array_map(fn ($key) => ['key' => $key, 'version' => 1], ResumeSchema::TEMPLATES), 'sample_document' => ResumeStarter::document(), 'meta' => ['enabled' => (bool) config('resumes.enabled')]]);
     }
 
     public function index(IndexResumeRequest $request)

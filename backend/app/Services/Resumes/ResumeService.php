@@ -48,12 +48,15 @@ class ResumeService
             if ($owner->resumes()->count() >= 20) {
                 throw ValidationException::withMessages(['name' => 'Bạn đã có 20 CV. Xóa bản không cần dùng trước khi tạo mới.']);
             }
-            $document = ResumeSchema::empty();
+            $document = ($data['use_sample_data'] ?? false) ? ResumeStarter::document() : ResumeSchema::empty();
             $document['name'] = $data['name'];
             $document['template_key'] = $data['template_key'];
             if ($data['prefill_from_profile'] ?? false) {
                 $user = $owner->user;
-                $document['content']['basics'] = [...$document['content']['basics'], 'full_name' => $user->name, 'email' => $user->email, 'phone' => (string) $user->phone, 'headline' => (string) $owner->title, 'city' => (string) $owner->city, 'summary' => (string) $owner->bio];
+                $document['content']['basics'] = [...$document['content']['basics'], ...array_filter(['full_name' => $user->name, 'email' => $user->email, 'phone' => (string) $user->phone, 'headline' => (string) $owner->title, 'city' => (string) $owner->city, 'summary' => (string) $owner->bio], fn ($value) => trim((string) $value) !== '')];
+                if ($owner->skills->isNotEmpty()) {
+                    $document['content']['skills'] = [];
+                }
                 foreach ($owner->skills as $skill) {
                     $document['content']['skills'][] = ['id' => (string) Str::uuid(), 'name' => $skill->name, 'detail' => ''];
                 }

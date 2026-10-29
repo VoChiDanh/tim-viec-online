@@ -4,6 +4,13 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
+async function goToStep(page: Page, name: string) {
+  await page
+    .getByRole("navigation", { name: "Các bước tạo CV" })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+
 async function expectPaintedPdf(page: Page) {
   const canvas = page.locator(".resume-pdf-pages canvas").first();
   await expect(canvas).toBeVisible();
@@ -61,6 +68,19 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     .click();
   await expect(page).toHaveURL(/\/account\/resumes\/\d+\/edit$/);
   const resumeId = Number(page.url().match(/resumes\/(\d+)/)![1]);
+  const starter = await page.request.get(
+    `/api/backend/candidate/resumes/${resumeId}`,
+  );
+  const starterBody = await starter.json();
+  for (const section of [
+    "experience",
+    "education",
+    "skills",
+    "languages",
+    "projects",
+  ])
+    expect(starterBody.data.content[section].length).toBeGreaterThan(0);
+  await goToStep(page, "Cá nhân");
   let releaseUpload!: () => void;
   const uploadGate = new Promise<void>((resolve) => {
     releaseUpload = resolve;
@@ -104,11 +124,26 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
   await page
     .getByLabel("Giới thiệu / mục tiêu nghề nghiệp", { exact: true })
     .fill("Xây dựng phần mềm phục vụ cộng đồng.");
+  await goToStep(page, "Kinh nghiệm");
+  await page
+    .getByRole("button", { name: "Từ tháng", exact: true })
+    .first()
+    .click();
+  await page.getByRole("combobox", { name: "Chọn năm", exact: true }).click();
+  await page.getByRole("option", { name: "2022", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Tháng 5 năm 2022", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Từ tháng", exact: true }).first(),
+  ).toHaveText("05/2022");
+  await goToStep(page, "Cá nhân");
   await page.getByRole("button", { name: "Lưu ngay", exact: true }).click();
   await expect(page.locator(".resume-save-status")).toHaveText("Đã lưu");
   await expect(page.getByTitle("Bản PDF xem trước")).toBeVisible();
   await expectPaintedPdf(page);
   await page.setViewportSize({ width: 768, height: 1024 });
+  await page.getByRole("tab", { name: "Xem trước", exact: true }).click();
   await expectPaintedPdf(page);
   expect(
     await page.evaluate(
@@ -117,15 +152,17 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
   ).toBeLessThanOrEqual(1);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.reload();
+  await goToStep(page, "Cá nhân");
   await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue(
     "Nguyễn Minh An",
   );
-  await expect(page.getByLabel("Mẫu CV", { exact: true })).toHaveValue(
-    "modern",
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Mẫu CV", exact: true }),
+  ).toHaveText("Hiện đại");
   // A second tab must retain its edits after a revision conflict.
   const other = await page.context().newPage();
   await other.goto(page.url());
+  await goToStep(other, "Cá nhân");
   await expect(other.getByLabel("Họ và tên", { exact: true })).toHaveValue(
     "Nguyễn Minh An",
   );
@@ -148,10 +185,12 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     .getByRole("button", { name: "Lưu thành CV mới", exact: true })
     .click();
   await expect(other).not.toHaveURL(page.url());
+  await goToStep(other, "Cá nhân");
   await expect(
     other.getByLabel("Chức danh / vị trí mong muốn", { exact: true }),
   ).toHaveValue("Nội dung chưa lưu từ tab thứ hai");
   await other.reload();
+  await goToStep(other, "Cá nhân");
   await expect(
     other.getByLabel("Chức danh / vị trí mong muốn", { exact: true }),
   ).toHaveValue("Nội dung chưa lưu từ tab thứ hai");
@@ -161,6 +200,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     headers: { Origin: "http://localhost:3127" },
   });
   await page.getByRole("button", { name: "Xuất PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Tạo bản PDF", exact: true }).click();
   await expect(page.locator(".resume-export-status")).toContainText(
     "Đang tạo PDF",
   );
@@ -184,7 +224,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     page.waitForEvent("download"),
     page.getByRole("link", { name: "Tải PDF", exact: true }).click(),
   ]);
-  expect(download.suggestedFilename()).toMatch(/^CV-\d+\.pdf$/);
+  expect(download.suggestedFilename()).toBe("Nguyễn Minh An CV.pdf");
   const downloadedPath = info.outputPath(download.suggestedFilename());
   await download.saveAs(downloadedPath);
   expect(readFileSync(downloadedPath)).toEqual(await pdf.body());
@@ -193,6 +233,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     fullPage: true,
   });
   await page.setViewportSize({ width: 360, height: 900 });
+  await goToStep(page, "Cá nhân");
   await expect(
     page.getByRole("tab", { name: "Nội dung", exact: true }),
   ).toBeVisible();

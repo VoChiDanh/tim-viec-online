@@ -107,18 +107,21 @@
   transform: translateY(0);
 }
 :where(a, button, summary, input, select):focus-visible {
-  outline: 3px solid var(--ring);
-  outline-offset: 4px;
+  outline: 2px solid var(--field-focus-border);
+  outline-offset: 2px;
 }
-:where(
+:is(
   input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]),
-  textarea
+  textarea,
+  select,
+  [data-slot="select-trigger"],
+  .selection-trigger
 ):focus-visible {
   outline: none;
   border-color: var(--field-focus-border);
   box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
-:where(input, textarea)[aria-invalid="true"]:focus-visible {
+:is(input, textarea, select, [data-slot="select-trigger"], .selection-trigger)[aria-invalid="true"]:focus-visible {
   border-color: var(--destructive);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
 }
@@ -126,9 +129,13 @@
   box-shadow: none;
 }
 @media (forced-colors: active) {
-  :where(input, textarea):focus-visible {
+  :is(input, textarea, select, [data-slot="select-trigger"], .selection-trigger):focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
+    box-shadow: none;
+  }
+  :where(a, button, summary):focus-visible {
+    outline-color: Highlight;
   }
 }
 .site-header :where(a, button):focus-visible,
@@ -450,9 +457,9 @@ main {
   background: var(--selection-background);
 }
 .job-sort .job-sort-trigger:focus-visible {
-  border-color: var(--brand-blue);
-  outline: 2px solid var(--field-focus-halo);
-  outline-offset: 2px;
+  border-color: var(--field-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
 .job-sort-menu {
   min-width: 220px;

@@ -57,6 +57,34 @@ export function ResumeDocument({
   const palette = PALETTES[doc.settings.accent];
   const isModern = doc.template_key === "modern";
   const isMinimal = doc.template_key === "minimal";
+  const isSidebar = (key: SectionKey) =>
+    key === "skills" || key === "languages";
+  const sections = doc.settings.section_order.filter(
+    (key) =>
+      !doc.settings.hidden_sections.includes(key) && doc.content[key].length,
+  );
+  const textLength = (entry: object) =>
+    Object.entries(entry).reduce(
+      (length, [key, value]) =>
+        length +
+        (key !== "id" && !key.endsWith("month") && typeof value === "string"
+          ? value.trim().length
+          : 0),
+      0,
+    );
+  const narrativeLength = sections
+    .filter((key) => !isSidebar(key))
+    .reduce(
+      (total, key) =>
+        total +
+        doc.content[key]
+          .map(textLength)
+          .reduce((sum, length) => sum + length, 0),
+      doc.content.basics.summary.trim().length,
+    );
+  // Short profiles stay readable across the page rather than leaving an empty column.
+  const useColumns =
+    isModern && sections.some(isSidebar) && narrativeLength >= 240;
   const fontSize = { small: 8.5, normal: 9.5, large: 10.5 }[
     doc.settings.font_size
   ];
@@ -77,19 +105,18 @@ export function ResumeDocument({
       top: 0,
       left: 0,
       right: 0,
-      height: isModern ? 7 : 3,
+      height: isModern ? 4 : 3,
       backgroundColor: palette.accent,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
       gap: 22,
-      padding: isModern ? 24 : 0,
-      paddingBottom: isModern ? 24 : 18,
-      marginBottom: 18,
-      borderBottomWidth: isModern ? 0 : 1,
+      paddingBottom: 18,
+      marginBottom: isModern ? 14 : 18,
+      borderBottomWidth: 1,
       borderBottomColor: isMinimal ? "#dce3eb" : palette.accent,
-      backgroundColor: isModern ? palette.dark : "#ffffff",
+      backgroundColor: "#ffffff",
     },
     identity: {
       flex: 1,
@@ -97,20 +124,20 @@ export function ResumeDocument({
       ...(isMinimal ? { alignItems: "center" as const } : {}),
     },
     name: {
-      fontSize: isMinimal ? 26 : 28,
+      fontSize: isMinimal || isModern ? 26 : 28,
       fontWeight: 700,
-      color: isModern ? "#ffffff" : palette.dark,
+      color: palette.dark,
       lineHeight: 1.35,
     },
     headline: {
       fontSize: 11,
       marginTop: 8,
-      color: isModern ? "#ffffff" : palette.accent,
+      color: palette.accent,
       lineHeight: 1.6,
     },
     photo: {
-      width: 72,
-      height: isMinimal ? 72 : 88,
+      width: isModern ? 64 : 72,
+      height: isMinimal ? 72 : isModern ? 76 : 88,
       objectFit: "cover",
       borderRadius: isMinimal ? 36 : 3,
     },
@@ -123,14 +150,14 @@ export function ResumeDocument({
       marginTop: 12,
     },
     contactInline: { fontSize: 8.5, color: "#475569", textDecoration: "none" },
-    contactBlock: { marginBottom: 10 },
-    contactLabel: {
-      fontSize: 7,
-      lineHeight: 1.4,
-      letterSpacing: 1,
-      color: palette.accent,
-      fontWeight: 700,
-      marginBottom: 3,
+    contactStrip: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      columnGap: 16,
+      rowGap: 6,
+      padding: 12,
+      backgroundColor: palette.tint,
+      marginBottom: 20,
     },
     contactValue: {
       fontSize: 8.5,
@@ -155,6 +182,13 @@ export function ResumeDocument({
     },
     headingRule: { flex: 1, height: 1, backgroundColor: "#dce3eb" },
     item: { marginBottom: 8 },
+    skillItem: { marginBottom: 5 },
+    skillTitle: { fontSize: fontSize - 1, fontWeight: 500, lineHeight: 1.4 },
+    skillDescription: {
+      fontSize: fontSize - 1,
+      marginTop: 2,
+      lineHeight: 1.45,
+    },
     entryHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -187,8 +221,13 @@ export function ResumeDocument({
       fontSize,
       lineHeight: doc.settings.line_spacing === "compact" ? 1.4 : 1.55,
     },
-    columns: { flexDirection: "row", gap: 24 },
-    sidebar: { width: "29%", backgroundColor: palette.tint, padding: 14 },
+    columns: { flexDirection: "row", gap: 20 },
+    sidebar: {
+      width: 174,
+      paddingRight: 16,
+      borderRightWidth: 1,
+      borderRightColor: "#dce3eb",
+    },
     main: { flex: 1, minWidth: 0 },
     footer: {
       position: "absolute",
@@ -208,27 +247,22 @@ export function ResumeDocument({
     full_name: singleLine(doc.content.basics.full_name),
     headline: singleLine(doc.content.basics.headline),
   };
-  const bodyWidth = isModern ? 347 : 523;
-  const headerWidth = 523 - (isModern ? 48 : 0) - (photo ? 94 : 0);
+  const bodyWidth = useColumns ? 329 : 523;
+  const sidebarWidth = 157;
+  const headerWidth = 523 - (photo ? (isModern ? 86 : 94) : 0);
   const nameCharacters = Array.from(basics.full_name);
   const footerName =
     nameCharacters.length > 60
       ? nameCharacters.slice(0, 59).join("") + "…"
       : basics.full_name;
-  const sections = doc.settings.section_order.filter(
-    (key) =>
-      !doc.settings.hidden_sections.includes(key) && doc.content[key].length,
-  );
   function heading(label: string) {
     return (
       <View style={styles.sectionHeading} minPresenceAhead={42} wrap={false}>
         <Text style={styles.title}>{label}</Text>
-        {!isModern && <View style={styles.headingRule} />}
+        {(!isModern || !useColumns) && <View style={styles.headingRule} />}
       </View>
     );
   }
-  const isSidebar = (key: SectionKey) =>
-    key === "skills" || key === "languages";
   const section = (key: SectionKey) => (
     <React.Fragment key={key}>
       {doc.content[key].map((item, index) => {
@@ -247,19 +281,20 @@ export function ResumeDocument({
           : data.issued_month
             ? month(String(data.issued_month))
             : "";
-        const compact = !isModern && isSidebar(key);
+        const compact = !useColumns && isSidebar(key);
         return (
           <View
             key={item.id}
             style={[
               styles.item,
+              key === "skills" ? styles.skillItem : {},
               index === doc.content[key].length - 1
                 ? {
                     marginBottom:
                       sections
                         .filter(
                           (other) =>
-                            !isModern || isSidebar(other) === isSidebar(key),
+                            !useColumns || isSidebar(other) === isSidebar(key),
                         )
                         .at(-1) === key
                         ? 0
@@ -271,9 +306,23 @@ export function ResumeDocument({
             {compact ? (
               <>
                 {index === 0 && heading(SECTION_LABELS[key])}
-                <Text style={styles.description}>
-                  <Text style={{ fontWeight: 700, color: palette.dark }}>
-                    {breakLongTokens(title, bodyWidth, fontSize)}
+                <Text
+                  style={[
+                    styles.description,
+                    key === "skills" ? styles.skillDescription : {},
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontWeight: key === "skills" ? 500 : 700,
+                      color: palette.dark,
+                    }}
+                  >
+                    {breakLongTokens(
+                      title,
+                      bodyWidth,
+                      key === "skills" ? fontSize - 1 : fontSize,
+                    )}
                   </Text>
                   {data.detail || sub
                     ? `  ·  ${breakLongTokens(String(data.detail || sub), bodyWidth, fontSize)}`
@@ -284,11 +333,18 @@ export function ResumeDocument({
               <View minPresenceAhead={14} wrap={false}>
                 {index === 0 && heading(SECTION_LABELS[key])}
                 <View style={styles.entryHeader}>
-                  <Text style={styles.entryTitle}>
+                  <Text
+                    style={[
+                      styles.entryTitle,
+                      key === "skills" ? styles.skillTitle : {},
+                    ]}
+                  >
                     {breakLongTokens(
                       title,
-                      isSidebar(key) ? 123 : bodyWidth - 90,
-                      fontSize,
+                      isSidebar(key) && useColumns
+                        ? sidebarWidth
+                        : bodyWidth - 90,
+                      key === "skills" ? fontSize - 1 : fontSize,
                     )}
                   </Text>
                   {!isModern && date ? (
@@ -299,7 +355,7 @@ export function ResumeDocument({
                   <Text style={styles.sub}>
                     {breakLongTokens(
                       singleLine(String(sub)),
-                      isSidebar(key) && isModern ? 123 : bodyWidth,
+                      isSidebar(key) && useColumns ? sidebarWidth : bodyWidth,
                       fontSize - 0.5,
                     )}
                   </Text>
@@ -310,11 +366,18 @@ export function ResumeDocument({
               </View>
             )}
             {!compact && (data.description || data.detail) ? (
-              <Text style={styles.description} orphans={2} widows={2}>
+              <Text
+                style={[
+                  styles.description,
+                  key === "skills" ? styles.skillDescription : {},
+                ]}
+                orphans={2}
+                widows={2}
+              >
                 {breakLongTokens(
                   String(data.description || data.detail),
-                  isSidebar(key) && isModern ? 123 : bodyWidth,
-                  fontSize,
+                  isSidebar(key) && useColumns ? sidebarWidth : bodyWidth,
+                  key === "skills" ? fontSize - 1 : fontSize,
                 )}
               </Text>
             ) : null}
@@ -358,7 +421,7 @@ export function ResumeDocument({
               {breakLongTokens(
                 basics.full_name,
                 headerWidth,
-                isMinimal ? 26 : 28,
+                isMinimal || isModern ? 26 : 28,
               )}
             </Text>
             <Text style={styles.headline}>
@@ -373,19 +436,11 @@ export function ResumeDocument({
                       src={item.url}
                       style={styles.contactInline}
                     >
-                      {breakLongTokens(
-                        item.value,
-                        isModern ? 123 : headerWidth,
-                        8.5,
-                      )}
+                      {breakLongTokens(item.value, headerWidth, 8.5)}
                     </Link>
                   ) : (
                     <Text key={index} style={styles.contactInline}>
-                      {breakLongTokens(
-                        item.value,
-                        isModern ? 123 : headerWidth,
-                        8.5,
-                      )}
+                      {breakLongTokens(item.value, headerWidth, 8.5)}
                     </Text>
                   ),
                 )}
@@ -394,36 +449,26 @@ export function ResumeDocument({
           </View>
           {photo ? <PdfImage src={photo} style={styles.photo} /> : null}
         </View>
-        {isModern ? (
+        {isModern && contacts.length > 0 && (
+          <View style={styles.contactStrip}>
+            {contacts.map((item, index) => (
+              <View key={index} style={{ maxWidth: 499 }}>
+                {item.url ? (
+                  <Link src={item.url} style={styles.contactValue}>
+                    {breakLongTokens(item.value, 499, 8.5)}
+                  </Link>
+                ) : (
+                  <Text style={styles.contactValue}>
+                    {breakLongTokens(item.value, 499, 8.5)}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+        {useColumns ? (
           <View style={styles.columns}>
             <View style={styles.sidebar}>
-              <View style={styles.section}>
-                {heading("Liên hệ")}
-                {contacts.map((item, index) => (
-                  <View key={index} style={styles.contactBlock}>
-                    <Text style={styles.contactLabel} minPresenceAhead={16}>
-                      {item.label}
-                    </Text>
-                    {item.url ? (
-                      <Link src={item.url} style={styles.contactValue}>
-                        {breakLongTokens(
-                          item.value,
-                          isModern ? 123 : headerWidth,
-                          8.5,
-                        )}
-                      </Link>
-                    ) : (
-                      <Text style={styles.contactValue}>
-                        {breakLongTokens(
-                          item.value,
-                          isModern ? 123 : headerWidth,
-                          8.5,
-                        )}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
               {sections
                 .filter((key) => key === "skills" || key === "languages")
                 .map(section)}

@@ -3,17 +3,25 @@
 import { useEffect, useRef } from "react";
 
 // Render the generated PDF itself so desktop and mobile show the same pages.
-export function ResumePdfViewer({ url }: { url: string }) {
+export function ResumePdfViewer({
+  url,
+  fit = "width",
+}: {
+  url: string;
+  fit?: "width" | "page";
+}) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = host.current;
     if (!element) return;
     let stop: (() => void) | undefined;
-    let lastWidth = 0;
+    let lastSize = "";
     const observer = new ResizeObserver(([entry]) => {
-      const width = Math.floor(entry.contentRect.width - 24);
-      if (width < 80 || width === lastWidth) return;
-      lastWidth = width;
+      const width = Math.floor(entry.contentRect.width);
+      const height = Math.floor(entry.contentRect.height);
+      const size = `${width}:${height}`;
+      if (width < 80 || height < 80 || size === lastSize) return;
+      lastSize = size;
       stop?.();
       let cancelled = false;
       const controller = new AbortController();
@@ -46,8 +54,11 @@ export function ResumePdfViewer({ url }: { url: string }) {
           for (let number = 1; number <= Math.min(pdf.numPages, 5); number++) {
             if (cancelled) return;
             const page = await pdf.getPage(number);
+            const dimensions = page.getViewport({ scale: 1 });
             const scale =
-              Math.min(width, 760) / page.getViewport({ scale: 1 }).width;
+              fit === "page"
+                ? Math.min(width / dimensions.width, height / dimensions.height)
+                : width / dimensions.width;
             const viewport = page.getViewport({ scale });
             const density = Math.min(window.devicePixelRatio || 1, 2);
             const canvas = document.createElement("canvas");
@@ -88,12 +99,14 @@ export function ResumePdfViewer({ url }: { url: string }) {
       observer.disconnect();
       stop?.();
     };
-  }, [url]);
+  }, [url, fit]);
   return (
     <div
       ref={host}
       className="resume-pdf-pages"
       title="Bản PDF xem trước"
+      role="region"
+      tabIndex={0}
       aria-label="Các trang PDF xem trước"
     />
   );

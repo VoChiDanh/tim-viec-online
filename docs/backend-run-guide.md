@@ -116,6 +116,15 @@ php artisan schedule:work
 
 ### Các tiến trình cần giữ mở
 
+Khi dùng **CV của tôi → Tạo CV mới**, cần thêm `RESUME_BUILDER_ENABLED=true` trong `backend/.env`, chạy `php artisan config:clear` và giữ worker xuất PDF riêng:
+
+```powershell
+cd F:\Soure_Code\tim-viec-online\backend
+php artisan queue:work database --queue=cv --sleep=1 --tries=2 --timeout=45
+```
+
+Thiếu flag thì giao diện báo bảo trì; thiếu worker thì PDF ở trạng thái chờ. Worker `ai` hoặc `emails` không xử lý queue `cv`. Cách build renderer và chuẩn bị lần đầu nằm trong [hướng dẫn trình tạo CV](cv-builder-setup.md).
+
 | Thành phần | Cổng / queue | Chức năng |
 | --- | --- | --- |
 | MySQL của XAMPP | `3306` | Lưu dữ liệu |
@@ -123,6 +132,7 @@ php artisan schedule:work
 | Reverb | `8080` | Chat, thông báo trực tiếp |
 | Worker AI | queue `ai` | Phân tích CV thật |
 | Worker email | queue `emails` | Giao email thông báo |
+| Worker CV | queue `cv` | Xuất PDF từ trình tạo CV |
 | Frontend | `3000` | Giao diện web |
 | Scheduler, khi cần | Không có cổng HTTP riêng | Chạy lịch tin hết hạn |
 

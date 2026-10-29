@@ -113,3 +113,10 @@ Dữ liệu database được ghi trong transaction và có khóa chống hai l�
 Đợt kiểm tra 26/10/2026 chạy trên MariaDB và storage riêng, không áp dụng bộ seed vào database phát triển của người dùng. Preset `large` với hai tùy chọn hoàn thành khoảng 119 giây, PHP peak memory 58 MB trên máy kiểm thử. Đây là thời gian tạo dữ liệu, không phải kết quả kiểm thử tải ứng dụng.
 
 Bộ kiểm thử backend sau thay đổi đạt **64 tests, 375 assertions**, bao gồm migration bổ sung cho SQL import cũ. Regression kiểm tra quy mô, chạy lại, giữ dữ liệu có sẵn, ownership CV, đăng nhập, phân quyền AI, fixtures vận hành, từ chối cấu hình không hợp lệ và không gọi dịch vụ ngoài. Kiểm tra trực tiếp bộ large không thiếu CV/avatar/logo; các API jobs, companies, candidate applications, employer applications và admin stats đều trả 200. Hướng dẫn kiểm thử backend và cấu hình database riêng tại [Backend Testing Guide](../BACKEND_TESTING_GUIDE.md).
+
+| Vai trò | Email |
+|---|---|
+| Ứng viên | `candidate.00001@demo.timviec.test` |
+| Nhà tuyển dụng | `employer.00001@demo.timviec.test` |
+| Admin | `admin@demo.timviec.test` |
+|Mật khẩu chung:| `Demo!071daf6c9f2ff75cfb34Aa7`|

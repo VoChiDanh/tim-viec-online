@@ -17,6 +17,31 @@ class ResumeExportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_download_name_uses_the_exported_candidate_name_and_preserves_vietnamese(): void
+    {
+        config(['resumes.enabled' => true]);
+        Storage::fake('private');
+        $user = User::factory()->create(['role' => 'candidate']);
+        $id = $this->actingAs($user, 'sanctum')->postJson('/api/candidate/resumes', ['name' => 'Tên bản nháp', 'template_key' => 'classic'])->json('data.id');
+        $document = json_decode(file_get_contents(base_path('../tests/fixtures/resumes/minimal.json')), true);
+        $export = ResumeExport::create(['resume_id' => $id, 'revision' => 1, 'renderer_version' => '3', 'input_hash' => str_repeat('a', 64), 'input_snapshot' => $document, 'status' => 'ready', 'path' => 'exports/check.pdf']);
+        Storage::disk('private')->put($export->path, '%PDF-1.4');
+        $this->putJson("/api/candidate/resumes/$id", ['base_revision' => 1, ...array_replace_recursive($document, ['content' => ['basics' => ['full_name' => 'Tên đã sửa sau khi xuất']]])])->assertOk();
+        $this->getJson("/api/candidate/resume-exports/{$export->id}")->assertOk()->assertJsonPath('data.file_name', 'Nguyễn Minh An CV.pdf');
+        $file = $this->get("/api/candidate/resume-exports/{$export->id}/file")->assertOk();
+        $disposition = $file->headers->get('Content-Disposition');
+        $this->assertStringStartsWith('inline;', $disposition);
+        $this->assertStringContainsString('Nguyễn Minh An CV.pdf', rawurldecode($disposition));
+    }
+
+    public function test_download_name_removes_path_characters_and_controls_without_losing_accents(): void
+    {
+        $export = new ResumeExport(['input_snapshot' => ['content' => ['basics' => ['full_name' => "  Nguyễn / Minh\\An\r\n:*?\"<>|  "]]]]);
+        $this->assertSame('Nguyễn Minh An CV.pdf', $export->downloadName());
+        $export->input_snapshot = ['content' => ['basics' => ['full_name' => '...']]];
+        $this->assertSame('CV.pdf', $export->downloadName());
+    }
+
     public function test_renderer_accepts_a_name_split_across_lines_without_losing_its_text(): void
     {
         Storage::fake('private');

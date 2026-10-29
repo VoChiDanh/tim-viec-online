@@ -7,6 +7,7 @@ export type ResumeExport = {
   error_code: string | null;
   retryable: boolean;
   file_url: string | null;
+  file_name?: string;
   page_count: number | null;
 };
 export type ResumeSummary = {

@@ -3,7 +3,7 @@
   /* Keep the footer below the viewport while the route's Suspense content
      changes height. The persistent shell must not collapse to its skeleton. */
   min-height: calc(100dvh - 69px);
-  width: min(100%, 1360px);
+  width: min(100%, 1920px);
   margin-inline: auto;
   padding: 24px 24px 48px;
   display: grid;
@@ -341,11 +341,6 @@
   font-size: 13px;
   min-height: 120px;
   resize: vertical;
-}
-.candidate-area :is([data-slot="input"], [data-slot="textarea"]):focus-visible {
-  border-color: var(--field-focus-border);
-  box-shadow: 0 0 0 2px var(--field-focus-halo);
-  outline: none;
 }
 .candidate-area [data-slot="field-error"] {
   font-size: 12px;

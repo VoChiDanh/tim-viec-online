@@ -24,6 +24,7 @@ import { DeadlineField } from "./deadline-field";
 import { companyReady, effectiveJobStatus } from "@/features/employer/rules";
 import { JOB_STATUS_LABELS } from "@/features/employer/types";
 import { formatSalary } from "@/features/jobs/formatters";
+import { normalizeSearch } from "@/features/jobs/query";
 import type {
   JobValues,
   EmployerJob,
@@ -224,6 +225,11 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
     initialValues(existing),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [skillSearch, setSkillSearch] = useState("");
+  const skillKeyword = normalizeSearch(skillSearch);
+  const visibleSkills = skills.filter((skill) =>
+    normalizeSearch(skill.name).includes(skillKeyword),
+  );
   const salaryMinimum = Number(values.salary_min);
   const salaryMaximum = Number(values.salary_max);
   const validSalary =
@@ -366,11 +372,14 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
               error={errors.category_id}
               required
             >
-              <SelectionField
+              <SearchableSelectionField
                 clearable={false}
+                id={`${prefix}-category_id`}
                 name="category_id"
                 label="Ngành nghề"
                 placeholder="Chọn ngành nghề"
+                searchLabel="Tìm ngành nghề"
+                emptyMessage="Không tìm thấy ngành nghề phù hợp."
                 options={categories.map((category) => ({
                   value: String(category.id),
                   label: category.name,
@@ -437,8 +446,29 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
             <fieldset className="ep-field-full ep-job-skills">
               <legend>Kỹ năng yêu cầu</legend>
               <p>Chọn các kỹ năng chuyên môn phù hợp với công việc.</p>
-              <div className="ep-skill-options">
-                {skills.map((skill) => (
+              <div className="ep-skill-search">
+                <FieldLabel htmlFor={`${prefix}-skill-search`}>
+                  Tìm kỹ năng
+                </FieldLabel>
+                <Input
+                  id={`${prefix}-skill-search`}
+                  type="search"
+                  placeholder="Nhập tên kỹ năng…"
+                  value={skillSearch}
+                  maxLength={100}
+                  autoComplete="off"
+                  aria-controls={`${prefix}-skill-options`}
+                  onChange={(event) => setSkillSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.preventDefault();
+                  }}
+                />
+                <p className="ep-skill-count" role="status">
+                  Đã chọn {values.skill_ids.length} kỹ năng
+                </p>
+              </div>
+              <div className="ep-skill-options" id={`${prefix}-skill-options`}>
+                {visibleSkills.map((skill) => (
                   <label
                     key={skill.id}
                     data-selected={values.skill_ids.includes(skill.id)}
@@ -459,6 +489,13 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
                     <span>{skill.name}</span>
                   </label>
                 ))}
+                {visibleSkills.length === 0 && (
+                  <p className="ep-skill-empty" role="status">
+                    {skills.length === 0
+                      ? "Chưa có kỹ năng để lựa chọn."
+                      : "Không tìm thấy kỹ năng phù hợp. Thử từ khóa khác."}
+                  </p>
+                )}
               </div>
               {errors.skill_ids && (
                 <p className="ep-field-error" role="alert">

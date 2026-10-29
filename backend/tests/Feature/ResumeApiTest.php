@@ -6,6 +6,7 @@ use App\Models\CandidateProfile;
 use App\Models\Resume;
 use App\Models\User;
 use App\Services\Resumes\ResumeExportService;
+use App\Services\Resumes\ResumeSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -94,6 +95,33 @@ class ResumeApiTest extends TestCase
         $this->postJson('/api/candidate/resumes', ['name' => 'CV', 'template_key' => 'classic'])->assertStatus(503);
         $this->getJson("/api/candidate/resumes/$id")->assertOk();
         $this->deleteJson("/api/candidate/resumes/$id")->assertOk();
+    }
+
+    public function test_new_cv_can_start_with_sample_content_while_preserving_real_profile_information(): void
+    {
+        $user = User::factory()->create(['role' => 'candidate', 'name' => 'Nguyễn Bình', 'email' => 'binh@example.test']);
+        CandidateProfile::create(['user_id' => $user->id, 'title' => 'Quản lý dự án', 'bio' => 'Giới thiệu thật của ứng viên.']);
+        $created = $this->actingAs($user, 'sanctum')->postJson('/api/candidate/resumes', [
+            'name' => 'CV khởi đầu', 'template_key' => 'modern', 'prefill_from_profile' => true, 'use_sample_data' => true,
+        ])->assertCreated();
+        $created->assertJsonPath('data.content.basics.full_name', $user->name)
+            ->assertJsonPath('data.content.basics.email', $user->email)
+            ->assertJsonPath('data.content.basics.headline', 'Quản lý dự án')
+            ->assertJsonPath('data.content.basics.summary', 'Giới thiệu thật của ứng viên.');
+        foreach (['experience', 'education', 'skills', 'languages', 'projects', 'certifications', 'activities'] as $section) {
+            $this->assertNotEmpty($created->json("data.content.$section"));
+        }
+        $id = $created->json('data.id');
+        $this->getJson("/api/candidate/resumes/$id")->assertOk()->assertJsonPath('data.content.experience', $created->json('data.content.experience'));
+        $another = $this->postJson('/api/candidate/resumes', ['name' => 'CV khác', 'template_key' => 'classic', 'use_sample_data' => true])->assertCreated();
+        $this->assertNotSame($created->json('data.content.experience.0.id'), $another->json('data.content.experience.0.id'));
+        $this->getJson('/api/candidate/resume-templates')->assertOk()->assertJsonStructure(['sample_document' => ['content' => ['experience', 'education', 'skills']]]);
+        $document = array_intersect_key($created->json('data'), ResumeSchema::empty());
+        $this->assertSame(1, $document['settings']['starter_version']);
+        $this->assertStringNotContainsString('Nội dung mẫu:', json_encode($document, JSON_UNESCAPED_UNICODE));
+        $document['content']['education'] = [];
+        $this->putJson("/api/candidate/resumes/$id", ['base_revision' => 1, ...$document])->assertOk();
+        $this->getJson("/api/candidate/resumes/$id")->assertOk()->assertJsonPath('data.settings.starter_version', 1)->assertJsonPath('data.content.education', []);
     }
 
     public function test_draft_limits_pagination_and_raw_body_limit_are_enforced(): void

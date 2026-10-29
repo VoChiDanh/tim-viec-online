@@ -119,6 +119,72 @@ test("all templates create paged Vietnamese text PDFs using local fonts", async 
   }
 });
 
+test("sparse modern CVs use the page width and keep ordinary emails intact", async () => {
+  const doc = emptyResume();
+  doc.template_key = "modern";
+  doc.content.basics.full_name = "Nguyễn Minh An";
+  doc.content.basics.headline = "Project Manager";
+  doc.content.basics.email = "nguyen.minh.an1901@gmail.com";
+  doc.content.basics.phone = "0901234567";
+  doc.content.basics.city = "Khánh Hòa";
+  doc.content.skills = [
+    {
+      id: crypto.randomUUID(),
+      name: "Quản lý dự án",
+      detail:
+        "Lập kế hoạch, quản lý nguồn lực và phối hợp với các nhóm để hoàn thành mục tiêu đúng tiến độ.",
+    },
+  ];
+  doc.content.projects = [
+    {
+      id: crypto.randomUUID(),
+      name: "Ứng dụng tuyển dụng",
+      role: "",
+      url: "",
+      description: "",
+    },
+  ];
+  const file = path.join(
+    root,
+    "test-results/resume-renderer",
+    `sparse-modern-${crypto.randomUUID()}.pdf`,
+  );
+  await mkdir(path.dirname(file), { recursive: true });
+  execFileSync(
+    process.execPath,
+    [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+    {
+      input: JSON.stringify({ document: doc }),
+    },
+  );
+  const loading = getDocument({
+    data: new Uint8Array(await readFile(file)),
+    standardFontDataUrl:
+      path
+        .join(root, "node_modules/pdfjs-dist/standard_fonts")
+        .replaceAll("\\", "/") + "/",
+  });
+  try {
+    const pdf = await loading.promise;
+    assert.equal(pdf.numPages, 1);
+    const items = (await (await pdf.getPage(1)).getTextContent()).items.filter(
+      (item) => "str" in item,
+    );
+    assert.ok(
+      items.some((item) => item.str === doc.content.basics.email),
+      "ordinary email should fit on one line",
+    );
+    assert.ok(
+      items.some(
+        (item) => item.str.includes("Lập kế hoạch") && item.width > 250,
+      ),
+      "skills should fill the available width when there is no main-column content",
+    );
+  } finally {
+    await loading.destroy();
+  }
+});
+
 test("renderer rejects invalid input and never accepts user supplied font or image URLs", async () => {
   const draft = emptyResume();
   assert.throws(() =>

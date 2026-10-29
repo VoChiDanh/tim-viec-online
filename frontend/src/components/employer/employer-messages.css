@@ -39,9 +39,9 @@
   background: var(--ep-bg, #f4f6fa);
   color: var(--ep-muted, #667891);
 }
-.em-chat-search > div:focus-within {
-  border-color: var(--ep-blue, #005aff);
-  box-shadow: 0 0 0 2px #005aff12;
+.em-chat-search > div:has(input:focus-visible) {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
 .em-chat-search input {
   border: 0;
@@ -343,12 +343,16 @@
   border-radius: 11px;
   padding: 4px;
 }
-.em-chat-composer-box:focus-within {
-  border-color: var(--ep-blue, #005aff);
-  box-shadow: 0 0 0 2px #005aff12;
+.em-chat-composer-box:has(textarea:focus-visible) {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
 .em-chat-composer-box[data-invalid="true"] {
-  border-color: #dc2626;
+  border-color: var(--destructive);
+}
+.em-chat-composer-box[data-invalid="true"]:has(textarea:focus-visible) {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
 }
 .em-chat-composer textarea {
   min-height: 44px;
@@ -360,6 +364,15 @@
   box-shadow: none !important;
   outline: none !important;
   background: transparent;
+}
+@media (forced-colors: active) {
+  .em-chat-search > div:has(input:focus-visible),
+  .em-chat-composer-box:has(textarea:focus-visible),
+  .em-chat-composer-box[data-invalid="true"]:has(textarea:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
 .em-chat-composer-box button {
   flex-shrink: 0;

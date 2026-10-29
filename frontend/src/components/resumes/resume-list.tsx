@@ -3,7 +3,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FilePlus2, Copy, Trash2, ArrowRight, FileText } from "lucide-react";
+import {
+  FilePlus2,
+  Copy,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  FileText,
+  LoaderCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { apiRequest } from "@/features/api/client";
 import { fetchResumes, resumeFileUrl } from "@/features/resumes/client";
@@ -55,6 +63,7 @@ export function ResumeLibrary({
           name,
           template_key: selected,
           prefill_from_profile: prefill,
+          use_sample_data: true,
         }),
       });
       router.push(`/account/resumes/${response.data.id}/edit`);
@@ -106,24 +115,29 @@ export function ResumeLibrary({
     <section className="resume-library">
       <header className="resume-page-heading">
         <div>
-          <p className="resume-eyebrow">HỒ SƠ NGHỀ NGHIỆP</p>
-          <h1>{create ? "Bắt đầu CV của bạn" : "CV của tôi"}</h1>
+          <h1>{create ? "Tạo CV" : "CV của tôi"}</h1>
           <p>
             {create
-              ? "Chọn bố cục phù hợp. Bạn có thể đổi mẫu trong lúc chỉnh sửa."
-              : "Chuẩn bị từng bản CV cho công việc bạn muốn ứng tuyển."}
+              ? "Chọn mẫu CV để chỉnh sửa."
+              : "Quản lý, chỉnh sửa và tải CV."}
           </p>
         </div>
         {!create && connected && (
-          <Button asChild disabled={!data?.meta.enabled}>
+          <Button
+            asChild
+            className="resume-action-button"
+            disabled={!data?.meta.enabled}
+          >
             <Link href="/account/resumes/new">
-              <FilePlus2 size={18} /> Tạo CV mới
+              <FilePlus2 aria-hidden="true" /> Tạo CV mới
             </Link>
           </Button>
         )}
         {create && (
-          <Button asChild variant="outline">
-            <Link href="/account/resumes">CV của tôi</Link>
+          <Button asChild variant="outline" className="resume-action-button">
+            <Link href="/account/resumes">
+              <ArrowLeft aria-hidden="true" /> CV của tôi
+            </Link>
           </Button>
         )}
       </header>
@@ -208,13 +222,23 @@ export function ResumeLibrary({
           </div>
           <div className="resume-create-action">
             <Button
+              className="resume-action-button"
+              aria-busy={busy}
               disabled={
                 busy || !connected || !data?.meta.enabled || !name.trim()
               }
               onClick={make}
             >
-              {busy ? "Đang tạo…" : "Sử dụng mẫu này"}
-              <ArrowRight size={18} />
+              {busy ? (
+                <LoaderCircle
+                  className="animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+              ) : (
+                <FilePlus2 aria-hidden="true" />
+              )}
+              {busy ? "Đang tạo CV…" : "Sử dụng mẫu này"}
+              {!busy && <ArrowRight aria-hidden="true" />}
             </Button>
           </div>
         </>
@@ -223,12 +247,12 @@ export function ResumeLibrary({
           {data?.items.length === 0 && (
             <div className="resume-empty">
               <FileText size={42} />
-              <h2>CV đầu tiên bắt đầu từ đây</h2>
-              <p>
-                Chọn một mẫu, thêm kinh nghiệm và tạo bản PDF của riêng bạn.
-              </p>
-              <Button asChild>
-                <Link href="/account/resumes/new">Tạo CV đầu tiên</Link>
+              <h2>Bạn chưa có CV</h2>
+              <p>Chọn mẫu để tạo CV.</p>
+              <Button asChild className="resume-action-button">
+                <Link href="/account/resumes/new">
+                  <FilePlus2 aria-hidden="true" /> Tạo CV đầu tiên
+                </Link>
               </Button>
             </div>
           )}
@@ -265,7 +289,7 @@ export function ResumeLibrary({
                     {item.latest_export?.file_url && (
                       <a
                         href={resumeFileUrl(item.latest_export.file_url)}
-                        download={`CV-${item.latest_export.id}.pdf`}
+                        download={item.latest_export.file_name || "CV.pdf"}
                       >
                         Tải PDF v{item.latest_export.revision}
                       </a>

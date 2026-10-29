@@ -4,6 +4,14 @@ Chức năng dùng Laravel cho dữ liệu/quyền sở hữu và worker queue `
 
 Kết quả kiểm thử và giới hạn tải đã đo: [cv-builder-verification.md](cv-builder-verification.md). Chưa đạt mục tiêu save p95 dưới 500 ms với 50 người dùng trên máy local; nên bật thử với nhóm nhỏ trước.
 
+Editor chia thành 9 bước với bản xem trước PDF bên cạnh. Trên điện thoại, dùng hai chế độ **Nội dung / Xem trước**. Khi tạo CV từ giao diện, các mục được điền sẵn nội dung mẫu tiếng Việt; lựa chọn **Điền thông tin từ hồ sơ cá nhân** ưu tiên thông tin thật không rỗng của tài khoản. Thay các ví dụ bằng thông tin của mình trước khi dùng CV ứng tuyển.
+
+Khi mở CV cũ, editor tự điền các trường cá nhân trống và các mục chưa có nội dung một lần, đồng thời lưu `settings.starter_version=1` vào JSON hiện có. Nội dung đã nhập, ảnh, mẫu và cài đặt ẩn mục được giữ; mục bị xóa sau đó không tự thêm lại khi mở CV. Các giá trị còn nguyên từ bộ nội dung cũ được đổi sang câu chữ mới, bỏ tiền tố và hướng dẫn nhập liệu; không thay đoạn người dùng đã sửa. Không cần nút bổ sung riêng. Chứng chỉ/hoạt động mặc định ẩn trong CV mới; bật **Hiện trong CV** ở bước **Bổ sung** nếu cần. Ở bước **Xuất PDF**, chọn **Tạo bản PDF** rồi **Tải PDF** sau khi worker hoàn tất.
+
+Thời gian kinh nghiệm, học vấn và chứng chỉ dùng bộ chọn tháng/năm tiếng Việt với giao diện Popover/Select chung của website. Hiển thị `MM/YYYY`, API vẫn nhận `YYYY-MM` hoặc `null`. Khi bật **Đang tiếp tục**, tháng kết thúc được xóa và khóa.
+
+Nội dung khởi đầu nằm trong `backend/resources/resumes/starter.json`, được backend kiểm tra theo schema và cấp ID riêng cho từng bản nháp. API tạo CV chỉ dùng nội dung này khi gửi `use_sample_data=true`; không cần seed hay thay đổi cấu trúc database.
+
 ## 1. Chuẩn bị
 
 - PHP 8.2 trở lên, extension `gd`, `fileinfo`, `mbstring`, `pdo_mysql`, `dom`.
@@ -18,6 +26,13 @@ php -m | Select-String gd
 ```
 
 Nếu chưa có, bỏ dấu `;` ở dòng `extension=gd` trong **php.ini của PHP đang chạy** (`php --ini` để tìm), sau đó khởi động lại API/worker. Không bật hai lần cùng extension. Nếu thiếu GD, upload ảnh CV trả lỗi dịch vụ có kiểm soát; không lưu ảnh thô thay thế.
+
+GD cũng cần cho bước **Điền thông tin từ hồ sơ cá nhân** nếu hồ sơ có ảnh đại diện. Thiếu GD có thể khiến tạo CV trả 503, dù tài khoản chưa có ảnh vẫn tạo được. Khi chuyển database sang Laragon, API vẫn có thể đang dùng PHP của XAMPP; kiểm tra `php.ini` của đúng executable dùng để chạy API, không chỉ PHP trong terminal mới. Ví dụ trên máy đang dùng XAMPP PHP:
+
+```powershell
+& 'F:\ACode\xampp\php\php.exe' --ini
+& 'F:\ACode\xampp\php\php.exe' -r "echo extension_loaded('gd') ? 'GD ready' : 'GD missing';"
+```
 
 ## 2. Build renderer và frontend
 
@@ -34,6 +49,8 @@ cd ..
 Giữ cả `frontend/dist/cv-renderer/render-cv.mjs`, `frontend/node_modules` chứa dependency production và thư mục font khi deploy. Artifact dùng ESM và resolve dependency từ frontend; không chỉ chép riêng file `.mjs` sang máy trống. `prebuild`/`predev` tự chép PDF.js worker từ dependency đã khóa vào `public/pdf-viewer`; deploy cả public assets theo quy trình Next hiện tại.
 
 Khi thay đổi bố cục template/font/engine trong bản phát hành sau, tăng `renderer_version` ở `backend/config/resumes.php` và rebuild artifact. Export cũ giữ file riêng; version mới ngăn dùng lại bản PDF cũ chỉ vì revision bản nháp chưa đổi.
+
+Renderer hiện tại là phiên bản 4: phần kỹ năng dùng chữ nhỏ hơn và khoảng cách gọn hơn trong các mẫu. Với CV đã xuất trước đó, chọn **Tạo bản PDF** để lấy bố cục mới. Tên file tải ở editor và thư viện là `Tên ứng viên CV.pdf`, lấy theo thông tin trong chính bản xuất; sửa tên trong bản nháp không đổi tên file của bản xuất cũ.
 
 ## 3. Cấu hình backend
 
@@ -102,6 +119,7 @@ Lệnh chỉ xét file builder cũ hơn 24 giờ trong các prefix đã định,
 | Hiện tượng | Kiểm tra |
 |---|---|
 | Nút tạo/xuất chưa sẵn sàng | Flag backend, cache config và trạng thái đăng nhập candidate |
+| Tạo CV lỗi 503 khi điền từ hồ sơ có ảnh | GD của PHP chạy API; sau khi bật GD, khởi động lại API và worker CV |
 | Upload ảnh báo dịch vụ chưa sẵn sàng | GD của đúng PHP runtime; khởi động lại process sau cấu hình |
 | PDF chờ mãi | Worker queue `cv`, jobs/failed_jobs, đúng database và không dùng worker cũ sau deploy |
 | `RENDER_FAILED` | Node executable, artifact đã build, dependency production, font đi cùng artifact, quyền tạo file ở private storage |

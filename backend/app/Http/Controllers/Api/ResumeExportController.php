@@ -40,6 +40,6 @@ class ResumeExportController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy bản PDF. Vui lòng xuất lại CV.'], 404);
         }
 
-        return Storage::disk('private')->response($export->path, 'CV-'.$export->id.'.pdf', ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+        return Storage::disk('private')->response($export->path, $export->downloadName(), ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 }

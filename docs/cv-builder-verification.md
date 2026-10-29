@@ -1,6 +1,22 @@
 # Kiểm chứng trình tạo CV — 29/10/2026
 
-Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật và chạy: [cv-builder-setup.md](cv-builder-setup.md). Chưa bật flag hoặc migrate database đang dùng của lập trình viên; các lần migrate/reset trong kiểm thử đều dùng database riêng trên cổng 33063.
+Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật và chạy: [cv-builder-setup.md](cv-builder-setup.md). Các kết quả CI/benchmark bên dưới thuộc lượt triển khai ban đầu trên database riêng cổng 33063. Lượt chỉnh giao diện mới được ghi riêng dưới đây.
+
+## Kiểm tra giao diện theo bước và nội dung mẫu
+
+Lượt chỉnh dropdown/tải file: ba dropdown giao diện dùng `SelectionField` chung, có trạng thái disabled rõ ràng; viền menu đo trên browser là 1px, không có outline hiển thị. Lựa chọn lưu qua reload, popup không tràn ở 360px, axe không ghi nhận vi phạm trong menu đã kiểm tra. Kỹ năng giảm cỡ chữ/độ đậm/khoảng cách, renderer tăng lên 4 và rebuild artifact. Ba nút tải (thanh trạng thái, bước xuất, thư viện) đều tải thực tế tên `Nguyễn Ngọc Bình CV.pdf`; response có Unicode `filename*`, vẫn xem inline được. Bộ kiểm tra: production build/TypeScript/lint đạt, frontend unit 133/133, renderer 5/5, backend Resume 21/21 (167 assertions) trên DB test riêng. Test tên file bao gồm dấu tiếng Việt, loại ký tự đường dẫn/control và giữ tên từ snapshot sau khi bản nháp được sửa.
+
+Cập nhật cùng ngày: bỏ thanh nhắc và nút bổ sung mẫu; dữ liệu tự khởi tạo một lần theo `settings.starter_version`, không thêm lại mục đã xóa. Thay câu chữ hướng dẫn trong nội dung CV bằng mô tả công việc/học vấn, giữ nguyên các đoạn ứng viên đã sửa. Thay ô tháng native bằng Popover/Select và lưới tháng tiếng Việt, hiển thị MM/YYYY.
+
+Kiểm chứng cập nhật: build production, TypeScript, lint đạt; frontend 133/133; backend Resume 19/19 (159 assertions), cùng database test riêng ghi dưới đây. Browser API thật: chọn tháng/năm → lưu → reload giữ `2022-05`; CV cũ tự điền và làm sạch giá trị mẫu cũ, giữ tên/kỹ năng thật; xóa học vấn → save/reload vẫn rỗng; PDF trả HTTP 200 và `%PDF-`. Popup tháng ở 360px nằm trong viewport, Escape trả focus về ô mở, xóa/tháng này hoạt động; axe không có vi phạm trong editor và popup đã kiểm tra. Các bullet dưới đây ghi nhận lượt giao diện trước, nút bổ sung thủ công đã được thay thế.
+
+- Editor theo tham chiếu `design/page_cv`: 9 bước, một nhóm nhập liệu mỗi bước, xem trước PDF song song trên desktop; thanh bước tự cuộn đến bước hiện tại trên mobile.
+- CV mới từ giao diện có dữ liệu mẫu tiếng Việt và ưu tiên thông tin thật của hồ sơ. Nút bổ sung mẫu điền phần trống của CV cũ; đã kiểm tra xóa học vấn rồi bổ sung lại, giữ nguyên tên và công ty đã sửa.
+- Trình duyệt thật với tài khoản disposable: tạo CV có đủ các mục, thêm/xóa kinh nghiệm, chuyển qua mọi bước, lưu và reload giữ dữ liệu; xuất và đọc file PDF trả HTTP 200, MIME `application/pdf`, header `%PDF-`.
+- Không tràn ngang ở 360/768/1440px. Canvas khớp chiều rộng vùng xem trước; axe WCAG 2 A/AA không có vi phạm trong editor ở các bước giao diện, cá nhân, kinh nghiệm, bổ sung và xuất PDF đã kiểm tra. Vùng PDF cuộn được bằng bàn phím.
+- `npm run build`, `npx tsc --noEmit`, `npm run lint` đạt; frontend unit 131/131; backend nhóm Resume 19/19, 153 assertions trên database riêng `tim_viec_online_cv_wizard_test` (MySQL 3306). Không reset/seed database phát triển.
+- Đã cập nhật spec `backend-resume-builder.spec.ts` theo điều hướng mới; chưa chạy lại toàn bộ suite browser CI trong lượt này. Luồng trình duyệt cục bộ nêu trên dùng API thật và worker `cv` thật.
+- Tài khoản, token và CV của lượt kiểm tra được dọn sau khi xác minh. Không gửi email hoặc gọi AI.
 
 ## Phạm vi đã có
 

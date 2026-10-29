@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useLayoutEffect, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,12 +13,15 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Search,
   Settings,
   UserRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { AuthUser } from "@/features/auth/types";
+import { normalizeSearch } from "@/features/jobs/query";
+import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { useOptionalWorkspace } from "@/components/candidate/workspace-provider";
 import { CandidateNotificationList } from "./candidate-notification-list";
 import { logoutAction } from "@/app/(auth)/actions";
@@ -58,7 +61,16 @@ export function HeaderControls({
   pendingSession = false,
   categories,
 }: Props) {
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpenState] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const setCategoriesOpen = useCallback((open: boolean) => {
+    setCategoriesOpenState(open);
+    setCategorySearch("");
+  }, []);
+  const categorySearchId = useId();
+  const visibleCategories = categories?.filter((category) =>
+    normalizeSearch(category.name).includes(normalizeSearch(categorySearch)),
+  );
   const pathname = usePathname();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -70,7 +82,7 @@ export function HeaderControls({
       setNotificationsOpen(false);
       setAccountOpen(false);
     },
-    [pathname],
+    [pathname, setCategoriesOpen],
   );
   const workspace = useOptionalWorkspace();
   const candidateNotifications = user?.role === "candidate" && !!workspace;
@@ -196,17 +208,42 @@ export function HeaderControls({
             </Link>
           </div>
           {categories ? (
-            <div>
+            <div className="header-mega-categories">
               <h2>Ngành nghề tuyển dụng</h2>
-              {categories.slice(0, 6).map((category) => (
-                <Link
-                  key={category.id}
-                  href={`/jobs?category_ids=${category.id}`}
-                  onClick={() => setCategoriesOpen(false)}
-                >
-                  {category.name}
-                </Link>
-              ))}
+              <div className="header-category-search">
+                <Search size={14} aria-hidden="true" />
+                <label className="sr-only" htmlFor={categorySearchId}>
+                  Tìm ngành nghề
+                </label>
+                <Input
+                  id={categorySearchId}
+                  value={categorySearch}
+                  placeholder="Tìm ngành nghề…"
+                  maxLength={100}
+                  autoComplete="off"
+                  aria-controls={`${categorySearchId}-results`}
+                  onChange={(event) => setCategorySearch(event.target.value)}
+                />
+              </div>
+              <div
+                id={`${categorySearchId}-results`}
+                className="header-category-results"
+              >
+                {visibleCategories?.map((category) => (
+                  <Link
+                    key={category.id}
+                    href={`/jobs?category_ids=${category.id}`}
+                    onClick={() => setCategoriesOpen(false)}
+                  >
+                    {category.name}
+                  </Link>
+                ))}
+                {!visibleCategories?.length && (
+                  <p className="header-category-empty" role="status">
+                    Không tìm thấy ngành nghề phù hợp.
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <div>

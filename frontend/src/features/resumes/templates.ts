@@ -11,7 +11,7 @@ export const RESUME_TEMPLATES = [
     version: 1,
     label: "Hiện đại",
     description:
-      "Tiêu đề xanh đậm, hai cột cân đối. Làm nổi bật kỹ năng và kinh nghiệm của bạn.",
+      "Tiêu đề thanh thoát, liên hệ rõ ràng. Bố cục linh hoạt theo nội dung hồ sơ.",
   },
   {
     key: "minimal",
