@@ -297,7 +297,9 @@ for (const width of [360, 390, 768, 1024, 1440]) {
         }
       } else {
         await expect(page.locator(".company-directory-card")).toHaveCount(12);
-        const intro = page.locator(".page-intro > .site-container");
+        const intro = page
+          .getByRole("main")
+          .locator(".page-intro > .site-container");
         // The directory stylesheet can arrive after the first streaming frame.
         // Wait for the actual entrance animation and its final opacity before axe.
         await expect(intro).toHaveCSS("animation-name", "content-arrive");

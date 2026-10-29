@@ -2,6 +2,8 @@
 
 Chức năng dùng Laravel cho dữ liệu/quyền sở hữu và worker queue `cv` cho xuất PDF. Preview tạo PDF trong Web Worker rồi dùng PDF.js hiển thị từng trang, dùng được cả mobile. Không gọi AI khi chỉnh sửa hoặc xuất CV.
 
+Kết quả kiểm thử và giới hạn tải đã đo: [cv-builder-verification.md](cv-builder-verification.md). Chưa đạt mục tiêu save p95 dưới 500 ms với 50 người dùng trên máy local; nên bật thử với nhóm nhỏ trước.
+
 ## 1. Chuẩn bị
 
 - PHP 8.2 trở lên, extension `gd`, `fileinfo`, `mbstring`, `pdo_mysql`, `dom`.
@@ -30,6 +32,8 @@ cd ..
 ```
 
 Giữ cả `frontend/dist/cv-renderer/render-cv.mjs`, `frontend/node_modules` chứa dependency production và thư mục font khi deploy. Artifact dùng ESM và resolve dependency từ frontend; không chỉ chép riêng file `.mjs` sang máy trống. `prebuild`/`predev` tự chép PDF.js worker từ dependency đã khóa vào `public/pdf-viewer`; deploy cả public assets theo quy trình Next hiện tại.
+
+Khi thay đổi bố cục template/font/engine trong bản phát hành sau, tăng `renderer_version` ở `backend/config/resumes.php` và rebuild artifact. Export cũ giữ file riêng; version mới ngăn dùng lại bản PDF cũ chỉ vì revision bản nháp chưa đổi.
 
 ## 3. Cấu hình backend
 
