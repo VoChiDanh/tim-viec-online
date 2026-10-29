@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import {
   ArrowLeft,
@@ -19,6 +20,7 @@ import {
 } from "@/features/jobs/formatters";
 import { JOB_TYPE_LABELS } from "@/features/jobs/types";
 import { GuestActions } from "@/components/jobs/guest-actions";
+import { FloatingJobChat } from "@/components/jobs/floating-job-chat";
 import { JobCard, CompanyMark } from "@/components/jobs/job-card";
 import { JobsSkeleton } from "@/components/jobs/jobs-skeleton";
 import { Badge } from "@/modules/cores/shadcn/components/ui/badge";
@@ -50,6 +52,7 @@ export default function JobDetailPage(props: DetailProps) {
   );
 }
 async function JobDetail({ params }: DetailProps) {
+  await connection();
   const { id } = await params;
   if (!/^[1-9]\d*$/.test(id)) notFound();
   const job = await getJob(Number(id));
@@ -184,6 +187,7 @@ async function JobDetail({ params }: DetailProps) {
           </section>
         </aside>
       </div>
+      {user?.role === "candidate" && <FloatingJobChat job={job} />}
     </div>
   );
 }

@@ -4,7 +4,15 @@ import Link from "next/link";
 import { fetchResumes, resumeFileUrl } from "@/features/resumes/client";
 import type { ResumeSummary } from "@/features/resumes/types";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Check, FileText, Info, LoaderCircle, Upload, X } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  FileText,
+  Info,
+  LoaderCircle,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Job } from "@/features/jobs/types";
 import { MAX_COVER_LETTER } from "@/features/candidate-workspace/application";
@@ -14,6 +22,13 @@ import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { Input } from "@/modules/cores/shadcn/components/ui/input";
 import { Textarea } from "@/modules/cores/shadcn/components/ui/textarea";
 import { Field, FieldLabel } from "@/modules/cores/shadcn/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/modules/cores/shadcn/components/ui/select";
 import {
   Dialog,
   DialogTrigger,
@@ -118,6 +133,7 @@ function ApplyForm({
   const [resumes, setResumes] = useState<ResumeSummary[]>([]);
   const [selectedExport, setSelectedExport] = useState("");
   const [resumeError, setResumeError] = useState("");
+  const [resumesLoading, setResumesLoading] = useState(state.isApi);
   useEffect(() => {
     if (!state.isApi) return;
     let active = true;
@@ -141,6 +157,9 @@ function ApplyForm({
           setResumeError(
             "Chưa tải được danh sách CV đã tạo. Bạn có thể dùng CV hồ sơ hoặc tải PDF mới.",
           );
+      })
+      .finally(() => {
+        if (active) setResumesLoading(false);
       });
     return () => {
       active = false;
@@ -314,23 +333,57 @@ function ApplyForm({
               </span>
             </label>
             {source === "builder" && (
-              <div className="apply-file">
+              <div className="apply-file apply-resume-picker">
                 <label htmlFor={`${id}-resume`}>CV đã tạo</label>
-                <select
-                  id={`${id}-resume`}
-                  value={selectedExport}
-                  onChange={(e) => setSelectedExport(e.target.value)}
-                  className="selection-trigger"
-                >
-                  <option value="">Chọn CV đã xuất PDF</option>
-                  {resumes.map((resume) => (
-                    <option key={resume.id} value={resume.latest_export!.id}>
-                      {resume.name} · phiên bản {resume.latest_export!.revision}
-                    </option>
-                  ))}
-                </select>
+                <div className="selection-field">
+                  <Select
+                    value={selectedExport}
+                    disabled={submitting || resumesLoading || !resumes.length}
+                    onValueChange={(value) => {
+                      setSelectedExport(value);
+                      setError("");
+                    }}
+                  >
+                    <SelectTrigger
+                      id={`${id}-resume`}
+                      className="selection-trigger"
+                      aria-describedby={`${id}-resume-hint`}
+                    >
+                      <SelectValue
+                        placeholder={
+                          resumesLoading
+                            ? "Đang tải CV…"
+                            : resumeError
+                              ? "Không tải được danh sách CV"
+                              : !resumes.length
+                                ? "Chưa có CV đã xuất PDF"
+                                : "Chọn CV đã xuất PDF"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="selection-menu apply-resume-menu"
+                      position="popper"
+                      align="start"
+                      sideOffset={6}
+                      collisionPadding={16}
+                    >
+                      {resumes.map((resume) => (
+                        <SelectItem
+                          key={resume.id}
+                          value={String(resume.latest_export!.id)}
+                          className="selection-option"
+                        >
+                          {resume.name} · phiên bản{" "}
+                          {resume.latest_export!.revision}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {selectedExport && (
                   <a
+                    className="apply-resume-preview"
                     href={resumeFileUrl(
                       resumes.find(
                         (item) =>
@@ -340,16 +393,20 @@ function ApplyForm({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
+                    <ExternalLink size={14} aria-hidden="true" />
                     Xem PDF đã chọn
                   </a>
                 )}
-                {resumeError && (
-                  <p role="status" className="apply-hint">
-                    {resumeError}
-                  </p>
-                )}
-                <Link href="/account/resumes" className="apply-hint">
-                  Quản lý / tạo CV và xuất PDF trước khi chọn
+                <p
+                  id={`${id}-resume-hint`}
+                  role="status"
+                  className="apply-hint"
+                >
+                  {resumeError ||
+                    "Chỉ hiển thị CV đã xuất PDF. Bạn có thể tạo và xuất CV trong thư viện."}
+                </p>
+                <Link href="/account/resumes" className="apply-resume-library">
+                  Quản lý CV của tôi
                 </Link>
               </div>
             )}

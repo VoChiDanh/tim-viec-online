@@ -267,13 +267,12 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     .getByRole("button", { name: "Ứng tuyển ngay", exact: true })
     .click();
   await page.getByRole("radio", { name: /CV tạo trên TimViecOnline/ }).check();
-  const exportOption = page
-    .getByLabel("CV đã tạo", { exact: true })
-    .getByRole("option", { name: /CV kiểm thử trình duyệt/ });
+  await page.getByRole("combobox", { name: "CV đã tạo", exact: true }).click();
+  const exportOption = page.getByRole("option", {
+    name: /CV kiểm thử trình duyệt/,
+  });
   await expect(exportOption).toHaveCount(1);
-  await page
-    .getByLabel("CV đã tạo", { exact: true })
-    .selectOption((await exportOption.getAttribute("value"))!);
+  await exportOption.click();
   await page
     .getByRole("button", { name: "Xác nhận ứng tuyển", exact: true })
     .click();

@@ -2,6 +2,14 @@
 
 Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật và chạy: [cv-builder-setup.md](cv-builder-setup.md). Các kết quả CI/benchmark bên dưới thuộc lượt triển khai ban đầu trên database riêng cổng 33063. Lượt chỉnh giao diện mới được ghi riêng dưới đây.
 
+## Ảnh mẫu khi tạo CV
+
+Dropdown chọn CV trong hộp thoại ứng tuyển dùng Radix Select với giao diện `selection-menu` chung. Nhãn, hướng dẫn và liên kết thư viện tách dòng; khóa lựa chọn khi đang tải/gửi, hiển thị trạng thái rỗng/lỗi riêng. Browser API thật kiểm tra chọn bản PDF ready, liên kết xem đúng export, tên dài không tràn ở 360px, ArrowDown/Escape trả focus về dropdown và không đóng dialog cha; axe không có vi phạm. Kiểm tra payload ứng tuyển qua request bị chặn tại browser xác nhận `cv_source=builder` và đúng `resume_export_id`, không gửi đơn thật. Build/TypeScript và lint đạt; spec E2E đã đổi sang thao tác combobox/option, chưa chạy lại toàn bộ suite E2E trong lượt này.
+
+Ba ảnh mẫu được dựng lại từ renderer hiện tại và `tests/fixtures/resumes/showcase.json`, cùng kích thước 1200×1698. Bản Modern cũ chỉ 300×425 nên bị mờ khi phóng theo thẻ. Dùng static import và `sizes` cho ảnh responsive; URL theo nội dung tránh giữ ảnh cũ trong cache. Đã kiểm tra lựa chọn mẫu, ảnh trên màn hình 1920px ở DPR 1/2 và bố cục 360px; build/TypeScript/lint đạt.
+
+Để dựng lại ảnh sau khi sửa template: trong `frontend`, chạy `npm run build:cv-renderer`, rồi `python scripts/generate-resume-covers.py` (cần PyMuPDF). Script dùng thư mục tạm cho PDF và chỉ cập nhật ba PNG sau khi tất cả mẫu render thành công.
+
 ## Ảnh xem trước trong thư viện CV
 
 Xác nhận xóa CV dùng AlertDialog của hệ thống, hiển thị tên bản nháp, nút Hủy và Xóa CV. Browser API thật đã kiểm tra Hủy/Escape không xóa, trả focus về nút mở, xóa thành công trả focus về tiêu đề thư viện; lỗi 503 giữ hộp thoại để thử lại, trong lúc chờ không gửi lặp hoặc đóng hộp thoại. Đã kiểm tra bố cục 360px và axe trên dialog; build/TypeScript/lint đạt. Dữ liệu kiểm tra được dọn sau lượt chạy.

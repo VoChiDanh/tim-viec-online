@@ -32,6 +32,7 @@
 .apply-form {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 .application-summary-actions {
   display: flex;
@@ -121,6 +122,54 @@
   padding: 12px;
   background: var(--muted);
   border-radius: 12px;
+}
+.apply-resume-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.apply-resume-picker > label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.apply-resume-picker .selection-field {
+  min-width: 0;
+}
+.apply-resume-picker .selection-trigger {
+  height: 44px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.apply-resume-menu {
+  width: var(--radix-select-trigger-width);
+  max-width: calc(100vw - 32px);
+}
+.apply-resume-menu .selection-option > span:last-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.apply-resume-preview,
+.apply-resume-library {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--brand-blue);
+  font-size: 12px;
+  font-weight: 500;
+}
+.apply-resume-preview:hover,
+.apply-resume-library:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .apply-resume-preview,
+  .apply-resume-library {
+    min-height: 44px;
+  }
 }
 .apply-contact {
   display: grid;
