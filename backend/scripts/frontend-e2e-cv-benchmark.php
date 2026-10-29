@@ -35,14 +35,18 @@ if (is_file($manifest)) {
     throw new RuntimeException('Clean up the previous benchmark before starting another.');
 }
 $doc = json_decode(file_get_contents(base_path('../tests/fixtures/resumes/minimal.json')), true);
+$count = (int) (getenv('RESUME_BENCHMARK_USERS') ?: 50);
+if (! in_array($count, [10, 50], true)) {
+    throw new RuntimeException('Benchmark supports 10 or 50 synthetic users.');
+}
 $rows = [];
 $batch = bin2hex(random_bytes(4));
 $hash = Hash::make('SyntheticBenchmark1!');
-for ($i = 0; $i < 50; $i++) {
+for ($i = 0; $i < $count; $i++) {
     $user = User::create(['name' => 'Synthetic benchmark', 'email' => "$batch.$i@cv-benchmark.test", 'password' => $hash, 'role' => 'candidate', 'status' => 'active', 'email_verified_at' => now()]);
     $owner = CandidateProfile::create(['user_id' => $user->id]);
     $resume = Resume::create(['candidate_id' => $owner->id, ...$doc]);
     $rows[] = ['user_id' => $user->id, 'resume_id' => $resume->id, 'token' => $user->createToken('synthetic-benchmark')->plainTextToken];
 }
 file_put_contents($manifest, json_encode($rows));
-echo "50 synthetic candidates prepared in the isolated database.\n";
+echo "$count synthetic candidates prepared in the isolated database.\n";

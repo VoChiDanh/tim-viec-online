@@ -95,4 +95,21 @@ class ResumeApiTest extends TestCase
         $this->getJson("/api/candidate/resumes/$id")->assertOk();
         $this->deleteJson("/api/candidate/resumes/$id")->assertOk();
     }
+
+    public function test_draft_limits_pagination_and_raw_body_limit_are_enforced(): void
+    {
+        $user = User::factory()->create(['role' => 'candidate']);
+        $owner = CandidateProfile::create(['user_id' => $user->id]);
+        for ($i = 0; $i < 20; $i++) {
+            $resume = Resume::create(['candidate_id' => $owner->id, ...$this->document()]);
+        }
+        $this->actingAs($user, 'sanctum')->getJson('/api/candidate/resumes')->assertOk()->assertJsonCount(12, 'data')->assertJsonPath('meta.total', 20)->assertJsonPath('meta.last_page', 2);
+        $this->getJson('/api/candidate/resumes?page=2')->assertOk()->assertJsonCount(8, 'data');
+        $this->postJson('/api/candidate/resumes', ['name' => 'Beyond limit', 'template_key' => 'classic'])->assertUnprocessable();
+        $doc = $this->document();
+        $doc['content']['basics']['summary'] = str_repeat('x', 131073);
+        $this->putJson("/api/candidate/resumes/$resume->id", ['base_revision' => 1, ...$doc])->assertUnprocessable();
+        $this->assertSame(1, $resume->fresh()->revision);
+        $this->assertSame(20, $owner->resumes()->count());
+    }
 }

@@ -3,6 +3,10 @@ import { execFileSync, spawn } from "node:child_process";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import os from "node:os";
 const php = process.env.PHP_BINARY || "php";
+const port = process.env.RESUME_BENCHMARK_PORT || "8127";
+if (!["8127", "8137"].includes(port))
+  throw new Error("Use an isolated loopback benchmark port.");
+const base = `http://127.0.0.1:${port}/api`;
 const helper = "../backend/scripts/frontend-e2e-cv-benchmark.php";
 execFileSync(php, [helper], { stdio: "ignore" });
 const rows = JSON.parse(
@@ -16,7 +20,7 @@ const document = JSON.parse(
 );
 async function request(row, path, body) {
   const start = performance.now();
-  const response = await fetch(`http://127.0.0.1:8127/api${path}`, {
+  const response = await fetch(`${base}${path}`, {
     method: body ? "POST" : "GET",
     headers: {
       Authorization: `Bearer ${row.token}`,
@@ -39,15 +43,24 @@ function stats(values) {
     max_ms: Math.round(sorted.at(-1)),
   };
 }
+async function batch(promises) {
+  const results = await Promise.allSettled(promises);
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length)
+    throw new Error(
+      `${failures.length} benchmark requests failed: ${failures[0].reason.message}`,
+    );
+  return results.map((result) => result.value);
+}
 try {
-  const list = await Promise.all(
+  const list = await batch(
     rows.map((row) => request(row, "/candidate/resumes")),
   );
-  const save = await Promise.all(
+  const save = await batch(
     rows.map(async (row) => {
       const start = performance.now();
       const response = await fetch(
-        `http://127.0.0.1:8127/api/candidate/resumes/${row.resume_id}`,
+        `${base}/candidate/resumes/${row.resume_id}`,
         {
           method: "PUT",
           headers: {
@@ -65,13 +78,11 @@ try {
     }),
   );
   await Promise.all(
-    rows
-      .slice(0, 2)
-      .map((row) =>
-        request(row, `/candidate/resumes/${row.resume_id}/exports`, {
-          revision: 2,
-        }),
-      ),
+    rows.slice(0, 2).map((row) =>
+      request(row, `/candidate/resumes/${row.resume_id}/exports`, {
+        revision: 2,
+      }),
+    ),
   );
   const render = await Promise.all(
     [0, 1].map(
@@ -99,9 +110,9 @@ try {
       logical_cpus: os.cpus().length,
       memory_gib: Math.round(os.totalmem() / 1024 ** 3),
       node: process.version,
-      api: "PHP built-in single worker; isolated MySQL33063; loopback HTTP",
+      api: `${port === "8127" ? "PHP built-in single worker" : "Apache threaded PHP"}; isolated MySQL33063; loopback HTTP`,
     },
-    concurrent_users: 50,
+    concurrent_users: rows.length,
     list: stats(list),
     save: stats(save),
     two_export_workers: stats(render),

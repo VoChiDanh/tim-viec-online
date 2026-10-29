@@ -262,7 +262,9 @@ for (const width of [360, 1440]) {
       await page.keyboard.press("Escape");
       await expect(form).toHaveAttribute("data-mode", "idle");
       await input.click();
-      await page.mouse.click(width - 4, 800);
+      await expect(backdrop).toBeVisible();
+      // Click page content, not the browser's vertical scrollbar (width - 4).
+      await backdrop.click({ position: { x: 24, y: 800 } });
       await expect(form).toHaveAttribute("data-mode", "idle");
     });
   }
