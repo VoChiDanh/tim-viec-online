@@ -6,6 +6,12 @@ const routes: [RegExp, string[]][] = [
   [/^\/candidate\/profile$/, ["GET", "POST", "PUT"]],
   [/^\/candidate\/cv$/, ["GET", "POST", "DELETE"]],
   [/^\/candidate\/cv\/file$/, ["GET"]],
+  [/^\/candidate\/resume-templates$/, ["GET"]],
+  [/^\/candidate\/resumes$/, ["GET", "POST"]],
+  [/^\/candidate\/resumes\/[1-9]\d*$/, ["GET", "PUT", "DELETE"]],
+  [/^\/candidate\/resumes\/[1-9]\d*\/(?:duplicate|assets|exports)$/, ["POST"]],
+  [/^\/candidate\/resumes\/[1-9]\d*\/assets\/[1-9]\d*$/, ["GET"]],
+  [/^\/candidate\/resume-exports\/[1-9]\d*(?:\/file)?$/, ["GET"]],
   [/^\/candidate\/avatar$/, ["POST", "DELETE"]],
   [/^\/candidate\/(?:saved-jobs|applications)$/, ["GET"]],
   [/^\/candidate\/applications\/\d+\/withdraw$/, ["DELETE"]],
@@ -69,6 +75,6 @@ export const invalidatesPublicDirectory = (path: string, method: string) =>
   );
 
 export const protectedFilePath = (path: string) =>
-  /^\/(?:candidate\/cv\/file|applications\/\d+\/cv|conversations\/\d+\/messages\/\d+\/image)$/.test(
+  /^\/(?:candidate\/cv\/file|candidate\/resumes\/[1-9]\d*\/assets\/[1-9]\d*|candidate\/resume-exports\/[1-9]\d*\/file|applications\/\d+\/cv|conversations\/\d+\/messages\/\d+\/image)$/.test(
     path.split("?")[0],
   );

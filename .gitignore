@@ -27,6 +27,7 @@
 /frontend/out/
 /frontend/build/
 /frontend/dist/
+/frontend/public/pdf-viewer/
 
 .agents/
 .agent/

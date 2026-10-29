@@ -5,7 +5,7 @@ import {
   Text,
   View,
   Link,
-  Image,
+  Image as PdfImage,
   StyleSheet,
 } from "@react-pdf/renderer";
 import type { ResumeDocument as ResumeData, SectionKey } from "../schema";
@@ -41,7 +41,13 @@ export function ResumeDocument({
     contact: { fontSize: 9, color: "#475569", marginTop: 7 },
     photo: { width: 64, height: 64, objectFit: "cover", marginBottom: 10 },
     section: { marginBottom: 12 },
-    title: { fontSize: 12, fontWeight: 700, color: accent, marginBottom: 6, lineHeight: 1.6 },
+    title: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: accent,
+      marginBottom: 6,
+      lineHeight: 1.6,
+    },
     item: { marginBottom: 8 },
     strong: { fontWeight: 700 },
     muted: { color: "#475569", fontSize: 9 },
@@ -105,7 +111,7 @@ export function ResumeDocument({
   );
   const contact = (
     <View>
-      {photo ? <Image src={photo} style={styles.photo} /> : null}
+      {photo ? <PdfImage src={photo} style={styles.photo} /> : null}
       {[basics.email, basics.phone, basics.city]
         .filter(Boolean)
         .map((value) => (

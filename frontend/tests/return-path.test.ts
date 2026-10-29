@@ -2,6 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { safeJobReturnPath } from "../src/lib/return-path";
 
+test("candidate CV routes survive login without allowing other roles or invalid IDs",()=>{
+  for(const path of ["/account/resumes","/account/resumes/new","/account/resumes/12/edit"]) {
+    assert.equal(safeJobReturnPath(path,"candidate"),path);
+    assert.equal(safeJobReturnPath(path,"employer"),"/employer");
+  }
+  for(const path of ["/account/resumes/0/edit","/account/resumes/999999999999999999999/edit","/account/resumes/12/private"])assert.equal(safeJobReturnPath(path,"candidate"),"/jobs");
+});
+
 test("auth handoff only permits known internal job and account routes", () => {
   assert.equal(safeJobReturnPath("/jobs/1"), "/jobs/1");
   assert.equal(
