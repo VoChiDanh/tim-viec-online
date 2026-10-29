@@ -14,6 +14,8 @@
 
 **Cập nhật triển khai 29/10/2026:** luồng chức năng đã có trên `feature/cv-builder`; xem [báo cáo kiểm chứng](../../cv-builder-verification.md) và [hướng dẫn chạy](../../cv-builder-setup.md). Preview cuối cùng dùng PDF.js canvas để hiển thị PDF do worker tạo. Mục tiêu save p95 ở 50 người chưa đạt trên máy local; chưa bật rollout toàn hệ thống. Các checklist dưới đây giữ yêu cầu nghiệm thu chi tiết ban đầu; báo cáo nêu phạm vi đã kiểm chứng thực tế.
 
+M0–M3 đã có luồng dùng được và được kiểm thử. CI backend/frontend của mã nguồn cuối đã xanh; M4 triển khai rộng vẫn cần đo lại save p95 trên máy vận hành. Có một test auth cũ cần retry trong CI, được ghi rõ trong báo cáo; phép đo input latency bổ sung chưa thực hiện.
+
 ## Global Constraints
 
 - File CV ứng tuyển là **PDF**, tối đa **5 MB**, tiếp tục áp dụng cho PDF được hệ thống tạo.

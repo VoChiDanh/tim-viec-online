@@ -25,12 +25,15 @@ Windows: PHP 8.2.12, Node 22.23.2, MySQL/MariaDB disposable trên 33063. PHP CLI
 | Giao diện | Kiểm tra 360/768/1440px, canvas có nội dung và đúng tỷ lệ trang; axe không có vi phạm trong editor đã kiểm tra |
 | Migration | Migrate → rollback ba bảng mới → CV profile cũ còn nguyên → migrate lại; ràng buộc unique export từ chối bản trùng |
 | Hồi quy CI cũ | Search/company 18/18 lượt kiểm thử qua; lượt tập trung cuối company/selection 16/16 qua, lặp hai lần và không retry |
+| Browser Linux CI cuối | Public 206; auth 28; AI 4; admin performance 4; CV với Laravel thực 1. Các job đều thành công; một test auth cần retry như ghi bên dưới |
 
 Ba lỗi tìm thấy qua review đã sửa và có kiểm thử tái hiện trước khi sửa: file export bị mất không thể tạo lại; deadlock khi copy/export đồng thời; đổi tên trong lúc upload bị ghi đè. Kiểm thử deadlock dùng hai process và khóa MySQL thực.
 
 Đã thêm kiểm thử và sửa việc xóa CV cuối ở trang 2: danh sách tự trở về trang hợp lệ, không báo rỗng khi trang 1 vẫn còn CV.
 
-CI Linux đã chạy cả renderer và bộ browser regression. Bước audit ban đầu phát hiện Symfony Mime 7.4.19 cần bản vá; lockfile đã nâng riêng gói này lên 7.4.22, `composer audit --locked` qua. [Backend CI](https://github.com/ngocbinh15/tim-viec-online/actions/runs/40815764489) đã qua. Kết quả cuối cùng xem checks của [nhánh triển khai](https://github.com/ngocbinh15/tim-viec-online/tree/feature/cv-builder).
+CI Linux tại commit `b10f467` đã qua cả [Backend](https://github.com/ngocbinh15/tim-viec-online/actions/runs/40817925024) và [Frontend](https://github.com/ngocbinh15/tim-viec-online/actions/runs/40817925055). Bước audit ban đầu phát hiện Symfony Mime 7.4.19 cần bản vá; lockfile đã nâng riêng gói này lên 7.4.22, `composer audit --locked` qua.
+
+Minor còn lại: test accessibility trang auth ở 360px thất bại lượt đầu do contrast 4,34 thay vì 4,5, sau đó qua retry mặc định. Có thể phép đo lấy mẫu giữa hiệu ứng vào trang; chưa xác minh thêm hoặc sửa test này trong phạm vi CV builder. Không tăng retry hay bỏ kiểm tra contrast. CI xanh không có nghĩa toàn bộ bộ kiểm thử cũ đã hết flaky.
 
 ## Số đo tải cục bộ
 
