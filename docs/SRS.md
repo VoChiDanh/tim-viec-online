@@ -32,7 +32,7 @@
 - File CV tải lên bắt buộc phải là định dạng **PDF**, dung lượng tối đa **5 MB**.
 - Đơn vị tiền tệ: **Việt Nam đồng (VNĐ)**.
 - Hệ thống là ứng dụng web tương thích tốt trên các trình duyệt Chrome, Edge, Firefox, Safari và hỗ trợ hiển thị trên thiết bị di động có chiều rộng màn hình từ **360px** trở lên.
-- **Giới hạn phạm vi (Out of Scope):** Trong phiên bản này, hệ thống tập trung hoàn toàn vào cơ chế Upload CV (PDF) cá nhân hóa và Phân tích tương thích bằng AI; **chưa hỗ trợ công cụ tạo CV kéo thả trực tuyến (CV Template Builder).**
+- **Phạm vi cập nhật 29/10/2026:** Bổ sung trình tạo CV theo mẫu (nhập liệu, xem trước, tự lưu, xuất PDF và ứng tuyển). Upload PDF hiện có tiếp tục hoạt động. Chưa hỗ trợ kéo thả tọa độ tự do, chia sẻ CV công khai hoặc AI viết lại nội dung CV.
 
 ---
 
@@ -76,6 +76,12 @@
 | FR-03.4 | Nếu file tải lên không phải đuôi `.pdf` hoặc dung lượng lớn hơn 5 MB, hệ thống hiển thị "Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB" và không lưu file. |
 | FR-03.5 | File CV lưu thành công được hệ thống cấp đường dẫn xem trực tiếp (PDF Preview) trên trình duyệt, không bắt buộc người dùng phải tải về máy mới xem được. |
 | FR-03.6 | Trường hợp file CV là dạng ảnh scan không chứa văn bản trích xuất được hoặc file bị lỗi font, hệ thống thông báo "File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn". |
+| FR-03.7 | Ứng viên quản lý tối đa 20 bản nháp CV riêng tư; tạo từ ba mẫu classic/modern/minimal, đổi tên, sao chép và xóa. Không thay thế file CV mặc định đã upload. |
+| FR-03.8 | CV gồm thông tin liên hệ, kinh nghiệm, học vấn, kỹ năng, dự án, chứng chỉ, ngoại ngữ và hoạt động. Được sắp xếp/ẩn mục, chọn màu/cỡ chữ/giãn dòng theo preset, thêm ảnh CV riêng tối đa 2 MB. |
+| FR-03.9 | Tự lưu bản nháp có revision; khi hai tab sửa cùng phiên bản, lần lưu cũ nhận 409 và không ghi đè nội dung mới. Cho phép lưu nháp thiếu nội dung, giữ nội dung đang nhập khi lỗi mạng. |
+| FR-03.10 | Xem trước và xuất PDF A4 chứa văn bản tiếng Việt; tối đa 5 trang và 5 MB cho CV do builder tạo. Trước xuất bắt buộc có họ tên, chức danh, email hợp lệ và ít nhất một mục nội dung. |
+| FR-03.11 | Export chạy qua queue cv, lưu snapshot bất biến theo revision. Mỗi bản xuất có trạng thái pending/processing/ready/failed, lỗi không tạo PDF giả và có thể thử lại có kiểm soát. |
+| FR-03.12 | Chỉ chủ sở hữu đọc/sửa bản nháp và tải bản xuất. Tự lưu/đổi mẫu/xuất PDF không gọi AI; khi ứng tuyển, PDF được sao chép riêng và giữ nguyên dù CV gốc thay đổi hoặc bị xóa. |
 ### FR-04. Hồ sơ công ty, Đăng tin & Quản lý vòng đời tin tuyển dụng
 
 | Mã | Yêu cầu |
@@ -104,7 +110,7 @@
 | Mã | Yêu cầu |
 |---|---|
 | FR-06.1 | Khách nhấn "Ứng tuyển" sẽ được hệ thống yêu cầu chuyển hướng đến trang Đăng nhập. Chỉ tài khoản Ứng viên mới có quyền nộp đơn. |
-| FR-06.2 | Khi nộp đơn, Ứng viên chọn 1 trong 2 hình thức: Sử dụng file CV sẵn có trong hồ sơ cá nhân HOẶC Tải lên một file CV PDF mới riêng cho vị trí này. |
+| FR-06.2 | Khi nộp đơn, Ứng viên chọn một trong ba nguồn: CV PDF hiện có trong hồ sơ, upload PDF mới hoặc bản PDF ready tạo bằng trình tạo CV. Backend kiểm tra quyền sở hữu và lưu bản sao PDF riêng; không render PDF đồng bộ trong request ứng tuyển. |
 | FR-06.4 | Một ứng viên chỉ được nộp đơn **duy nhất 1 lần** cho cùng một tin tuyển dụng đang mở. Nếu đã nộp trước đó, nút ứng tuyển hiển thị trạng thái đã vô hiệu hóa kèm thông báo "Bạn đã nộp hồ sơ cho công việc này rồi". |
 | FR-06.5 | Vòng đời trạng thái hồ sơ gồm 5 trạng thái:<br>1. `Đã ứng tuyển (Applied)`: Mặc định khi nộp.<br>2. `Đang xem xét (Waiting)`: Chuyển khi nhà tuyển dụng mở hồ sơ lần đầu.<br>3. `Trúng tuyển (Accepted)`: Nhà tuyển dụng đồng ý tuyển dụng.<br>4. `Từ chối (Rejected)`: Nhà tuyển dụng từ chối hồ sơ.<br>5. `Đã rút (Withdrawn)`: Ứng viên rút hồ sơ khi chưa được xem. Một ứng viên chỉ được nộp một lần cho mỗi tin, kể cả sau khi rút. |
 | FR-06.7 | Ứng viên có thể theo dõi danh sách toàn bộ các việc đã nộp kèm trạng thái xét duyệt hiện tại theo thời gian thực tại trang "Lịch sử ứng tuyển". |

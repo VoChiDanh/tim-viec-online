@@ -1,0 +1,46 @@
+{
+  "name": "CV t?ng h?p ki?m th?",
+  "template_key": "classic",
+  "template_version": 1,
+  "schema_version": 1,
+  "content": {
+    "basics": {
+      "full_name": "Nguy?n Minh An",
+      "headline": "K? s? ph?n m?m",
+      "email": "an@example.test",
+      "phone": "",
+      "city": "H? N?i",
+      "summary": "Ph?t tri?n ph?n m?m ph?c v? c?ng ??ng.",
+      "links": [],
+      "photo_asset_id": null
+    },
+    "experience": [],
+    "education": [],
+    "skills": [
+      {
+        "id": "1b4835f3-33e7-465f-a425-06f04dc329de",
+        "name": "TypeScript",
+        "detail": "Laravel, MySQL"
+      }
+    ],
+    "projects": [],
+    "certifications": [],
+    "languages": [],
+    "activities": []
+  },
+  "settings": {
+    "accent": "blue",
+    "font_size": "normal",
+    "line_spacing": "normal",
+    "section_order": [
+      "experience",
+      "education",
+      "skills",
+      "projects",
+      "certifications",
+      "languages",
+      "activities"
+    ],
+    "hidden_sections": []
+  }
+}
