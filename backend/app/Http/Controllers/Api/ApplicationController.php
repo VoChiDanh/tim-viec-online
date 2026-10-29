@@ -69,7 +69,10 @@ class ApplicationController extends Controller
         $cvPath = null;
         $uploadedCv = false;
 
-        if ($cvSource === 'new' || $request->hasFile('cv_file')) {
+        if ($cvSource === 'builder') {
+            $cvPath = app(\App\Services\Resumes\ResumeApplicationCvResolver::class)->snapshot($user, $request->integer('resume_export_id'));
+            $uploadedCv = true;
+        } elseif ($cvSource === 'new' || $request->hasFile('cv_file')) {
             if (! $request->hasFile('cv_file')) {
                 return response()->json([
                     'success' => false,

@@ -69,7 +69,8 @@ export function GuestActions({
         ) : open && viewerRole ? (
           <Button
             className="apply-button h-11 flex-1"
-            disabled={viewerRole !== "candidate"}
+            disabled={viewerRole !== "candidate" || !job}
+            title={jobError || "Đang chuẩn bị thông tin ứng tuyển"}
             onClick={() =>
               toast.info(
                 jobError || "Đang tải thông tin ứng tuyển. Vui lòng thử lại.",

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { fetchResumes, resumeFileUrl } from "@/features/resumes/client";
+import type { ResumeSummary } from "@/features/resumes/types";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Check, FileText, Info, LoaderCircle, Upload, X } from "lucide-react";
 import { toast } from "sonner";
@@ -109,10 +111,41 @@ function ApplyForm({
 }) {
   const state = useWorkspace();
   const id = useId();
-  const [source, setSource] = useState<"existing" | "new">(
+  const [source, setSource] = useState<"existing" | "new" | "builder">(
     state.cv || state.cvUrl ? "existing" : "new",
   );
   const [file, setFile] = useState<File | null>(null);
+  const [resumes, setResumes] = useState<ResumeSummary[]>([]);
+  const [selectedExport, setSelectedExport] = useState("");
+  const [resumeError, setResumeError] = useState("");
+  useEffect(() => {
+    if (!state.isApi) return;
+    let active = true;
+    fetchResumes()
+      .then(async (first) => {
+        const others = await Promise.all(
+          Array.from({ length: first.meta.last_page - 1 }, (_, index) =>
+            fetchResumes(index + 2),
+          ),
+        );
+        if (active)
+          setResumes(
+            [
+              ...first.items,
+              ...others.flatMap((result) => result.items),
+            ].filter((item) => item.latest_export?.status === "ready"),
+          );
+      })
+      .catch(() => {
+        if (active)
+          setResumeError(
+            "Chưa tải được danh sách CV đã tạo. Bạn có thể dùng CV hồ sơ hoặc tải PDF mới.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [state.isApi]);
   const [coverLetter, setCoverLetter] = useState("");
   const maxCoverLetter = state.isApi ? 3000 : MAX_COVER_LETTER;
   const [error, setError] = useState("");
@@ -155,8 +188,14 @@ function ApplyForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (submitLock.current || checking) return;
-    const selected = source === "existing" ? state.cv : file;
-    if (!selected && !(source === "existing" && state.isApi && state.cvUrl)) {
+    const selected =
+      source === "builder" ? null : source === "existing" ? state.cv : file;
+    if (
+      (source === "builder" && !selectedExport) ||
+      (source !== "builder" &&
+        !selected &&
+        !(source === "existing" && state.isApi && state.cvUrl))
+    ) {
       setError("Vui lòng chọn CV PDF để ứng tuyển.");
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
@@ -169,6 +208,9 @@ function ApplyForm({
       jobId: job.id,
       cv: selected,
       useProfileCv: state.isApi && source === "existing",
+      ...(source === "builder"
+        ? { resumeExportId: Number(selectedExport) }
+        : {}),
       coverLetter,
     });
     submitLock.current = false;
@@ -249,6 +291,70 @@ function ApplyForm({
             <small>Giữ nguyên CV mặc định trong hồ sơ của bạn.</small>
           </span>
         </label>
+        {state.isApi && (
+          <>
+            <label
+              className="apply-source"
+              data-selected={source === "builder"}
+            >
+              <input
+                type="radio"
+                name={`${id}-source`}
+                value="builder"
+                checked={source === "builder"}
+                onChange={() => {
+                  setSource("builder");
+                  setError("");
+                }}
+              />
+              <FileText aria-hidden="true" />
+              <span>
+                <strong>CV tạo trên TimViecOnline</strong>
+                <small>Chọn bản PDF đã xuất từ CV của bạn.</small>
+              </span>
+            </label>
+            {source === "builder" && (
+              <div className="apply-file">
+                <label htmlFor={`${id}-resume`}>CV đã tạo</label>
+                <select
+                  id={`${id}-resume`}
+                  value={selectedExport}
+                  onChange={(e) => setSelectedExport(e.target.value)}
+                  className="selection-trigger"
+                >
+                  <option value="">Chọn CV đã xuất PDF</option>
+                  {resumes.map((resume) => (
+                    <option key={resume.id} value={resume.latest_export!.id}>
+                      {resume.name} · phiên bản {resume.latest_export!.revision}
+                    </option>
+                  ))}
+                </select>
+                {selectedExport && (
+                  <a
+                    href={resumeFileUrl(
+                      resumes.find(
+                        (item) =>
+                          String(item.latest_export?.id) === selectedExport,
+                      )?.latest_export?.file_url || "",
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Xem PDF đã chọn
+                  </a>
+                )}
+                {resumeError && (
+                  <p role="status" className="apply-hint">
+                    {resumeError}
+                  </p>
+                )}
+                <Link href="/account/resumes" className="apply-hint">
+                  Quản lý / tạo CV và xuất PDF trước khi chọn
+                </Link>
+              </div>
+            )}
+          </>
+        )}
         {source === "new" && (
           <Field className="apply-file">
             <FieldLabel htmlFor={`${id}-file`}>Chọn CV PDF</FieldLabel>

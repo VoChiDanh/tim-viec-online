@@ -424,7 +424,8 @@ function useWorkspaceState(initial: WorkspaceInitial) {
           return await command(`apply:${input.jobId}`, async () => {
             const body = new FormData();
             body.set("cover_letter", input.coverLetter.trim());
-            body.set("cv_source", input.useProfileCv ? "profile" : "new");
+            body.set("cv_source", input.resumeExportId ? "builder" : input.useProfileCv ? "profile" : "new");
+            if(input.resumeExportId)body.set("resume_export_id",String(input.resumeExportId));
             if (input.cv) body.set("cv_file", input.cv);
             const response = await apiRequest<unknown>(
               `/jobs/${input.jobId}/apply`,

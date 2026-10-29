@@ -12,7 +12,7 @@ export const API_APPLICATION_LABELS = {
 } as const;
 export type ApplicationStatus = keyof typeof API_APPLICATION_LABELS;
 export type CandidateSection =
-  "profile" | "jobs" | "messages" | "notifications" | "settings";
+  "profile" | "resumes" | "jobs" | "messages" | "notifications" | "settings";
 export type Application = {
   id: number;
   job_id: number;
@@ -81,6 +81,7 @@ export function profileEmailVerifiedAt(
 
 export const CANDIDATE_PAGES: { key: CandidateSection; label: string }[] = [
   { key: "profile", label: "Hồ sơ của tôi" },
+  { key: "resumes", label: "CV của tôi" },
   { key: "jobs", label: "Việc làm của tôi" },
   { key: "messages", label: "Tin nhắn" },
   { key: "notifications", label: "Thông báo" },
