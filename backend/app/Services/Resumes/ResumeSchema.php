@@ -7,7 +7,9 @@ use Illuminate\Validation\ValidationException;
 class ResumeSchema
 {
     public const SECTIONS = ['experience', 'education', 'skills', 'projects', 'certifications', 'languages', 'activities'];
+
     public const TEMPLATES = ['classic', 'modern', 'minimal'];
+
     public const FIELDS = [
         'experience' => ['company' => 150, 'position' => 150, 'description' => 2000],
         'education' => ['school' => 150, 'qualification' => 150, 'description' => 2000],
@@ -36,53 +38,91 @@ class ResumeSchema
             'settings.accent' => 'required|in:blue,teal,slate', 'settings.font_size' => 'required|in:small,normal,large', 'settings.line_spacing' => 'required|in:compact,normal',
             'settings.section_order' => 'required|array|size:7', 'settings.section_order.*' => 'required|distinct|in:'.implode(',', self::SECTIONS),
             'settings.hidden_sections' => 'present|array|max:7', 'settings.hidden_sections.*' => 'required|distinct|in:'.implode(',', self::SECTIONS)];
-        foreach (['full_name' => 120, 'headline' => 150, 'email' => 254, 'phone' => 30, 'city' => 150, 'summary' => 2000] as $key => $max) $rules["content.basics.$key"] = "present|string|max:$max";
+        foreach (['full_name' => 120, 'headline' => 150, 'email' => 254, 'phone' => 30, 'city' => 150, 'summary' => 2000] as $key => $max) {
+            $rules["content.basics.$key"] = "present|string|max:$max";
+        }
         foreach (self::FIELDS as $section => $fields) {
             $keys = ['id', ...array_keys($fields)];
             $rules["content.$section"] = 'present|array|max:20';
             $rules["content.$section.*.id"] = 'required|uuid';
-            foreach ($fields as $key => $max) $rules["content.$section.*.$key"] = "present|string|max:$max";
+            foreach ($fields as $key => $max) {
+                $rules["content.$section.*.$key"] = "present|string|max:$max";
+            }
             if (in_array($section, ['experience', 'education'])) {
                 $keys = [...$keys, 'start_month', 'end_month', 'current'];
-                foreach (['start_month', 'end_month'] as $key) $rules["content.$section.*.$key"] = ['present', 'nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'];
-                $rules["content.$section.*.current"] = ['present', function ($attribute, $value, $fail) { if (!is_bool($value)) $fail('Giá trị phải là boolean.'); }];
+                foreach (['start_month', 'end_month'] as $key) {
+                    $rules["content.$section.*.$key"] = ['present', 'nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'];
+                }
+                $rules["content.$section.*.current"] = ['present', function ($attribute, $value, $fail) {
+                    if (! is_bool($value)) {
+                        $fail('Giá trị phải là boolean.');
+                    }
+                }];
             }
-            if ($section === 'certifications') { $keys[] = 'issued_month'; $rules["content.$section.*.issued_month"] = ['present', 'nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/']; }
+            if ($section === 'certifications') {
+                $keys[] = 'issued_month';
+                $rules["content.$section.*.issued_month"] = ['present', 'nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'];
+            }
             $rules["content.$section.*"] = 'array:'.implode(',', $keys);
         }
+
         return $rules;
     }
 
     public static function normalize(array $value): array
     {
         $walk = function (&$node, $key = '') use (&$walk) {
-            if (is_array($node)) { foreach ($node as $k => &$child) $walk($child, (string) $k); }
-            elseif ($node === null && !in_array($key, ['photo_asset_id', 'start_month', 'end_month', 'issued_month'])) $node = '';
+            if (is_array($node)) {
+                foreach ($node as $k => &$child) {
+                    $walk($child, (string) $k);
+                }
+            } elseif ($node === null && ! in_array($key, ['photo_asset_id', 'start_month', 'end_month', 'issued_month'])) {
+                $node = '';
+            }
         };
         $walk($value);
+
         return $value;
     }
 
     public static function check(array $value): void
     {
-        if (strlen(json_encode($value, JSON_UNESCAPED_UNICODE)) > 131072) throw ValidationException::withMessages(['content' => 'CV không được vượt quá 128 KiB.']);
+        if (strlen(json_encode($value, JSON_UNESCAPED_UNICODE)) > 131072) {
+            throw ValidationException::withMessages(['content' => 'CV không được vượt quá 128 KiB.']);
+        }
         $walk = function ($node, $key = '') use (&$walk) {
-            if (is_array($node)) { foreach ($node as $k => $child) $walk($child, (string) $k); }
-            elseif (is_string($node)) {
-                if (preg_match('/<\/?[a-z][^>]*>/i', $node)) throw ValidationException::withMessages(['content' => 'Chỉ nhập văn bản, không nhập HTML.']);
+            if (is_array($node)) {
+                foreach ($node as $k => $child) {
+                    $walk($child, (string) $k);
+                }
+            } elseif (is_string($node)) {
+                if (preg_match('/<\/?[a-z][^>]*>/i', $node)) {
+                    throw ValidationException::withMessages(['content' => 'Chỉ nhập văn bản, không nhập HTML.']);
+                }
                 if ($key === 'url' && $node !== '') {
                     $url = parse_url($node);
-                    if (!$url || !in_array($url['scheme'] ?? '', ['http', 'https']) || empty($url['host']) || isset($url['user']) || isset($url['pass'])) throw ValidationException::withMessages(['content' => 'Liên kết phải bắt đầu bằng https:// hoặc http://.']);
+                    if (! $url || ! in_array($url['scheme'] ?? '', ['http', 'https']) || empty($url['host']) || isset($url['user']) || isset($url['pass'])) {
+                        throw ValidationException::withMessages(['content' => 'Liên kết phải bắt đầu bằng https:// hoặc http://.']);
+                    }
                 }
             }
-        }; $walk($value);
+        };
+        $walk($value);
         $email = $value['content']['basics']['email'];
-        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) throw ValidationException::withMessages(['content.basics.email' => 'Email không hợp lệ.']);
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages(['content.basics.email' => 'Email không hợp lệ.']);
+        }
         $ids = [];
-        foreach ([...self::SECTIONS, 'links'] as $section) foreach (($section === 'links' ? $value['content']['basics']['links'] : $value['content'][$section]) as $item) {
-            if (isset($ids[$item['id']])) throw ValidationException::withMessages(['content' => 'Các mục phải có ID riêng biệt.']);
-            $ids[$item['id']] = true;
-            if (isset($item['current']) && (($item['current'] && $item['end_month']) || ($item['start_month'] && $item['end_month'] && $item['start_month'] > $item['end_month']))) throw ValidationException::withMessages(['content' => 'Khoảng thời gian không hợp lệ.']);
+        foreach ([...self::SECTIONS, 'links'] as $section) {
+            foreach (($section === 'links' ? $value['content']['basics']['links'] : $value['content'][$section]) as $item) {
+                if (isset($ids[$item['id']])) {
+                    throw ValidationException::withMessages(['content' => 'Các mục phải có ID riêng biệt.']);
+                }
+                $ids[$item['id']] = true;
+                if (isset($item['current']) && (($item['current'] && $item['end_month']) || ($item['start_month'] && $item['end_month'] && $item['start_month'] > $item['end_month']))) {
+                    throw ValidationException::withMessages(['content' => 'Khoảng thời gian không hợp lệ.']);
+                }
+            }
         }
     }
 
@@ -91,7 +131,19 @@ class ResumeSchema
         self::check($document);
         $basics = $document['content']['basics'];
         $hasContent = false;
-        foreach (self::SECTIONS as $section) if (!in_array($section, $document['settings']['hidden_sections'])) foreach ($document['content'][$section] as $item) foreach ($item as $key => $value) if ($key !== 'id' && is_string($value) && trim($value) !== '') $hasContent = true;
-        if (!trim($basics['full_name']) || !trim($basics['headline']) || !$basics['email'] || !$hasContent) throw ValidationException::withMessages(['content' => 'Bổ sung họ tên, chức danh, email và ít nhất một mục nội dung trước khi xuất PDF.']);
+        foreach (self::SECTIONS as $section) {
+            if (! in_array($section, $document['settings']['hidden_sections'])) {
+                foreach ($document['content'][$section] as $item) {
+                    foreach ($item as $key => $value) {
+                        if ($key !== 'id' && is_string($value) && trim($value) !== '') {
+                            $hasContent = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (! trim($basics['full_name']) || ! trim($basics['headline']) || ! $basics['email'] || ! $hasContent) {
+            throw ValidationException::withMessages(['content' => 'Bổ sung họ tên, chức danh, email và ít nhất một mục nội dung trước khi xuất PDF.']);
+        }
     }
 }

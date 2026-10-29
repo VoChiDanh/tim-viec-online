@@ -1,5 +1,7 @@
 # Hướng dẫn chạy backend từng bước — Windows / XAMPP
 
+Trình tạo CV có worker `cv` và Node renderer riêng; xem [hướng dẫn cấu hình trình tạo CV](cv-builder-setup.md) sau khi cài bản có chức năng này.
+
 Áp dụng cho dự án tại `F:\Soure_Code\tim-viec-online`, Laravel 12, PHP 8.2 trở lên và MySQL. Các lệnh bên dưới dùng **PowerShell**.
 
 **Với máy và database hiện tại của bạn:** thực hiện phần 1 để chạy hằng ngày. Không cần tạo lại `.env`, tạo lại database hoặc seed lại dữ liệu. Phần 2 chỉ dành cho cài đặt lần đầu hay khi có cập nhật cần cài đặt thêm.

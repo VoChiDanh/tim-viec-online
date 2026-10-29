@@ -4,11 +4,21 @@ on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'frontend/src/features/resumes/**'
+      - 'frontend/public/fonts/resumes/**'
+      - 'frontend/scripts/**'
+      - 'frontend/package*.json'
+      - 'tests/fixtures/resumes/**'
       - '.github/workflows/backend.yml'
   push:
-    branches: [develop, main, feature/backend-integration]
+    branches: [develop, main, feature/backend-integration, feature/cv-builder]
     paths:
       - 'backend/**'
+      - 'frontend/src/features/resumes/**'
+      - 'frontend/public/fonts/resumes/**'
+      - 'frontend/scripts/**'
+      - 'frontend/package*.json'
+      - 'tests/fixtures/resumes/**'
       - '.github/workflows/backend.yml'
 
 permissions:
@@ -59,7 +69,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, mbstring, dom, fileinfo
+          extensions: pdo_mysql, mbstring, dom, fileinfo, gd
           coverage: none
       - name: Validate dependency manifest
         run: composer validate --strict --no-check-publish
@@ -67,7 +77,18 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Audit dependencies
         run: composer audit --locked
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build CV renderer
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build:cv-renderer
       - name: Run backend tests
+        # A real render is exercised by the export integration test.
         run: vendor/bin/phpunit --log-junit phpunit-results.xml
       - name: Upload failed test report
         if: failure()

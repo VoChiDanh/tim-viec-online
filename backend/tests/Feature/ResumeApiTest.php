@@ -2,15 +2,67 @@
 
 namespace Tests\Feature;
 
+use App\Models\CandidateProfile;
+use App\Models\Resume;
 use App\Models\User;
+use App\Services\Resumes\ResumeExportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class ResumeApiTest extends TestCase
 {
     use RefreshDatabase;
-    private function document(): array { return json_decode(file_get_contents(base_path('../tests/fixtures/resumes/minimal.json')), true); }
-    protected function setUp(): void { parent::setUp(); config(['resumes.enabled' => true]); }
+
+    private function document(): array
+    {
+        return json_decode(file_get_contents(base_path('../tests/fixtures/resumes/minimal.json')), true);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['resumes.enabled' => true]);
+    }
+
+    public function test_copy_and_export_can_finish_concurrently_without_a_deadlock(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create(['role' => 'candidate']);
+        $owner = CandidateProfile::create(['user_id' => $user->id]);
+        $resume = Resume::create(['candidate_id' => $owner->id, ...$this->document()]);
+        $connection = DB::connection();
+        // Make these synthetic rows visible to the separate process. Restore
+        // the outer RefreshDatabase transaction after explicit fixture cleanup.
+        $connection->commit();
+        $process = new Process([PHP_BINARY, base_path('tests/Support/resume-copy-race.php'), (string) $resume->id]);
+        $process->setTimeout(12);
+        try {
+            $connection->beginTransaction();
+            CandidateProfile::whereKey($owner->id)->lockForUpdate()->firstOrFail();
+            $process->start();
+            $this->assertTrue($process->waitUntil(fn ($type, $output) => str_contains($output, 'OWNER_LOCK_PENDING')));
+            $export = app(ResumeExportService::class)->request($resume, 1);
+            $connection->commit();
+            $process->wait();
+            $this->assertTrue($process->isSuccessful(), 'The concurrent copy did not complete.');
+            $this->assertSame('pending', $export->status);
+            $this->assertSame(2, $owner->resumes()->count());
+        } finally {
+            if ($connection->transactionLevel()) {
+                $connection->rollBack();
+            }
+            if ($process->isRunning()) {
+                $process->stop();
+            }
+            $owner->resumes()->delete();
+            $user->delete();
+            $connection->beginTransaction();
+        }
+    }
 
     public function test_owner_can_create_prefill_save_and_duplicate_but_stale_revision_cannot_overwrite(): void
     {
@@ -35,7 +87,8 @@ class ResumeApiTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'candidate']), 'sanctum')->getJson("/api/candidate/resumes/$id")->assertNotFound();
         $this->deleteJson("/api/candidate/resumes/$id")->assertNotFound();
         $this->actingAs($owner, 'sanctum')->postJson('/api/candidate/resumes', ['name' => 'CV', 'template_key' => 'classic', 'candidate_id' => 999])->assertUnprocessable();
-        $doc = $this->document(); $doc['content']['basics']['links'] = [['id' => (string) \Illuminate\Support\Str::uuid(), 'label' => 'Link', 'url' => 'file:///etc/passwd']];
+        $doc = $this->document();
+        $doc['content']['basics']['links'] = [['id' => (string) Str::uuid(), 'label' => 'Link', 'url' => 'file:///etc/passwd']];
         $this->putJson("/api/candidate/resumes/$id", ['base_revision' => 1, ...$doc])->assertUnprocessable();
         config(['resumes.enabled' => false]);
         $this->postJson('/api/candidate/resumes', ['name' => 'CV', 'template_key' => 'classic'])->assertStatus(503);

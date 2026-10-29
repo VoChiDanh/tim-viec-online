@@ -25,7 +25,17 @@ try {
   );
   await writeFile(output, buffer, { flag: "wx" });
   process.stdout.write(JSON.stringify({ size: buffer.length }));
-} catch {
-  process.stderr.write("RESUME_RENDER_FAILED\n");
+} catch (error) {
+  const allowed = [
+    "PDF_TOO_LARGE",
+    "INVALID_PHOTO",
+    "INPUT_TOO_LARGE",
+    "INVALID_OUTPUT",
+  ];
+  const error_code =
+    error instanceof Error && allowed.includes(error.message)
+      ? error.message
+      : "RENDER_FAILED";
+  process.stderr.write(JSON.stringify({ error_code }) + "\n");
   process.exitCode = 1;
 }

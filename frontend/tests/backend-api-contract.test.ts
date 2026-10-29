@@ -1,8 +1,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allowedBackendPath } from "../src/features/api/paths";
+import {
+  allowedBackendPath,
+  protectedFilePath,
+} from "../src/features/api/paths";
 import { collectPages } from "../src/features/api/pagination";
 import { backendJobQuery, mapJob } from "../src/features/jobs/api";
+
+test("builder proxy exposes only owned-resource routes with matching methods and private files", () => {
+  for (const [path, method] of [
+    ["/candidate/resumes", "GET"],
+    ["/candidate/resumes", "POST"],
+    ["/candidate/resumes/1", "PUT"],
+    ["/candidate/resumes/1/duplicate", "POST"],
+    ["/candidate/resumes/1/assets", "POST"],
+    ["/candidate/resumes/1/exports", "POST"],
+    ["/candidate/resume-exports/2", "GET"],
+  ])
+    assert.equal(allowedBackendPath(path, method), true);
+  for (const [path, method] of [
+    ["/candidate/resumes/0", "GET"],
+    ["/candidate/resumes/1/assets/1", "POST"],
+    ["/candidate/resumes/1/exports", "GET"],
+    ["/candidate/resume-exports/2", "DELETE"],
+    ["/candidate/resumes/%2e%2e/assets/1", "GET"],
+  ])
+    assert.equal(allowedBackendPath(path, method), false);
+  assert.equal(protectedFilePath("/candidate/resumes/1/assets/2"), true);
+  assert.equal(protectedFilePath("/candidate/resume-exports/2/file"), true);
+  assert.equal(protectedFilePath("/candidate/resume-exports/2"), false);
+});
 
 test("proxy accepts only known methods/resources and rejects auth credentials or arbitrary URLs", () => {
   for (const path of [

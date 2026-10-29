@@ -38,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
-            if ($request->is('api/candidate/resumes*', 'api/candidate/resume-exports*')) {
+            if ($request->is('api/candidate/resumes*', 'api/candidate/resume-exports*') || ($request->is('api/jobs/*/apply') && $request->input('cv_source') === 'builder')) {
                 return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first(), 'errors' => $e->errors()], 422);
             }
         });
