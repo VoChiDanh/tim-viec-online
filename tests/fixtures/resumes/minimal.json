@@ -1,16 +1,16 @@
 {
-  "name": "CV t?ng h?p ki?m th?",
+  "name": "CV tổng hợp kiểm thử",
   "template_key": "classic",
   "template_version": 1,
   "schema_version": 1,
   "content": {
     "basics": {
-      "full_name": "Nguy?n Minh An",
-      "headline": "K? s? ph?n m?m",
+      "full_name": "Nguyễn Minh An",
+      "headline": "Kỹ sư phần mềm",
       "email": "an@example.test",
       "phone": "",
-      "city": "H? N?i",
-      "summary": "Ph?t tri?n ph?n m?m ph?c v? c?ng ??ng.",
+      "city": "Hà Nội",
+      "summary": "Phát triển phần mềm phục vụ cộng đồng.",
       "links": [],
       "photo_asset_id": null
     },
