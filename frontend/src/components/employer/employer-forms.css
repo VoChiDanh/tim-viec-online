@@ -83,6 +83,12 @@
   min-height: 130px;
   line-height: 1.9;
 }
+.employer-page .ep-field input:not([type="hidden"], [type="checkbox"], [type="radio"], [type="file"]):focus-visible,
+.employer-page .ep-field textarea:focus-visible {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
+  outline: none;
+}
 .employer-page .ep-field input[readonly],
 .employer-page .ep-field input:disabled {
   background: var(--ep-bg);
@@ -103,6 +109,11 @@
 .employer-page .ep-field [aria-invalid="true"],
 .employer-page .ep-field[data-invalid="true"] .selection-trigger {
   border-color: #bc2440;
+}
+.employer-page .ep-field input[aria-invalid="true"]:focus-visible,
+.employer-page .ep-field textarea[aria-invalid="true"]:focus-visible {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
 }
 .employer-page .ep-required {
   color: var(--ep-orange);
@@ -480,12 +491,31 @@
   outline: none;
   box-shadow: none;
 }
-.employer-page .ep-input-suffix:focus-within {
-  border-color: var(--ep-blue);
-  box-shadow: 0 0 0 2px var(--ep-blue-soft);
+.employer-page .ep-input-suffix:has(input:focus-visible) {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
 .employer-page .ep-input-suffix:has(input[aria-invalid="true"]) {
   border-color: var(--destructive);
+}
+.employer-page .ep-input-suffix:has(input[aria-invalid="true"]:focus-visible) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+@media (forced-colors: active) {
+  .employer-page .ep-field input:not([type="hidden"], [type="checkbox"], [type="radio"], [type="file"]):focus-visible,
+  .employer-page .ep-field textarea:focus-visible,
+  .employer-page .ep-field input[aria-invalid="true"]:focus-visible,
+  .employer-page .ep-field textarea[aria-invalid="true"]:focus-visible,
+  .employer-page .ep-input-suffix:has(input:focus-visible),
+  .employer-page .ep-input-suffix:has(input[aria-invalid="true"]:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+  .employer-page .ep-field .ep-input-suffix input:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
 }
 .employer-page .ep-input-suffix > span {
   flex-shrink: 0;
@@ -515,6 +545,73 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 3px;
+  align-content: flex-start;
+}
+.employer-page .ep-skill-search {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.employer-page .ep-skill-search > label {
+  font-size: 12px;
+}
+.employer-page .ep-skill-search-control {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--workspace-field-radius);
+  background: var(--ep-white, #fff);
+}
+.employer-page .ep-skill-search-control > .ep-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+.employer-page .ep-skill-search-control input,
+.employer-page .ep-skill-search-control input:focus-visible {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  font-size: var(--workspace-control-size);
+}
+.ep-skill-search-control input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.employer-page .ep-skill-search-clear {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 36px;
+  margin-right: -6px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--workspace-field-radius);
+  background: transparent;
+  color: var(--ep-muted);
+  cursor: pointer;
+}
+.employer-page .ep-skill-search-clear:hover {
+  background: var(--selection-background);
+  color: var(--ep-blue);
+}
+@media (max-width: 600px) {
+  .employer-page .ep-skill-search-control input,
+  .employer-page .ep-skill-search-control input:focus-visible {
+    font-size: 16px;
+  }
+}
+.employer-page .ep-skill-count,
+.employer-page .ep-skill-empty {
+  margin: 0;
+  color: var(--ep-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 .employer-page .ep-skill-options label {
   display: inline-flex;

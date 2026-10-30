@@ -51,6 +51,11 @@ class CandidateProfile extends Model
         return $this->hasMany(Application::class, 'candidate_id');
     }
 
+    public function resumes(): HasMany
+    {
+        return $this->hasMany(Resume::class, 'candidate_id');
+    }
+
     public function savedJobs(): BelongsToMany
     {
         return $this->belongsToMany(Job::class, 'saved_jobs', 'candidate_id', 'job_id')

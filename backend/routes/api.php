@@ -91,6 +91,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Candidate Routes (FR-03, FR-05.6, FR-06)
     Route::middleware('role:candidate')->prefix('candidate')->group(function () {
+        Route::get('/resume-templates', [\App\Http\Controllers\Api\ResumeController::class, 'templates']);
+        Route::post('/resumes/{id}/exports', [\App\Http\Controllers\Api\ResumeExportController::class, 'store'])->whereNumber('id')->middleware('throttle:5,1,resume-exports:');
+        Route::get('/resume-exports/{id}', [\App\Http\Controllers\Api\ResumeExportController::class, 'show'])->whereNumber('id');
+        Route::get('/resume-exports/{id}/file', [\App\Http\Controllers\Api\ResumeExportController::class, 'file'])->whereNumber('id');
+        Route::post('/resumes/{id}/assets', [\App\Http\Controllers\Api\ResumeAssetController::class, 'store'])->whereNumber('id')->middleware('throttle:20,1,resume-assets:');
+        Route::get('/resumes/{id}/assets/{assetId}', [\App\Http\Controllers\Api\ResumeAssetController::class, 'show'])->whereNumber(['id', 'assetId']);
+        Route::get('/resumes', [\App\Http\Controllers\Api\ResumeController::class, 'index']);
+        Route::post('/resumes', [\App\Http\Controllers\Api\ResumeController::class, 'store'])->middleware('throttle:30,1,resume-create:');
+        Route::get('/resumes/{id}', [\App\Http\Controllers\Api\ResumeController::class, 'show'])->whereNumber('id');
+        Route::put('/resumes/{id}', [\App\Http\Controllers\Api\ResumeController::class, 'update'])->whereNumber('id')->middleware('throttle:120,1,resume-save:');
+        Route::post('/resumes/{id}/duplicate', [\App\Http\Controllers\Api\ResumeController::class, 'duplicate'])->whereNumber('id')->middleware('throttle:30,1,resume-copy:');
+        Route::delete('/resumes/{id}', [\App\Http\Controllers\Api\ResumeController::class, 'destroy'])->whereNumber('id');
         Route::get('/profile', [CandidateProfileController::class, 'show']);
         Route::post('/profile', [CandidateProfileController::class, 'update']);
         Route::put('/profile', [CandidateProfileController::class, 'update']);

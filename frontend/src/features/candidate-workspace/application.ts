@@ -7,6 +7,7 @@ export const MAX_COVER_LETTER = 5000;
 // Client-only command contract: a future adapter can send this as multipart data.
 export type ApplyInput = {
   jobId: number;
+  resumeExportId?: number;
   cv: File | null;
   useProfileCv?: boolean;
   coverLetter: string;

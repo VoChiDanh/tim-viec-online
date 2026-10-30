@@ -1,5 +1,4 @@
 .candidate-area.candidate-messaging {
-  width: min(100%, 1920px);
   padding-bottom: 24px;
 }
 .candidate-messaging .cu-content {
@@ -328,12 +327,16 @@
   border-radius: 12px;
   background: var(--card);
 }
-.cc-composer-box:focus-within {
+.cc-composer-box:has(textarea:focus-visible) {
   border-color: var(--field-focus-border);
   box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
 .cc-composer-box[data-invalid="true"] {
   border-color: var(--destructive);
+}
+.cc-composer-box[data-invalid="true"]:has(textarea:focus-visible) {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--destructive) 12%, transparent);
 }
 .candidate-area .cc-composer [data-slot="textarea"] {
   field-sizing: fixed;
@@ -349,6 +352,14 @@
   box-shadow: none;
   outline: none;
   background: transparent;
+}
+@media (forced-colors: active) {
+  .cc-composer-box:has(textarea:focus-visible),
+  .cc-composer-box[data-invalid="true"]:has(textarea:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
 .cc-send[data-slot="button"] {
   width: 44px;

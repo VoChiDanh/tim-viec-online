@@ -1,7 +1,7 @@
 "use client";
 import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCheck, FileCheck, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { pageSlice } from "@/features/candidate-workspace/rules";
@@ -12,9 +12,20 @@ import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { useWorkspace } from "./workspace-provider";
 import { WorkspaceFrame } from "./workspace-frame";
 import { WorkspaceEmpty, WorkspaceTitle } from "./workspace-ui";
+import {
+  NotificationPeriodSelect,
+  useNotificationClock,
+} from "@/components/feedback/notification-period";
+import {
+  filterNotificationPeriod,
+  notificationPeriod,
+  notificationUrl,
+} from "@/features/notifications/period";
 
 export function CandidateNotifications() {
   const state = useWorkspace();
+  const router = useRouter();
+  const now = useNotificationClock();
   const list = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const readFocus = useRef<{ source: HTMLButtonElement; index: number } | null>(
@@ -65,7 +76,10 @@ export function CandidateNotifications() {
     ? params.get("read")!
     : "all";
   const unread = state.notifications.filter((item) => !item.read_at).length;
-  const items = state.notifications.filter(
+  const period = notificationPeriod(params.get("period"));
+  const inPeriod = filterNotificationPeriod(state.notifications, period, now);
+  const periodUnread = inPeriod.filter((item) => !item.read_at).length;
+  const items = inPeriod.filter(
     (item) =>
       filter === "all" || (filter === "read" ? !!item.read_at : !item.read_at),
   );
@@ -95,17 +109,26 @@ export function CandidateNotifications() {
         <h2 ref={heading} tabIndex={-1} className="cu-notification-heading">
           Ứng tuyển & tin nhắn
         </h2>
+        <NotificationPeriodSelect
+          value={period}
+          onChange={(next) =>
+            router.push(
+              notificationUrl("/account/notifications", filter, next),
+              { scroll: false },
+            )
+          }
+        />
         <div
           className="cu-notification-filters"
           aria-label="Lọc trạng thái đọc"
         >
           {[
             ["all", "Tất cả"],
-            ["unread", `Chưa đọc (${unread})`],
+            ["unread", `Chưa đọc (${periodUnread})`],
             ["read", "Đã đọc"],
           ].map(([value, label]) => (
             <Link
-              href={`/account/notifications?read=${value}`}
+              href={notificationUrl("/account/notifications", value, period)}
               key={value}
               aria-current={filter === value ? "page" : undefined}
             >
@@ -179,7 +202,7 @@ export function CandidateNotifications() {
           page={result.page}
           lastPage={result.lastPage}
           pageUrl={(page) =>
-            `/account/notifications?read=${filter}&page=${page}`
+            notificationUrl("/account/notifications", filter, period, page)
           }
           label="Phân trang thông báo"
         />

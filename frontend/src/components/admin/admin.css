@@ -54,10 +54,6 @@ body:has(.admin-page) {
 .admin-page :is(h1, h2, h3, p) {
   margin: 0;
 }
-.admin-page :is(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 3px solid var(--ap-blue);
-  outline-offset: 3px;
-}
 .admin-page [hidden] {
   display: none !important;
 }

@@ -8,9 +8,21 @@ import { candidateNotificationHref } from "@/features/candidate-workspace/notifi
 import { RelativeTime } from "@/components/feedback/relative-time";
 import { SheetClose } from "@/modules/cores/shadcn/components/ui/sheet";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
+import { useState } from "react";
+import {
+  NotificationPeriodSelect,
+  useNotificationClock,
+} from "@/components/feedback/notification-period";
+import {
+  filterNotificationPeriod,
+  notificationUrl,
+  type NotificationPeriod,
+} from "@/features/notifications/period";
 
 export function CandidateNotificationList() {
   const state = useWorkspace();
+  const [period, setPeriod] = useState<NotificationPeriod>("all");
+  const now = useNotificationClock();
   const markRead = (id?: number) => {
     void state
       .markRead(id)
@@ -23,7 +35,7 @@ export function CandidateNotificationList() {
       );
   };
   const unread = state.notifications.filter((item) => !item.read_at).length;
-  const items = [...state.notifications]
+  const items = filterNotificationPeriod(state.notifications, period, now)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 8);
   return (
@@ -44,11 +56,16 @@ export function CandidateNotificationList() {
           <CheckCheck aria-hidden="true" /> Đọc tất cả
         </Button>
       </div>
+      <NotificationPeriodSelect value={period} onChange={setPeriod} />
       <div className="notification-list">
         {!items.length && (
           <div className="notification-empty">
             <Bell size={40} aria-hidden="true" />
-            <h2>Chưa có thông báo</h2>
+            <h2>
+              {period === "all"
+                ? "Chưa có thông báo"
+                : "Không có thông báo trong khoảng thời gian này"}
+            </h2>
             <p>Các phản hồi ứng tuyển và tin nhắn mới sẽ xuất hiện tại đây.</p>
           </div>
         )}
@@ -98,7 +115,10 @@ export function CandidateNotificationList() {
       </div>
       <div className="notification-list-footer">
         <SheetClose asChild>
-          <Link className="notification-login" href="/account/notifications">
+          <Link
+            className="notification-login"
+            href={notificationUrl("/account/notifications", "all", period)}
+          >
             Xem tất cả thông báo
           </Link>
         </SheetClose>

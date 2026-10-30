@@ -78,6 +78,13 @@
   border-color: var(--field-focus-border);
   box-shadow: 0 0 0 2px var(--field-focus-halo);
 }
+@media (forced-colors: active) {
+  .selection-field .selection-trigger:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
 .selection-clear {
   position: absolute;
   right: 29px;

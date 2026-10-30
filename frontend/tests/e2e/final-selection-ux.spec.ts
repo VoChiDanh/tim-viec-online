@@ -97,6 +97,17 @@ for (const width of [360, 1440]) {
     await page.goto("/");
     await page.evaluate(() => document.fonts.ready);
     const form = page.getByRole("search", { name: "Tìm kiếm việc làm" });
+    const hero = page.locator(".home-hero > .home-container:visible");
+    // Measure the tab-order layout after the shared hero entrance completes.
+    await expect(hero).toHaveCSS("animation-name", "content-arrive");
+    await hero.evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations()
+          .map((animation) => animation.finished.catch(() => {})),
+      );
+    });
+    await expect(hero).toHaveCSS("transform", "none");
     const trigger = form.getByRole("combobox", {
       name: "Địa điểm tìm việc",
       exact: true,

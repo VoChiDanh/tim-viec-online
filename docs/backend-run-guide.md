@@ -1,5 +1,7 @@
 # Hướng dẫn chạy backend từng bước — Windows / XAMPP
 
+Trình tạo CV có worker `cv` và Node renderer riêng; xem [hướng dẫn cấu hình trình tạo CV](cv-builder-setup.md) sau khi cài bản có chức năng này.
+
 Áp dụng cho dự án tại `F:\Soure_Code\tim-viec-online`, Laravel 12, PHP 8.2 trở lên và MySQL. Các lệnh bên dưới dùng **PowerShell**.
 
 **Với máy và database hiện tại của bạn:** thực hiện phần 1 để chạy hằng ngày. Không cần tạo lại `.env`, tạo lại database hoặc seed lại dữ liệu. Phần 2 chỉ dành cho cài đặt lần đầu hay khi có cập nhật cần cài đặt thêm.
@@ -114,6 +116,15 @@ php artisan schedule:work
 
 ### Các tiến trình cần giữ mở
 
+Khi dùng **CV của tôi → Tạo CV mới**, cần thêm `RESUME_BUILDER_ENABLED=true` trong `backend/.env`, chạy `php artisan config:clear` và giữ worker xuất PDF riêng:
+
+```powershell
+cd F:\Soure_Code\tim-viec-online\backend
+php artisan queue:work database --queue=cv --sleep=1 --tries=2 --timeout=45
+```
+
+Thiếu flag thì giao diện báo bảo trì; thiếu worker thì PDF ở trạng thái chờ. Worker `ai` hoặc `emails` không xử lý queue `cv`. Cách build renderer và chuẩn bị lần đầu nằm trong [hướng dẫn trình tạo CV](cv-builder-setup.md).
+
 | Thành phần | Cổng / queue | Chức năng |
 | --- | --- | --- |
 | MySQL của XAMPP | `3306` | Lưu dữ liệu |
@@ -121,6 +132,7 @@ php artisan schedule:work
 | Reverb | `8080` | Chat, thông báo trực tiếp |
 | Worker AI | queue `ai` | Phân tích CV thật |
 | Worker email | queue `emails` | Giao email thông báo |
+| Worker CV | queue `cv` | Xuất PDF từ trình tạo CV |
 | Frontend | `3000` | Giao diện web |
 | Scheduler, khi cần | Không có cổng HTTP riêng | Chạy lịch tin hết hạn |
 
@@ -286,7 +298,7 @@ Sau đó quay lại phần 1 để mở các terminal chạy dịch vụ.
 1. Dừng các terminal API, Reverb và queue đang mở bằng `Ctrl+C`.
 2. Chạy `composer install` nếu dependencies PHP có thay đổi; áp dụng đúng migration mới nếu có.
 3. Tại `backend`, chạy `php artisan config:clear`.
-4. Mở lại API, Reverb, worker AI và worker email theo phần 1.
+4. Mở lại API, Reverb, worker AI, worker email và worker `cv` (nếu dùng trình tạo CV) theo phần 1.
 5. Nếu sửa frontend, để dev server cập nhật hoặc build lại bản `npm start`.
 
 Queue worker giữ code và cấu hình trong bộ nhớ; đổi key/model/mật khẩu SMTP mà không khởi động lại worker có thể khiến nó vẫn dùng cấu hình cũ.
@@ -346,6 +358,18 @@ php artisan queue:failed
 ```
 
 Không retry toàn bộ hàng đợi chỉ để thử; chọn đúng tác vụ cần xử lý để tránh gửi lặp email hoặc gọi lại AI ngoài ý muốn.
+
+### CV ở trạng thái “Đang tạo PDF…” và chưa tải xuống được
+
+Xuất PDF dùng queue `cv`, tách riêng AI và email. Khi worker này tắt, yêu cầu vẫn được lưu nhưng chưa có file để tải. Từ thư mục `backend`, mở một terminal riêng và giữ lệnh sau chạy:
+
+```powershell
+php artisan queue:work database --queue=cv --sleep=1 --tries=2 --timeout=45
+```
+
+Worker sẽ nhận các yêu cầu đang chờ. Quay lại CV, bấm **Kiểm tra lại** hoặc tải lại trang; khi báo **sẵn sàng**, chọn **Tải PDF**. Nếu yêu cầu đã báo thất bại, chọn **Tạo bản PDF** sau khi worker chạy. Không cần tạo lại CV hoặc reset database.
+
+Kiểm tra tác vụ bị chờ quá hai phút bằng `php artisan resumes:health`. Lệnh báo không có tác vụ treo không có nghĩa worker đang chạy: yêu cầu mới hoặc hàng đợi rỗng vẫn có thể cho kết quả đó. Nếu worker thoát sau `queue:restart` hoặc khi đóng terminal, cần chạy lại lệnh trên. Kiểm tra renderer theo [hướng dẫn trình tạo CV](cv-builder-setup.md) nếu worker chạy mà export vẫn thất bại.
 
 ### Xem log Laravel
 

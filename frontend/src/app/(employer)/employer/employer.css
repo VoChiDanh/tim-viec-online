@@ -38,15 +38,6 @@ body:has(.employer-page) {
   cursor: pointer;
 }
 
-.employer-page button:focus-visible,
-.employer-page a:focus-visible,
-.employer-page input:focus-visible,
-.employer-page select:focus-visible,
-.employer-page textarea:focus-visible {
-  outline: 3px solid var(--ep-blue);
-  outline-offset: 3px;
-}
-
 .ep-icon {
   width: 18px;
   height: 18px;
@@ -665,6 +656,24 @@ body:has(.employer-page) {
   font-size: 11px;
 }
 
+.ep-search:has(input:focus-visible) {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
+}
+
+.ep-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  .ep-search:has(input:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
+
 .ep-filters select {
   max-width: 140px;
   min-width: 0;
@@ -887,6 +896,15 @@ body:has(.employer-page) {
   font-weight: 800;
   color: var(--ep-blue);
   background: var(--ep-white);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ep-company-logo img {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  object-fit: contain;
 }
 
 .ep-company-header strong {

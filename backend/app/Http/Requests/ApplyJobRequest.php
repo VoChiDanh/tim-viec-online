@@ -34,9 +34,10 @@ class ApplyJobRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // FR-06.2: Chọn 1 trong 2: CV sẵn có (profile) hoặc Tải file mới (new)
-            'cv_source' => ['nullable', 'string', 'in:profile,default,new'],
-            'cv_file' => ['nullable', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:5120'], // Định dạng PDF tối đa 5MB
+            // FR-06.2: profile PDF, uploaded PDF, or an owned ready builder export.
+            'cv_source' => ['nullable', 'string', 'in:profile,default,new,builder'],
+            'resume_export_id' => ['required_if:cv_source,builder', 'prohibited_unless:cv_source,builder', 'nullable', 'integer', 'min:1'],
+            'cv_file' => ['prohibited_if:cv_source,builder', 'nullable', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:5120'], // Định dạng PDF tối đa 5MB
             'cover_letter' => ['nullable', 'string', 'max:3000'],
         ];
     }
@@ -47,7 +48,7 @@ class ApplyJobRequest extends FormRequest
             'cv_file.mimes' => 'Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB',
             'cv_file.mimetypes' => 'Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB',
             'cv_file.max' => 'Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB',
-            'cv_source.in' => 'Hình thức nộp CV không hợp lệ (chọn profile hoặc new)',
+            'cv_source.in' => 'Hình thức nộp CV không hợp lệ (chọn profile, new hoặc builder)',
             'cover_letter.max' => 'Thư giới thiệu không được vượt quá 3000 ký tự',
         ];
     }

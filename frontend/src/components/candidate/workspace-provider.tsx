@@ -197,19 +197,16 @@ function useWorkspaceState(initial: WorkspaceInitial) {
         !liveConversations().includes(notification.data.conversation_id)
       ) {
         const id = notification.data.conversation_id;
-        void apiRequest<unknown[]>(
-          `/conversations/${id}/messages?latest=1&per_page=1`,
-        )
-          .then((response) =>
-            setMessages((current) =>
-              mergeChatMessages(
-                current,
-                response.data.map((raw) =>
-                  candidateMessageFromApi(raw, Number(initial.userId), id),
-                ),
-              ),
-            ),
-          )
+        // Reading history marks the room read. Refresh the preview through the
+        // conversation list while that room is closed or minimized instead.
+        void apiRequest<unknown[]>("/conversations")
+          .then((response) => {
+            const conversation = rows(response.data).find((item) => Number(item.id) === id);
+            if (!conversation?.last_message) return;
+            setMessages((current) => mergeChatMessages(current, [
+              candidateMessageFromApi(conversation.last_message, Number(initial.userId), id),
+            ]));
+          })
           .catch(() => {});
       }
     },
@@ -424,7 +421,8 @@ function useWorkspaceState(initial: WorkspaceInitial) {
           return await command(`apply:${input.jobId}`, async () => {
             const body = new FormData();
             body.set("cover_letter", input.coverLetter.trim());
-            body.set("cv_source", input.useProfileCv ? "profile" : "new");
+            body.set("cv_source", input.resumeExportId ? "builder" : input.useProfileCv ? "profile" : "new");
+            if(input.resumeExportId)body.set("resume_export_id",String(input.resumeExportId));
             if (input.cv) body.set("cv_file", input.cv);
             const response = await apiRequest<unknown>(
               `/jobs/${input.jobId}/apply`,

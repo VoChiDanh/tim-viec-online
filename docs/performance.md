@@ -25,6 +25,21 @@ npm run build
 npm start
 ```
 
+### Trang mắc ở loading và liên tục tải lại khi chạy dev
+
+Nếu log có `HMR hash mismatch`, liên tục `Compiled` dù không sửa file, hoặc lỗi Suspense kèm tải lại trang, hãy dừng frontend bằng `Ctrl+C`. Sau đó chạy trong thư mục `frontend/`:
+
+```powershell
+if (Test-Path -LiteralPath '.next/dev') {
+    Move-Item -LiteralPath '.next/dev' -Destination ('.next/dev-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+}
+npm run dev
+```
+
+Lệnh trên giữ lại cache cũ và tạo lại cache phát triển, không thay đổi database hay `.env`. Khi server báo Ready, tải lại trình duyệt bằng `Ctrl+Shift+R`. Chỉ chạy một frontend trên cổng 3000; dừng server dev trước khi chạy `npm start`.
+
+Lượt kiểm tra ngày 29/10/2026: trước khi tạo lại cache, trình duyệt lặp `HMR hash mismatch` và mắc ở loading. Sau khi tạo lại cache: trang đăng nhập, trang chủ, danh sách việc làm và chuyển hướng tài khoản chưa đăng nhập tải thành công; theo dõi thêm 12 giây không có lỗi JavaScript hoặc tự tải lại. Đây là kết quả kiểm tra local, không phải kiểm thử tải hay xác nhận toàn bộ phiên đăng nhập.
+
 ## Các thay đổi
 
 - Giới hạn thời gian kết nối và phát sự kiện Reverb/Pusher. Một server WebSocket không truy cập được không còn giữ request gửi tin hàng chục giây. Tin và thông báo vẫn được lưu; WebSocket phải chạy để người nhận có cập nhật trực tiếp.

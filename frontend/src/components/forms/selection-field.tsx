@@ -63,10 +63,12 @@ export function SelectionField({
   onValueChange,
   className,
   clearable = true,
+  disabled = false,
 }: CommonProps & {
   value: string;
   onValueChange: (value: string) => void;
   clearable?: boolean;
+  disabled?: boolean;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   return (
@@ -75,10 +77,11 @@ export function SelectionField({
       data-active={!!value}
       data-clearable={clearable}
     >
-      <input type="hidden" name={name} value={value} />
+      <input type="hidden" name={name} value={value} disabled={disabled} />
       <Select
         value={value || (clearable ? ALL_VALUES : "")}
         onValueChange={(next) => onValueChange(next === ALL_VALUES ? "" : next)}
+        disabled={disabled}
       >
         <SelectTrigger
           ref={trigger}
@@ -116,6 +119,7 @@ export function SelectionField({
         <button
           className="selection-clear"
           type="button"
+          disabled={disabled}
           aria-label={`Xóa ${label.toLocaleLowerCase("vi")}`}
           onClick={() => {
             onValueChange("");
@@ -144,6 +148,9 @@ export function SearchableSelectionField({
   popupClassName,
   popupOwner,
   popupTitle,
+  clearable = true,
+  disabled = false,
+  emptyMessage = "Không tìm thấy tỉnh/thành phố.",
 }: CommonProps & {
   id?: string;
   value: string;
@@ -154,6 +161,9 @@ export function SearchableSelectionField({
   popupClassName?: string;
   popupOwner?: string;
   popupTitle?: string;
+  clearable?: boolean;
+  disabled?: boolean;
+  emptyMessage?: string;
 }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -161,22 +171,30 @@ export function SearchableSelectionField({
   const tabbingOut = useRef(false);
   const typeahead = useRef({ text: "", time: 0 });
   const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
+  const open = !disabled && (controlledOpen ?? internalOpen);
   const [search, setSearch] = useState("");
   const keyword = normalizeSearch(search);
   const selected = options.find((option) => option.value === value);
-  const visible = keyword
+  const visible: SelectionOption[] = keyword
     ? options.filter((option) =>
         normalizeSearch(option.label).includes(keyword),
       )
-    : [{ value: "", label: placeholder }, ...options];
+    : [...(clearable ? [{ value: "", label: placeholder }] : []), ...options];
+  const enabled = visible.filter((option) => !option.disabled);
 
   function choose(next: string) {
+    if (disabled || (!next && !clearable)) return;
+    if (
+      next &&
+      !options.some((option) => option.value === next && !option.disabled)
+    )
+      return;
     onValueChange(next);
     changeOpen(false);
   }
 
   function changeOpen(next: boolean) {
+    if (next && disabled) return;
     if (next) tabbingOut.current = false;
     if (controlledOpen === undefined) setInternalOpen(next);
     onOpenChange?.(next);
@@ -185,14 +203,19 @@ export function SearchableSelectionField({
   }
 
   function focusOption(index: number) {
-    const items =
-      list.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    const items = list.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="option"]:not(:disabled)',
+    );
     if (items?.length) items[(index + items.length) % items.length].focus();
   }
 
   return (
-    <div className={cn("selection-field", className)} data-active={!!value}>
-      <input type="hidden" name={name} value={value} />
+    <div
+      className={cn("selection-field", className)}
+      data-active={!!value}
+      data-clearable={clearable}
+    >
+      <input type="hidden" name={name} value={value} disabled={disabled} />
       <Popover open={open} onOpenChange={changeOpen}>
         <PopoverTrigger asChild>
           <button
@@ -200,6 +223,7 @@ export function SearchableSelectionField({
             ref={trigger}
             className="selection-trigger"
             type="button"
+            disabled={disabled}
             role="combobox"
             aria-label={label}
             aria-expanded={open}
@@ -262,7 +286,7 @@ export function SearchableSelectionField({
                   focusOption(
                     Math.max(
                       0,
-                      visible.findIndex((option) => option.value === value),
+                      enabled.findIndex((option) => option.value === value),
                     ),
                   );
                 }
@@ -292,7 +316,7 @@ export function SearchableSelectionField({
                     focusOption(event.key === "ArrowDown" ? 0 : -1);
                   } else if (event.key === "Enter") {
                     event.preventDefault();
-                    if (visible[0]) choose(visible[0].value);
+                    if (enabled[0]) choose(enabled[0].value);
                   }
                 }}
               />
@@ -306,7 +330,9 @@ export function SearchableSelectionField({
             className="selection-options"
             onKeyDown={(event) => {
               const items = Array.from(
-                list.current?.querySelectorAll('[role="option"]') ?? [],
+                list.current?.querySelectorAll(
+                  '[role="option"]:not(:disabled)',
+                ) ?? [],
               );
               const index = items.indexOf(event.target as Element);
               if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -333,7 +359,7 @@ export function SearchableSelectionField({
                     ? typeahead.current.text + event.key
                     : event.key;
                 typeahead.current = { text, time: now };
-                const match = visible.findIndex((option) =>
+                const match = enabled.findIndex((option) =>
                   normalizeSearch(option.label).startsWith(
                     normalizeSearch(text),
                   ),
@@ -348,6 +374,7 @@ export function SearchableSelectionField({
                 role="option"
                 tabIndex={-1}
                 key={option.value}
+                disabled={option.disabled}
                 aria-selected={option.value === value}
                 data-state={option.value === value ? "checked" : "unchecked"}
                 className="selection-option"
@@ -362,15 +389,16 @@ export function SearchableSelectionField({
           </div>
           {visible.length === 0 && (
             <p className="selection-empty" role="status">
-              Không tìm thấy tỉnh/thành phố.
+              {emptyMessage}
             </p>
           )}
         </PopoverContent>
       </Popover>
-      {value && (
+      {value && clearable && (
         <button
           className="selection-clear"
           type="button"
+          disabled={disabled}
           aria-label={`Xóa ${label.toLocaleLowerCase("vi")}`}
           onClick={() => {
             onValueChange("");

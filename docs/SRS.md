@@ -32,7 +32,7 @@
 - File CV tải lên bắt buộc phải là định dạng **PDF**, dung lượng tối đa **5 MB**.
 - Đơn vị tiền tệ: **Việt Nam đồng (VNĐ)**.
 - Hệ thống là ứng dụng web tương thích tốt trên các trình duyệt Chrome, Edge, Firefox, Safari và hỗ trợ hiển thị trên thiết bị di động có chiều rộng màn hình từ **360px** trở lên.
-- **Giới hạn phạm vi (Out of Scope):** Trong phiên bản này, hệ thống tập trung hoàn toàn vào cơ chế Upload CV (PDF) cá nhân hóa và Phân tích tương thích bằng AI; **chưa hỗ trợ công cụ tạo CV kéo thả trực tuyến (CV Template Builder).**
+- **Phạm vi cập nhật 29/10/2026:** Bổ sung trình tạo CV theo mẫu (nhập liệu, xem trước, tự lưu, xuất PDF và ứng tuyển). Upload PDF hiện có tiếp tục hoạt động. Chưa hỗ trợ kéo thả tọa độ tự do, chia sẻ CV công khai hoặc AI viết lại nội dung CV.
 
 ---
 
@@ -76,6 +76,13 @@
 | FR-03.4 | Nếu file tải lên không phải đuôi `.pdf` hoặc dung lượng lớn hơn 5 MB, hệ thống hiển thị "Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB" và không lưu file. |
 | FR-03.5 | File CV lưu thành công được hệ thống cấp đường dẫn xem trực tiếp (PDF Preview) trên trình duyệt, không bắt buộc người dùng phải tải về máy mới xem được. |
 | FR-03.6 | Trường hợp file CV là dạng ảnh scan không chứa văn bản trích xuất được hoặc file bị lỗi font, hệ thống thông báo "File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn". |
+| FR-03.7 | Ứng viên quản lý tối đa 20 bản nháp CV riêng tư; tạo từ sáu mẫu classic/modern/minimal/executive/elegant/technical, đổi mẫu, đổi tên, sao chép và xóa. Không thay thế file CV mặc định đã upload. |
+| FR-03.8 | CV gồm thông tin liên hệ, kinh nghiệm, học vấn, kỹ năng, dự án, chứng chỉ, ngoại ngữ và hoạt động. Được sắp xếp/ẩn mục, chọn màu/cỡ chữ/giãn dòng theo preset, thêm ảnh CV riêng tối đa 2 MB. |
+| FR-03.9 | Tự lưu bản nháp có revision; khi hai tab sửa cùng phiên bản, lần lưu cũ nhận 409 và không ghi đè nội dung mới. Cho phép lưu nháp thiếu nội dung, giữ nội dung đang nhập khi lỗi mạng. |
+| FR-03.10 | Xem trước và xuất PDF A4 chứa văn bản tiếng Việt; tối đa 5 trang và 5 MB cho CV do builder tạo. Trước xuất bắt buộc có họ tên, chức danh, email hợp lệ và ít nhất một mục nội dung. File tải xuống đặt tên theo họ tên trong bản xuất: `Tên ứng viên CV.pdf`, giữ dấu tiếng Việt và loại ký tự không hợp lệ trong tên file. |
+| FR-03.11 | Export chạy qua queue cv, lưu snapshot bất biến theo revision. Mỗi bản xuất có trạng thái pending/processing/ready/failed, lỗi không tạo PDF giả và có thể thử lại có kiểm soát. |
+| FR-03.12 | Chỉ chủ sở hữu đọc/sửa bản nháp và tải bản xuất. Tự lưu/đổi mẫu/xuất PDF không gọi AI; khi ứng tuyển, PDF được sao chép riêng và giữ nguyên dù CV gốc thay đổi hoặc bị xóa. |
+| FR-03.13 | Trình tạo CV chia thành từng bước: giao diện, cá nhân, kinh nghiệm, học vấn, kỹ năng, ngoại ngữ, dự án, bổ sung và xuất PDF; xem trước song song trên desktop, chuyển nội dung/xem trước trên mobile. CV mới trên giao diện có nội dung sẵn để sửa, ưu tiên thông tin thật khi chọn điền từ hồ sơ. CV cũ tự điền phần trống một lần khi mở editor, giữ nội dung đã sửa và không điền lại mục đã xóa sau lần khởi tạo đó. Các trường thời gian chọn tháng/năm bằng giao diện tiếng Việt và hiển thị MM/YYYY. |
 ### FR-04. Hồ sơ công ty, Đăng tin & Quản lý vòng đời tin tuyển dụng
 
 | Mã | Yêu cầu |
@@ -87,6 +94,7 @@
 | FR-04.5 | Tin sau khi tạo được lưu ở trạng thái "Đang tuyển" (`active`). |
 | FR-04.6 | **Quy tắc khi Đóng tin (`closed`):**<br>- **Ngừng nhận hồ sơ mới:** Hệ thống tự động ẩn nút "Ứng tuyển" hoặc thông báo "Tin tuyển dụng này đã đóng / hết hạn". Không cho phép ứng viên apply vào nữa.<br>- **Bảo lưu và xử lý hồ sơ cũ:** Tin ứng tuyển và hồ sơ đã nộp vẫn được bảo lưu (admin có quyền xóa tin và dữ liệu liên quan). Nhà tuyển dụng tiếp tục xem CV và duyệt trạng thái.<br>- **Bảo lưu hội thoại chat:** Các cuộc trò chuyện vẫn gửi/nhận bình thường kèm nhãn tin đã đóng/hết hạn.<br>- **Mở lại tin:** Nhà tuyển dụng có thể mở tin đã đóng. Nếu tin đã hết hạn, phải chọn hạn nộp mới trong tương lai trước khi tin được hiển thị và nhận hồ sơ. |
 | FR-04.7 | **Xem trang công ty công khai:** Người dùng (Khách và Ứng viên) có thể xem trang chi tiết của bất kỳ doanh nghiệp nào: Tên công ty, Logo, Website, Trụ sở, Giới thiệu (size, ...) và toàn bộ danh sách các tin tuyển dụng đang mở (`active`) của công ty đó. |
+| FR-04.8 | Form đăng/sửa tin có ô tìm kỹ năng theo tên, hỗ trợ từ khóa có dấu và không dấu; đổi từ khóa không bỏ các kỹ năng đã chọn. Bộ chọn ngành nghề có ô tìm kiếm và trạng thái không tìm thấy kết quả. Menu ngành nghề ở header cũng tìm trong toàn bộ danh mục. |
 
 ### FR-05. Tìm kiếm & Bộ lọc việc làm
 
@@ -104,7 +112,7 @@
 | Mã | Yêu cầu |
 |---|---|
 | FR-06.1 | Khách nhấn "Ứng tuyển" sẽ được hệ thống yêu cầu chuyển hướng đến trang Đăng nhập. Chỉ tài khoản Ứng viên mới có quyền nộp đơn. |
-| FR-06.2 | Khi nộp đơn, Ứng viên chọn 1 trong 2 hình thức: Sử dụng file CV sẵn có trong hồ sơ cá nhân HOẶC Tải lên một file CV PDF mới riêng cho vị trí này. |
+| FR-06.2 | Khi nộp đơn, Ứng viên chọn một trong ba nguồn: CV PDF hiện có trong hồ sơ, upload PDF mới hoặc bản PDF ready tạo bằng trình tạo CV. Backend kiểm tra quyền sở hữu và lưu bản sao PDF riêng; không render PDF đồng bộ trong request ứng tuyển. |
 | FR-06.4 | Một ứng viên chỉ được nộp đơn **duy nhất 1 lần** cho cùng một tin tuyển dụng đang mở. Nếu đã nộp trước đó, nút ứng tuyển hiển thị trạng thái đã vô hiệu hóa kèm thông báo "Bạn đã nộp hồ sơ cho công việc này rồi". |
 | FR-06.5 | Vòng đời trạng thái hồ sơ gồm 5 trạng thái:<br>1. `Đã ứng tuyển (Applied)`: Mặc định khi nộp.<br>2. `Đang xem xét (Waiting)`: Chuyển khi nhà tuyển dụng mở hồ sơ lần đầu.<br>3. `Trúng tuyển (Accepted)`: Nhà tuyển dụng đồng ý tuyển dụng.<br>4. `Từ chối (Rejected)`: Nhà tuyển dụng từ chối hồ sơ.<br>5. `Đã rút (Withdrawn)`: Ứng viên rút hồ sơ khi chưa được xem. Một ứng viên chỉ được nộp một lần cho mỗi tin, kể cả sau khi rút. |
 | FR-06.7 | Ứng viên có thể theo dõi danh sách toàn bộ các việc đã nộp kèm trạng thái xét duyệt hiện tại theo thời gian thực tại trang "Lịch sử ứng tuyển". |
@@ -150,6 +158,7 @@
 | FR-10.3 | **Trải nghiệm thông báo:**<br>- Biểu tượng chuông trên thanh điều hướng hiển thị số lượng thông báo chưa đọc (Unread badge).<br>- Danh sách thông báo hiển thị tiêu đề, nội dung ngắn gọn, thời gian gửi tương đối (ví dụ: *5 phút trước*), và phân biệt rõ trạng thái Đã đọc (màu trắng background) / Chưa đọc (Màu xanh background).<br>- Người dùng có thể nhấn vào thông báo để chuyển hướng ngay tới màn hình chi tiết tương ứng, bấm đánh dấu đã đọc từng thông báo, hoặc bấm nút "Đánh dấu tất cả là đã đọc". |
 | FR-10.4 | **Email theo lựa chọn (cập nhật 27/10/2026):** Ứng viên bật/tắt riêng email trạng thái ứng tuyển và tin nhắn mới tại Quản lý tài khoản. Mặc định cả hai tắt; phải xác nhận email trước khi bật. Lựa chọn lưu trong database, độc lập với thông báo trên web. |
 | FR-10.5 | Email thông báo chạy qua queue `emails`, không gửi SMTP trong yêu cầu chat. Gom thay đổi trạng thái trong 10 giây và tin nhắn cùng hội thoại trong 60 giây. Trước khi gửi, kiểm tra lại tài khoản, xác nhận email, lựa chọn hiện tại, địa chỉ nhận, quyền sở hữu, trạng thái hồ sơ hoặc tin nhắn chưa đọc. Không đưa CV/nội dung tin nhắn riêng tư vào email. |
+| FR-10.6 | Trang thông báo ứng viên/nhà tuyển dụng và bảng thông báo ở header ứng viên có bộ lọc 1 ngày, 3 ngày, 1 tháng và tất cả; tương ứng 24 giờ, 72 giờ và 30 ngày gần nhất. Lọc thời gian trước trạng thái đọc và phân trang; giữ cả hai bộ lọc trong URL trang, đổi bộ lọc trở về trang đầu. Số chưa đọc trên chuông và thao tác đánh dấu tất cả đã đọc vẫn áp dụng cho toàn bộ thông báo của tài khoản. |
 
 ---
 

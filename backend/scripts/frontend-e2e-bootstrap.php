@@ -39,6 +39,7 @@ $environment = [
     'SESSION_DRIVER' => 'array',
     'BROADCAST_CONNECTION' => 'reverb',
     'AI_ANALYSIS_ENABLED' => 'false',
+    'RESUME_BUILDER_ENABLED' => 'true',
     'REVERB_APP_ID' => 'frontend-e2e',
     'REVERB_APP_KEY' => 'frontend-e2e-public-key',
     'REVERB_APP_SECRET' => 'frontend-e2e-local-secret',

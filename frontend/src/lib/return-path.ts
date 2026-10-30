@@ -9,12 +9,14 @@ export function safeJobReturnPath(
     typeof value !== "string" ||
     value.length > 1000 ||
     /[\x00-\x1f\x7f\\]/.test(value) ||
-    !/^\/(?:jobs(?:\/\d+)?|account\/(?:profile|jobs|messages|notifications|settings|security)|employer(?:\/(?:jobs(?:\/new|\/[1-9]\d*\/edit)?|candidates(?:\/[1-9]\d*)?|messages|notifications|company))?|admin(?:\/(?:jobs(?:\/[1-9]\d*)?|applications\/[1-9]\d*|users|categories|skills))?)(?:\?[^#]*)?$/.test(
+    !/^\/(?:jobs(?:\/\d+)?|account\/(?:profile|resumes(?:\/new|\/[1-9]\d*\/edit)?|jobs|messages|notifications|settings|security)|employer(?:\/(?:jobs(?:\/new|\/[1-9]\d*\/edit)?|candidates(?:\/[1-9]\d*)?|messages|notifications|company))?|admin(?:\/(?:jobs(?:\/[1-9]\d*)?|applications\/[1-9]\d*|users|categories|skills))?)(?:\?[^#]*)?$/.test(
       value,
     )
   )
     return fallback;
   const pathname = value.split("?", 1)[0];
+  const resumeId = pathname.match(/^\/account\/resumes\/(\d+)\/edit$/)?.[1];
+  if (resumeId && !Number.isSafeInteger(Number(resumeId))) return fallback;
   // Account security is shared by all roles. Other protected return paths must
   // agree with the verified session role to avoid redirect loops after login.
   if (pathname === "/account/security") return value;

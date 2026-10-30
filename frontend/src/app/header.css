@@ -76,9 +76,17 @@
 .header-search input::placeholder {
   color: var(--muted-foreground);
 }
-.header-search:focus-within {
+.header-search:has(input:focus-visible) {
   outline: 2px solid var(--header-brand-sky);
   outline-offset: 0;
+}
+@media (forced-colors: active) {
+  .header-search:has(input:focus-visible) {
+    outline-color: Highlight;
+  }
+  .header-search input:focus-visible {
+    outline: none;
+  }
 }
 .header-search-divider {
   height: 14.4px;
@@ -428,7 +436,8 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 10.8px;
 }
-.header-mega > div > :is(a, button) {
+.header-mega > div > :is(a, button),
+.header-category-results > a {
   display: block;
   font-size: 10.8px;
   font-weight: 500;
@@ -438,8 +447,47 @@
   cursor: pointer;
   color: var(--muted-foreground);
 }
-.header-mega > div > :is(a, button):hover {
+.header-mega > div > :is(a, button):hover,
+.header-category-results > a:hover {
   color: var(--brand-blue);
+}
+.header-mega-categories {
+  min-width: 0;
+}
+.header-category-search {
+  position: relative;
+}
+.header-category-search > svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.header-category-search input {
+  padding-left: 30px;
+  font-size: 12px;
+}
+.header-category-search input:focus-visible {
+  border-color: var(--field-focus-border);
+  box-shadow: 0 0 0 2px var(--field-focus-halo);
+}
+.header-category-results {
+  max-height: min(240px, 40dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.header-category-results > a {
+  padding-block: 3px;
+  overflow-wrap: anywhere;
+}
+.header-category-empty {
+  padding-block: 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .header-account {
   width: 288px;
@@ -777,6 +825,9 @@ body:has(.header-notifications[data-state="closed"])
     padding: 25.2px;
     max-height: calc(100dvh - 145px);
     overflow-y: auto;
+  }
+  .header-category-search input {
+    font-size: 16px;
   }
 }
 

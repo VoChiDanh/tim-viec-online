@@ -24,11 +24,12 @@ export function AccountShell({
 }) {
   const pathname = usePathname();
   const section = CANDIDATE_PAGES.find(
-    (item) => pathname === `/account/${item.key}`,
+    (item) => pathname === `/account/${item.key}` || (item.key === "resumes" && pathname.startsWith("/account/resumes/")),
   )?.key;
   const workspace = useOptionalWorkspace();
   const localAvatar = useFileUrl(workspace?.avatar ?? null);
   const avatar = localAvatar ?? workspace?.avatarUrl;
+  if (section === "resumes" && /\/resumes\/\d+\/edit$/.test(pathname)) return <main id="main" className="resume-workspace">{children}</main>;
   if (!section) return children;
   return (
     <AccountShellContext.Provider value>

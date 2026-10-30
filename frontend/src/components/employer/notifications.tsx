@@ -3,7 +3,7 @@
 import { Fragment, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowRight,
   Bell,
@@ -20,6 +20,15 @@ import { isJobOpen, vietnamToday } from "@/features/jobs/formatters";
 import { Button } from "@/modules/cores/shadcn/components/ui/button";
 import { RelativeTime } from "@/components/feedback/relative-time";
 import { useEmployer } from "./employer-provider";
+import {
+  NotificationPeriodSelect,
+  useNotificationClock,
+} from "@/components/feedback/notification-period";
+import {
+  filterNotificationPeriod,
+  notificationPeriod,
+  notificationUrl,
+} from "@/features/notifications/period";
 import "./employer-notifications.css";
 
 const date = (value: string, includeTime = false) =>
@@ -33,6 +42,8 @@ const date = (value: string, includeTime = false) =>
 
 export function EmployerNotifications() {
   const state = useEmployer();
+  const router = useRouter();
+  const now = useNotificationClock();
   const list = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const readFocus = useRef<{ source: HTMLButtonElement; index: number } | null>(
@@ -83,6 +94,9 @@ export function EmployerNotifications() {
         ? "read"
         : "all";
   const unread = state.notifications.filter((item) => !item.read_at).length;
+  const period = notificationPeriod(params.get("period"));
+  const inPeriod = filterNotificationPeriod(state.notifications, period, now);
+  const periodUnread = inPeriod.filter((item) => !item.read_at).length;
   const newApplications = state.applications.filter(
     (item) => item.status === "applied",
   ).length;
@@ -97,7 +111,7 @@ export function EmployerNotifications() {
   const openJobs = state.jobs.filter((job) =>
     isJobOpen(job, state.today),
   ).length;
-  const sorted = [...state.notifications].sort((a, b) =>
+  const sorted = [...inPeriod].sort((a, b) =>
     b.created_at.localeCompare(a.created_at),
   );
   const items = sorted.filter(
@@ -135,9 +149,6 @@ export function EmployerNotifications() {
               </p>
             </div>
             <div className="em-not-actions">
-              <span className="ep-pill">
-                {state.notifications.length} thông báo
-              </span>
               <Button
                 type="button"
                 variant="outline"
@@ -154,22 +165,37 @@ export function EmployerNotifications() {
               </Button>
             </div>
           </div>
-          <nav className="em-not-tabs" aria-label="Lọc trạng thái đọc">
-            {[
-              ["all", "Tất cả", state.notifications.length],
-              ["unread", "Chưa đọc", unread],
-              ["read", "Đã đọc", state.notifications.length - unread],
-            ].map(([value, label, count]) => (
-              <Link
-                key={value}
-                href={`/employer/notifications?read=${value}`}
-                aria-current={filter === value ? "page" : undefined}
-              >
-                {label}
-                <small>{count}</small>
-              </Link>
-            ))}
-          </nav>
+          <div className="em-not-toolbar">
+            <nav className="em-not-tabs" aria-label="Lọc trạng thái đọc">
+              {[
+                ["all", "Tất cả", inPeriod.length],
+                ["unread", "Chưa đọc", periodUnread],
+                ["read", "Đã đọc", inPeriod.length - periodUnread],
+              ].map(([value, label, count]) => (
+                <Link
+                  key={value}
+                  href={notificationUrl(
+                    "/employer/notifications",
+                    String(value),
+                    period,
+                  )}
+                  aria-current={filter === value ? "page" : undefined}
+                >
+                  {label}
+                  <small>{count}</small>
+                </Link>
+              ))}
+            </nav>
+            <NotificationPeriodSelect
+              value={period}
+              onChange={(next) =>
+                router.push(
+                  notificationUrl("/employer/notifications", filter, next),
+                  { scroll: false },
+                )
+              }
+            />
+          </div>
           {!items.length && (
             <div className="em-not-empty" role="status">
               <Bell size={36} aria-hidden="true" />
@@ -182,7 +208,7 @@ export function EmployerNotifications() {
                 Các cập nhật về hồ sơ và tin nhắn của ứng viên sẽ xuất hiện tại
                 đây.
               </p>
-              {filter !== "all" && (
+              {(filter !== "all" || period !== "all") && (
                 <Link className="ep-text-link" href="/employer/notifications">
                   Xem tất cả thông báo
                   <ArrowRight size={16} aria-hidden="true" />
@@ -310,7 +336,7 @@ export function EmployerNotifications() {
               page={result.page}
               lastPage={result.lastPage}
               pageUrl={(page) =>
-                `/employer/notifications?read=${filter}&page=${page}`
+                notificationUrl("/employer/notifications", filter, period, page)
               }
               label="Phân trang thông báo"
             />
@@ -333,7 +359,7 @@ export function EmployerNotifications() {
                   <dt>{label}</dt>
                   <dd>
                     {
-                      state.notifications.filter(
+                      inPeriod.filter(
                         (item) => item.type === type && !item.read_at,
                       ).length
                     }

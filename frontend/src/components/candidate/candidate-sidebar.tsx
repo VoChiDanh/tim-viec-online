@@ -6,6 +6,7 @@ import {
   Bell,
   BriefcaseBusiness,
   FileUser,
+  FileText,
   MessageSquare,
   Settings,
   UserRound,
@@ -18,6 +19,7 @@ import {
 
 const icons = {
   profile: FileUser,
+  resumes: FileText,
   jobs: BriefcaseBusiness,
   messages: MessageSquare,
   notifications: Bell,
