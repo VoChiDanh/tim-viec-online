@@ -8,7 +8,6 @@ import {
   Check,
   ExternalLink,
   FileText,
-  Info,
   LoaderCircle,
   Upload,
   X,
@@ -347,7 +346,9 @@ function ApplyForm({
                     <SelectTrigger
                       id={`${id}-resume`}
                       className="selection-trigger"
-                      aria-describedby={`${id}-resume-hint`}
+                      aria-describedby={
+                        resumeError ? `${id}-resume-hint` : undefined
+                      }
                     >
                       <SelectValue
                         placeholder={
@@ -381,33 +382,39 @@ function ApplyForm({
                     </SelectContent>
                   </Select>
                 </div>
-                {selectedExport && (
-                  <a
-                    className="apply-resume-preview"
-                    href={resumeFileUrl(
-                      resumes.find(
-                        (item) =>
-                          String(item.latest_export?.id) === selectedExport,
-                      )?.latest_export?.file_url || "",
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <div className="apply-resume-actions">
+                  {selectedExport && (
+                    <a
+                      className="apply-resume-preview"
+                      href={resumeFileUrl(
+                        resumes.find(
+                          (item) =>
+                            String(item.latest_export?.id) === selectedExport,
+                        )?.latest_export?.file_url || "",
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink size={14} aria-hidden="true" />
+                      Xem PDF đã chọn
+                    </a>
+                  )}
+                  <Link
+                    href="/account/resumes"
+                    className="apply-resume-library"
                   >
-                    <ExternalLink size={14} aria-hidden="true" />
-                    Xem PDF đã chọn
-                  </a>
+                    Quản lý CV của tôi
+                  </Link>
+                </div>
+                {resumeError && (
+                  <p
+                    id={`${id}-resume-hint`}
+                    role="status"
+                    className="apply-hint"
+                  >
+                    {resumeError}
+                  </p>
                 )}
-                <p
-                  id={`${id}-resume-hint`}
-                  role="status"
-                  className="apply-hint"
-                >
-                  {resumeError ||
-                    "Chỉ hiển thị CV đã xuất PDF. Bạn có thể tạo và xuất CV trong thư viện."}
-                </p>
-                <Link href="/account/resumes" className="apply-resume-library">
-                  Quản lý CV của tôi
-                </Link>
               </div>
             )}
           </>
@@ -477,10 +484,6 @@ function ApplyForm({
           {maxCoverLetter.toLocaleString("vi-VN")}
         </p>
       </Field>
-      <p className="apply-notice">
-        <Info aria-hidden="true" />
-        Mỗi công việc chỉ nhận một hồ sơ ứng tuyển của bạn.
-      </p>
       {!state.isApi && (
         <p className="apply-hint">
           Chế độ xem trước: CV chỉ được giữ trong phiên này, chưa gửi tới nhà

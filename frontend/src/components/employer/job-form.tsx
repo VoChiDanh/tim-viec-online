@@ -6,6 +6,7 @@ import {
   createContext,
   useContext,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,8 @@ import {
   CheckCircle2,
   FilePenLine,
   Lightbulb,
+  Search,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEmployer } from "./employer-provider";
@@ -226,6 +229,7 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [skillSearch, setSkillSearch] = useState("");
+  const skillSearchInput = useRef<HTMLInputElement>(null);
   const skillKeyword = normalizeSearch(skillSearch);
   const visibleSkills = skills.filter((skill) =>
     normalizeSearch(skill.name).includes(skillKeyword),
@@ -450,19 +454,36 @@ function JobEditor({ existing }: { existing?: EmployerJob }) {
                 <FieldLabel htmlFor={`${prefix}-skill-search`}>
                   Tìm kỹ năng
                 </FieldLabel>
-                <Input
-                  id={`${prefix}-skill-search`}
-                  type="search"
-                  placeholder="Nhập tên kỹ năng…"
-                  value={skillSearch}
-                  maxLength={100}
-                  autoComplete="off"
-                  aria-controls={`${prefix}-skill-options`}
-                  onChange={(event) => setSkillSearch(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") event.preventDefault();
-                  }}
-                />
+                <div className="ep-search ep-skill-search-control">
+                  <Search className="ep-icon" aria-hidden="true" />
+                  <Input
+                    ref={skillSearchInput}
+                    id={`${prefix}-skill-search`}
+                    type="search"
+                    placeholder="Nhập tên kỹ năng…"
+                    value={skillSearch}
+                    maxLength={100}
+                    autoComplete="off"
+                    aria-controls={`${prefix}-skill-options`}
+                    onChange={(event) => setSkillSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault();
+                    }}
+                  />
+                  {skillSearch && (
+                    <button
+                      type="button"
+                      className="ep-skill-search-clear"
+                      aria-label="Xóa tìm kỹ năng"
+                      onClick={() => {
+                        setSkillSearch("");
+                        skillSearchInput.current?.focus();
+                      }}
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
                 <p className="ep-skill-count" role="status">
                   Đã chọn {values.skill_ids.length} kỹ năng
                 </p>

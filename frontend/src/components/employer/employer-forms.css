@@ -558,6 +558,54 @@
 .employer-page .ep-skill-search > label {
   font-size: 12px;
 }
+.employer-page .ep-skill-search-control {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--workspace-field-radius);
+  background: var(--ep-white, #fff);
+}
+.employer-page .ep-skill-search-control > .ep-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+.employer-page .ep-skill-search-control input,
+.employer-page .ep-skill-search-control input:focus-visible {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  font-size: var(--workspace-control-size);
+}
+.ep-skill-search-control input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.employer-page .ep-skill-search-clear {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 36px;
+  margin-right: -6px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--workspace-field-radius);
+  background: transparent;
+  color: var(--ep-muted);
+  cursor: pointer;
+}
+.employer-page .ep-skill-search-clear:hover {
+  background: var(--selection-background);
+  color: var(--ep-blue);
+}
+@media (max-width: 600px) {
+  .employer-page .ep-skill-search-control input,
+  .employer-page .ep-skill-search-control input:focus-visible {
+    font-size: 16px;
+  }
+}
 .employer-page .ep-skill-count,
 .employer-page .ep-skill-empty {
   margin: 0;

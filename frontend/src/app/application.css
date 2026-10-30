@@ -149,6 +149,12 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.apply-resume-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 .apply-resume-preview,
 .apply-resume-library {
   display: inline-flex;
@@ -195,18 +201,6 @@
 }
 .apply-count {
   text-align: right;
-}
-.apply-notice {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  font-size: 12px;
-  line-height: 1.6;
-}
-.apply-notice svg {
-  width: 16px;
-  height: 20px;
-  flex-shrink: 0;
 }
 .apply-error {
   color: var(--destructive);

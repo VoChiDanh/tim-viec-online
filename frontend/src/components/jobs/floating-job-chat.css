@@ -254,7 +254,8 @@
     width: 32px;
     height: 32px;
   }
-  .jf-composer [data-slot="textarea"] {
+  .jf-composer [data-slot="textarea"],
+  .jf-composer [data-slot="textarea"]:focus-visible {
     font-size: 16px;
   }
   .jf-composer-box [data-slot="button"] {

@@ -179,6 +179,7 @@ function JobChatThread({
   );
   const id = conversation?.id;
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [announcement, setAnnouncement] = useState("");
 
@@ -191,7 +192,7 @@ function JobChatThread({
     ));
     request.catch((issue) => {
       if (active)
-        setError(
+        setLoadError(
           issue instanceof Error
             ? issue.message
             : "Không mở được hội thoại. Vui lòng thử lại.",
@@ -214,7 +215,7 @@ function JobChatThread({
     let active = true;
     current.current.loadMessages(id).catch((issue) => {
       if (active)
-        setError(
+        setLoadError(
           issue instanceof Error
             ? issue.message
             : "Không tải được tin nhắn. Vui lòng thử lại.",
@@ -261,7 +262,7 @@ function JobChatThread({
   };
   const retryLoad = () => {
     startingRef.current = null;
-    setError("");
+    setLoadError("");
     setAttempt((value) => value + 1);
   };
 
@@ -294,7 +295,7 @@ function JobChatThread({
             }}
           />
           {(!conversation || (state.isApi && !history?.loaded)) &&
-            !error &&
+            !loadError &&
             !history?.loading && (
               <p className="jf-status" role="status">
                 Đang mở hội thoại…
@@ -359,10 +360,10 @@ function JobChatThread({
           </Button>
         )}
       </div>
-      {error && (
+      {(loadError || error) && (
         <div className="jf-error" role="alert">
-          <span id="job-chat-error">{error}</span>
-          {(!conversation || !history?.loaded) && (
+          <span id="job-chat-error">{loadError || error}</span>
+          {loadError && (
             <Button
               type="button"
               size="sm"
@@ -393,7 +394,7 @@ function JobChatThread({
             placeholder="Viết tin nhắn…"
             value={draft}
             disabled={!conversation}
-            aria-describedby={`job-chat-hint${error ? " job-chat-error" : ""}`}
+            aria-describedby={`job-chat-hint${loadError || error ? " job-chat-error" : ""}`}
             onChange={(event) => updateDraft(event.target.value)}
             onKeyDown={(event) =>
               handleMessageComposerKeyDown(event, updateDraft)
