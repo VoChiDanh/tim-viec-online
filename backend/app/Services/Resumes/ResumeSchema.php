@@ -8,7 +8,7 @@ class ResumeSchema
 {
     public const SECTIONS = ['experience', 'education', 'skills', 'projects', 'certifications', 'languages', 'activities'];
 
-    public const TEMPLATES = ['classic', 'modern', 'minimal'];
+    public const TEMPLATES = ['classic', 'modern', 'minimal', 'executive', 'elegant', 'technical'];
 
     public const FIELDS = [
         'experience' => ['company' => 150, 'position' => 150, 'description' => 2000],
@@ -29,22 +29,22 @@ class ResumeSchema
 
     public static function rules(): array
     {
-        $rules = ['name' => 'required|string|max:120', 'template_key' => 'required|in:classic,modern,minimal', 'template_version' => 'required|integer|in:1', 'schema_version' => 'required|integer|in:1',
+        $rules = ['name' => 'required|string|max:120', 'template_key' => 'required|in:'.implode(',', self::TEMPLATES), 'template_version' => 'required|integer|in:1', 'schema_version' => 'required|integer|in:1',
             'content' => 'required|array:basics,'.implode(',', self::SECTIONS), 'content.basics' => 'required|array:full_name,headline,email,phone,city,summary,links,photo_asset_id',
-            'content.basics.links' => 'present|array|max:10', 'content.basics.links.*' => 'array:id,label,url',
+            'content.basics.links' => 'present|array|list|max:10', 'content.basics.links.*' => 'array:id,label,url',
             'content.basics.links.*.id' => 'required|uuid', 'content.basics.links.*.label' => 'present|string|max:100', 'content.basics.links.*.url' => 'present|string|max:1000',
             'content.basics.photo_asset_id' => 'present|nullable|integer|min:1',
             'settings' => 'required|array:accent,font_size,line_spacing,section_order,hidden_sections,starter_version',
             'settings.starter_version' => 'sometimes|integer|in:1',
             'settings.accent' => 'required|in:blue,teal,slate', 'settings.font_size' => 'required|in:small,normal,large', 'settings.line_spacing' => 'required|in:compact,normal',
-            'settings.section_order' => 'required|array|size:7', 'settings.section_order.*' => 'required|distinct|in:'.implode(',', self::SECTIONS),
-            'settings.hidden_sections' => 'present|array|max:7', 'settings.hidden_sections.*' => 'required|distinct|in:'.implode(',', self::SECTIONS)];
+            'settings.section_order' => 'required|array|list|size:7', 'settings.section_order.*' => 'required|distinct|in:'.implode(',', self::SECTIONS),
+            'settings.hidden_sections' => 'present|array|list|max:7', 'settings.hidden_sections.*' => 'required|distinct|in:'.implode(',', self::SECTIONS)];
         foreach (['full_name' => 120, 'headline' => 150, 'email' => 254, 'phone' => 30, 'city' => 150, 'summary' => 2000] as $key => $max) {
             $rules["content.basics.$key"] = "present|string|max:$max";
         }
         foreach (self::FIELDS as $section => $fields) {
             $keys = ['id', ...array_keys($fields)];
-            $rules["content.$section"] = 'present|array|max:20';
+            $rules["content.$section"] = 'present|array|list|max:20';
             $rules["content.$section.*.id"] = 'required|uuid';
             foreach ($fields as $key => $max) {
                 $rules["content.$section.*.$key"] = "present|string|max:$max";

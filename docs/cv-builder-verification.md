@@ -2,13 +2,27 @@
 
 Chức năng đã triển khai trên `feature/cv-builder`. Hướng dẫn bật và chạy: [cv-builder-setup.md](cv-builder-setup.md). Các kết quả CI/benchmark bên dưới thuộc lượt triển khai ban đầu trên database riêng cổng 33063. Lượt chỉnh giao diện mới được ghi riêng dưới đây.
 
+## Rà soát trước merge vào develop — 30/10/2026
+
+- Sửa mất bản nháp khi Next giữ editor trong React Activity: giữ cùng bộ tự lưu và revision, lưu các thay đổi đang chờ khi rời trang, giữ lỗi/xung đột khi quay lại và không tải lại dữ liệu đã khởi tạo. Kiểm thử Chromium dùng editor thật, API mô phỏng, xác nhận lưu sau điều hướng, tiếp tục sửa theo revision mới, thử lại lỗi 422 và giữ bản nháp xung đột qua nhiều lần ẩn/hiện. Bài này được thêm vào CI bằng `npm run test:cv-lifecycle`.
+- Liên hệ dài được tách khỏi tiêu đề không ngắt trang. Kiểm tra cả sáu mẫu với mười URL gần giới hạn 1.000 ký tự: giữ đủ toàn bộ URL khi phân trang. Các danh sách trong API phải là JSON array; request dạng object bị trả 422 và không đổi revision đã lưu.
+- Backend toàn bộ: **197 tests / 2.026 assertions đạt**, trên `tim_viec_online_cv_wizard_test`. Frontend: **136 unit, 11 server, 9 renderer, 1 browser worker và 1 Activity lifecycle đạt**. Production build/TypeScript, ESLint, Pint, Composer validate và audit đạt; npm audit không có mức high/critical, còn ba cảnh báo low từ công cụ shadcn CLI.
+- Review độc lập backend và frontend đã kiểm tra lại các trường hợp tái hiện sau sửa, không còn lỗi chặn merge trong phạm vi rà soát.
+- E2E production build với Laravel/queue thật trên database disposable cổng 33063: **1 test đạt**, không retry. Bao gồm điều hướng trước khi tự lưu, hai tab xung đột, lưu bản sao, reload, preview 360/768/1440px và axe, tải `Nguyễn Minh An CV.pdf`, ứng tuyển, xóa bản nháp và employer tải lại đúng bytes PDF của đơn đã nộp. Spec dùng locator theo role để không chọn nhầm editor ẩn trong cache. Không reset hoặc seed database phát triển.
+
+## Bổ sung ba mẫu CV — 30/10/2026
+
+Thêm Điều hành (`executive`), Thanh lịch (`elegant`) và Chuyên môn (`technical`), nâng danh sách lên sáu mẫu ở trang tạo CV và trong editor. Điều hành có tiêu đề nền đậm; Thanh lịch có trục dọc mảnh; Chuyên môn đặt kỹ năng/ngoại ngữ bên phải và dùng một cột khi hồ sơ ít nội dung. Dùng chung dữ liệu, ảnh riêng tư, màu sắc, cỡ chữ và giãn dòng hiện có. Backend dùng cùng allowlist cho tạo/lưu; không cần migration. Renderer tăng lên `5`; đã rebuild artifact và tạo đủ sáu ảnh mẫu 1200×1698 từ PDF thật.
+
+Kiểm chứng: 136 unit tests, 8 renderer tests và browser worker cho đủ sáu mẫu đạt. Backend Resume đạt 22 tests / 218 assertions trên `tim_viec_online_cv_wizard_test`; production build/TypeScript, scoped ESLint, Pint và diff check đạt. Renderer kiểm tra tiếng Việt, nội dung nhiều trang, tên/email dài, ảnh, ẩn/sắp xếp mục và hồ sơ thưa nội dung. Browser API thật kiểm tra tạo/xem trước/xuất/tải cả ba mẫu mới, upload ảnh rồi đổi qua đủ sáu mẫu giữ nguyên nội dung, reload giữ thay đổi, tải đúng tên `Nguyễn An Kiểm Tra CV.pdf`. PDF tải về đều một trang có ảnh và văn bản tiếng Việt; thẻ mẫu không tràn ở 360px, axe trên thư viện không ghi nhận vi phạm. Tài khoản, CV, ảnh và PDF thử đã được dọn; không nộp đơn hoặc gửi email thử.
+
 ## Ảnh mẫu khi tạo CV
 
 Dropdown chọn CV trong hộp thoại ứng tuyển dùng Radix Select với giao diện `selection-menu` chung. Nhãn, hướng dẫn và liên kết thư viện tách dòng; khóa lựa chọn khi đang tải/gửi, hiển thị trạng thái rỗng/lỗi riêng. Browser API thật kiểm tra chọn bản PDF ready, liên kết xem đúng export, tên dài không tràn ở 360px, ArrowDown/Escape trả focus về dropdown và không đóng dialog cha; axe không có vi phạm. Kiểm tra payload ứng tuyển qua request bị chặn tại browser xác nhận `cv_source=builder` và đúng `resume_export_id`, không gửi đơn thật. Build/TypeScript và lint đạt; spec E2E đã đổi sang thao tác combobox/option, chưa chạy lại toàn bộ suite E2E trong lượt này.
 
 Ba ảnh mẫu được dựng lại từ renderer hiện tại và `tests/fixtures/resumes/showcase.json`, cùng kích thước 1200×1698. Bản Modern cũ chỉ 300×425 nên bị mờ khi phóng theo thẻ. Dùng static import và `sizes` cho ảnh responsive; URL theo nội dung tránh giữ ảnh cũ trong cache. Đã kiểm tra lựa chọn mẫu, ảnh trên màn hình 1920px ở DPR 1/2 và bố cục 360px; build/TypeScript/lint đạt.
 
-Để dựng lại ảnh sau khi sửa template: trong `frontend`, chạy `npm run build:cv-renderer`, rồi `python scripts/generate-resume-covers.py` (cần PyMuPDF). Script dùng thư mục tạm cho PDF và chỉ cập nhật ba PNG sau khi tất cả mẫu render thành công.
+Để dựng lại ảnh sau khi sửa template: trong `frontend`, chạy `npm run build:cv-renderer`, rồi `python scripts/generate-resume-covers.py` (cần PyMuPDF). Script dùng thư mục tạm cho PDF và chỉ cập nhật sáu PNG sau khi tất cả mẫu render thành công.
 
 ## Ảnh xem trước trong thư viện CV
 

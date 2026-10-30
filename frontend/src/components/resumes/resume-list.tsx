@@ -31,6 +31,9 @@ import type { ResumeThumbnailRenderer } from "@/features/resumes/thumbnail-rende
 import classicCover from "../../../public/resume-templates/classic.png";
 import modernCover from "../../../public/resume-templates/modern.png";
 import minimalCover from "../../../public/resume-templates/minimal.png";
+import executiveCover from "../../../public/resume-templates/executive.png";
+import elegantCover from "../../../public/resume-templates/elegant.png";
+import technicalCover from "../../../public/resume-templates/technical.png";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +50,9 @@ const templateCovers = {
   classic: classicCover,
   modern: modernCover,
   minimal: minimalCover,
+  executive: executiveCover,
+  elegant: elegantCover,
+  technical: technicalCover,
 };
 
 export function ResumeLibrary({

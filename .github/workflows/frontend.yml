@@ -75,6 +75,7 @@ jobs:
         run: |
           npm run test:cv-renderer
           npm run test:cv-preview
+          npm run test:cv-lifecycle
       - name: Browser regression tests
         run: |
           npm run test:e2e

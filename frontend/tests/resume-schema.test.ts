@@ -1,10 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { RESUME_TEMPLATES } from "../src/features/resumes/templates";
 import {
   emptyResume,
   resumeDocumentSchema,
   validateForExport,
 } from "../src/features/resumes/schema";
+
+test("all six template choices accept the same document without changing its content", () => {
+  const keys = [
+    "classic",
+    "modern",
+    "minimal",
+    "executive",
+    "elegant",
+    "technical",
+  ];
+  assert.deepEqual(
+    RESUME_TEMPLATES.map((item) => item.key),
+    keys,
+  );
+  const doc = emptyResume();
+  doc.content.basics.full_name = "Nguyễn Minh An";
+  doc.content.basics.headline = "Kỹ sư phần mềm";
+  doc.content.basics.email = "an@example.test";
+  doc.content.skills.push({
+    id: crypto.randomUUID(),
+    name: "TypeScript",
+    detail: "React",
+  });
+  for (const template_key of keys) {
+    const parsed = validateForExport({ ...doc, template_key });
+    assert.equal(parsed.template_key, template_key);
+    assert.deepEqual(parsed.content, doc.content);
+    assert.deepEqual(parsed.settings, doc.settings);
+  }
+  assert.equal(
+    resumeDocumentSchema.safeParse({ ...doc, template_key: "unknown" }).success,
+    false,
+  );
+});
 
 test("blank drafts are valid; exports require actual identity and content", () => {
   const draft = emptyResume();

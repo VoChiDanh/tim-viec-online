@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { TEMPLATE_KEYS } from "../src/features/resumes/schema";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("the browser worker creates a Vietnamese PDF without blocking the editor thread", async () => {
@@ -47,37 +48,39 @@ test("the browser worker creates a Vietnamese PDF without blocking the editor th
         "utf8",
       ),
     );
-    const result = await page.evaluate(
-      (document) =>
-        new Promise<{ header: string; size: number }>((resolve, reject) => {
-          const worker = new Worker("/worker.js", { type: "module" });
-          const timeout = setTimeout(() => {
-            worker.terminate();
-            reject(new Error("Preview timed out"));
-          }, 15000);
-          worker.onerror = (event) => {
-            clearTimeout(timeout);
-            worker.terminate();
-            reject(new Error(event.message));
-          };
-          worker.onmessage = ({ data }) => {
-            clearTimeout(timeout);
-            worker.terminate();
-            if (data.error) reject(new Error(data.error));
-            else
-              resolve({
-                header: new TextDecoder().decode(
-                  new Uint8Array(data.bytes).subarray(0, 5),
-                ),
-                size: data.bytes.byteLength,
-              });
-          };
-          worker.postMessage({ requestId: 1, document });
-        }),
-      doc,
-    );
-    assert.equal(result.header, "%PDF-");
-    assert.ok(result.size > 1000 && result.size < 5 * 1024 * 1024);
+    for (const template of TEMPLATE_KEYS) {
+      const result = await page.evaluate(
+        (document) =>
+          new Promise<{ header: string; size: number }>((resolve, reject) => {
+            const worker = new Worker("/worker.js", { type: "module" });
+            const timeout = setTimeout(() => {
+              worker.terminate();
+              reject(new Error("Preview timed out"));
+            }, 15000);
+            worker.onerror = (event) => {
+              clearTimeout(timeout);
+              worker.terminate();
+              reject(new Error(event.message));
+            };
+            worker.onmessage = ({ data }) => {
+              clearTimeout(timeout);
+              worker.terminate();
+              if (data.error) reject(new Error(data.error));
+              else
+                resolve({
+                  header: new TextDecoder().decode(
+                    new Uint8Array(data.bytes).subarray(0, 5),
+                  ),
+                  size: data.bytes.byteLength,
+                });
+            };
+            worker.postMessage({ requestId: 1, document });
+          }),
+        { ...doc, template_key: template },
+      );
+      assert.equal(result.header, "%PDF-");
+      assert.ok(result.size > 1000 && result.size < 5 * 1024 * 1024);
+    }
   } finally {
     await browser.close();
     await new Promise<void>((resolve, reject) =>

@@ -2,6 +2,7 @@ export type SaveStatus = "saved" | "dirty" | "saving" | "error" | "conflict";
 export class ResumeAutosave<T> {
   revision: number;
   status: SaveStatus = "saved";
+  error?: unknown;
   dirty = false;
   private draft?: T;
   private version = 0;
@@ -22,6 +23,7 @@ export class ResumeAutosave<T> {
   }
   private report(status: SaveStatus, error?: unknown) {
     this.status = status;
+    this.error = error;
     if (!this.closed) this.notify(status, error);
   }
   change(value: T) {

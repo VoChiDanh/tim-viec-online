@@ -57,6 +57,11 @@ export function ResumeDocument({
   const palette = PALETTES[doc.settings.accent];
   const isModern = doc.template_key === "modern";
   const isMinimal = doc.template_key === "minimal";
+  const isExecutive = doc.template_key === "executive";
+  const isElegant = doc.template_key === "elegant";
+  const isTechnical = doc.template_key === "technical";
+  const stackDates = isModern || isTechnical;
+  const nameSize = isElegant ? 30 : isMinimal || isModern ? 26 : 28;
   const isSidebar = (key: SectionKey) =>
     key === "skills" || key === "languages";
   const sections = doc.settings.section_order.filter(
@@ -84,7 +89,9 @@ export function ResumeDocument({
     );
   // Short profiles stay readable across the page rather than leaving an empty column.
   const useColumns =
-    isModern && sections.some(isSidebar) && narrativeLength >= 240;
+    (isModern || isTechnical) &&
+    sections.some(isSidebar) &&
+    narrativeLength >= 240;
   const fontSize = { small: 8.5, normal: 9.5, large: 10.5 }[
     doc.settings.font_size
   ];
@@ -94,7 +101,7 @@ export function ResumeDocument({
     page: {
       fontFamily: "ResumeVietnam",
       fontSize,
-      paddingTop: 34,
+      paddingTop: isElegant ? 42 : 34,
       paddingHorizontal: 36,
       paddingBottom: 42,
       color: "#243247",
@@ -105,7 +112,15 @@ export function ResumeDocument({
       top: 0,
       left: 0,
       right: 0,
-      height: isModern ? 4 : 3,
+      height: isModern || isTechnical ? 4 : 3,
+      backgroundColor: palette.accent,
+    },
+    sideRule: {
+      position: "absolute",
+      top: 34,
+      bottom: 42,
+      left: 22,
+      width: 2,
       backgroundColor: palette.accent,
     },
     header: {
@@ -113,10 +128,17 @@ export function ResumeDocument({
       alignItems: "center",
       gap: 22,
       paddingBottom: 18,
-      marginBottom: isModern ? 14 : 18,
+      marginBottom: isModern || isExecutive ? 14 : 18,
       borderBottomWidth: 1,
-      borderBottomColor: isMinimal ? "#dce3eb" : palette.accent,
+      borderBottomColor: isMinimal || isElegant ? "#dce3eb" : palette.accent,
       backgroundColor: "#ffffff",
+      ...(isExecutive
+        ? {
+            backgroundColor: palette.dark,
+            padding: 18,
+            borderBottomWidth: 0,
+          }
+        : {}),
     },
     identity: {
       flex: 1,
@@ -124,15 +146,15 @@ export function ResumeDocument({
       ...(isMinimal ? { alignItems: "center" as const } : {}),
     },
     name: {
-      fontSize: isMinimal || isModern ? 26 : 28,
+      fontSize: nameSize,
       fontWeight: 700,
-      color: palette.dark,
+      color: isExecutive ? "#ffffff" : palette.dark,
       lineHeight: 1.35,
     },
     headline: {
       fontSize: 11,
       marginTop: 8,
-      color: palette.accent,
+      color: isExecutive ? "#e5eefb" : palette.accent,
       lineHeight: 1.6,
     },
     photo: {
@@ -149,7 +171,11 @@ export function ResumeDocument({
       rowGap: 3,
       marginTop: 12,
     },
-    contactInline: { fontSize: 8.5, color: "#475569", textDecoration: "none" },
+    contactInline: {
+      fontSize: 8.5,
+      color: isExecutive ? "#e5eefb" : "#475569",
+      textDecoration: "none",
+    },
     contactStrip: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -171,17 +197,31 @@ export function ResumeDocument({
       alignItems: "center",
       gap: 10,
       marginBottom: 7,
+      ...(isExecutive
+        ? {
+            backgroundColor: palette.tint,
+            paddingVertical: 1,
+            paddingHorizontal: 8,
+            borderLeftWidth: 3,
+            borderLeftColor: palette.accent,
+          }
+        : {}),
     },
     title: {
       fontSize: 10,
       fontWeight: 700,
-      color: isMinimal ? palette.dark : palette.accent,
-      letterSpacing: isMinimal ? 1.3 : 0.7,
+      color: isMinimal || isElegant ? palette.dark : palette.accent,
+      letterSpacing: isElegant ? 1.6 : isMinimal ? 1.3 : 0.7,
       lineHeight: 1.6,
       textTransform: "uppercase",
     },
     headingRule: { flex: 1, height: 1, backgroundColor: "#dce3eb" },
-    item: { marginBottom: 8 },
+    item: {
+      marginBottom: isExecutive ? 6 : 8,
+      ...(isElegant
+        ? { borderLeftWidth: 1, borderLeftColor: "#dce3eb", paddingLeft: 14 }
+        : {}),
+    },
     skillItem: { marginBottom: 5 },
     skillTitle: { fontSize: fontSize - 1, fontWeight: 500, lineHeight: 1.4 },
     skillDescription: {
@@ -227,6 +267,13 @@ export function ResumeDocument({
       paddingRight: 16,
       borderRightWidth: 1,
       borderRightColor: "#dce3eb",
+      ...(isTechnical
+        ? {
+            backgroundColor: palette.tint,
+            padding: 14,
+            borderRightWidth: 0,
+          }
+        : {}),
     },
     main: { flex: 1, minWidth: 0 },
     footer: {
@@ -247,9 +294,10 @@ export function ResumeDocument({
     full_name: singleLine(doc.content.basics.full_name),
     headline: singleLine(doc.content.basics.headline),
   };
-  const bodyWidth = useColumns ? 329 : 523;
-  const sidebarWidth = 157;
-  const headerWidth = 523 - (photo ? (isModern ? 86 : 94) : 0);
+  const bodyWidth = useColumns ? 329 : isElegant ? 508 : 523;
+  const sidebarWidth = isTechnical ? 146 : 157;
+  const headerWidth =
+    523 - (photo ? (isModern ? 86 : 94) : 0) - (isExecutive ? 40 : 0);
   const nameCharacters = Array.from(basics.full_name);
   const footerName =
     nameCharacters.length > 60
@@ -259,7 +307,9 @@ export function ResumeDocument({
     return (
       <View style={styles.sectionHeading} minPresenceAhead={42} wrap={false}>
         <Text style={styles.title}>{label}</Text>
-        {(!isModern || !useColumns) && <View style={styles.headingRule} />}
+        {!isExecutive && (!isModern || !useColumns) && (
+          <View style={styles.headingRule} />
+        )}
       </View>
     );
   }
@@ -347,7 +397,7 @@ export function ResumeDocument({
                       key === "skills" ? fontSize - 1 : fontSize,
                     )}
                   </Text>
-                  {!isModern && date ? (
+                  {!stackDates && date ? (
                     <Text style={styles.date}>{date}</Text>
                   ) : null}
                 </View>
@@ -360,7 +410,7 @@ export function ResumeDocument({
                     )}
                   </Text>
                 ) : null}
-                {isModern && date ? (
+                {stackDates && date ? (
                   <Text style={styles.date}>{date}</Text>
                 ) : null}
               </View>
@@ -403,6 +453,10 @@ export function ResumeDocument({
         url: item.url,
       })),
   ].filter((item) => item.value);
+  // Long contacts must flow across pages instead of growing an unbreakable header.
+  const contactsInStrip =
+    isModern ||
+    contacts.reduce((length, item) => length + item.value.length, 0) > 600;
   const summary = basics.summary ? (
     <View style={styles.summary}>
       {heading("Giới thiệu")}
@@ -411,23 +465,31 @@ export function ResumeDocument({
       </Text>
     </View>
   ) : null;
+  const secondaryColumn = (
+    <View style={styles.sidebar}>
+      {sections.filter(isSidebar).map(section)}
+    </View>
+  );
+  const mainColumn = (
+    <View style={styles.main}>
+      {summary}
+      {sections.filter((key) => !isSidebar(key)).map(section)}
+    </View>
+  );
   return (
     <Document title={doc.name} author={basics.full_name} language="vi-VN">
       <Page size="A4" style={styles.page} wrap>
-        {!isMinimal && <View style={styles.topRule} fixed />}
+        {!isMinimal && !isElegant && <View style={styles.topRule} fixed />}
+        {isElegant && <View style={styles.sideRule} fixed />}
         <View style={styles.header} wrap={false}>
           <View style={styles.identity}>
             <Text style={styles.name}>
-              {breakLongTokens(
-                basics.full_name,
-                headerWidth,
-                isMinimal || isModern ? 26 : 28,
-              )}
+              {breakLongTokens(basics.full_name, headerWidth, nameSize)}
             </Text>
             <Text style={styles.headline}>
               {breakLongTokens(basics.headline, headerWidth, 11)}
             </Text>
-            {!isModern && (
+            {!contactsInStrip && (
               <View style={styles.contactRow}>
                 {contacts.map((item, index) =>
                   item.url ? (
@@ -449,7 +511,7 @@ export function ResumeDocument({
           </View>
           {photo ? <PdfImage src={photo} style={styles.photo} /> : null}
         </View>
-        {isModern && contacts.length > 0 && (
+        {contactsInStrip && contacts.length > 0 && (
           <View style={styles.contactStrip}>
             {contacts.map((item, index) => (
               <View key={index} style={{ maxWidth: 499 }}>
@@ -468,17 +530,17 @@ export function ResumeDocument({
         )}
         {useColumns ? (
           <View style={styles.columns}>
-            <View style={styles.sidebar}>
-              {sections
-                .filter((key) => key === "skills" || key === "languages")
-                .map(section)}
-            </View>
-            <View style={styles.main}>
-              {summary}
-              {sections
-                .filter((key) => key !== "skills" && key !== "languages")
-                .map(section)}
-            </View>
+            {isTechnical ? (
+              <>
+                {mainColumn}
+                {secondaryColumn}
+              </>
+            ) : (
+              <>
+                {secondaryColumn}
+                {mainColumn}
+              </>
+            )}
           </View>
         ) : (
           <>

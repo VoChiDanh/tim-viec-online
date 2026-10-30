@@ -76,7 +76,7 @@
 | FR-03.4 | Nếu file tải lên không phải đuôi `.pdf` hoặc dung lượng lớn hơn 5 MB, hệ thống hiển thị "Chỉ chấp nhận file định dạng PDF dung lượng dưới 5MB" và không lưu file. |
 | FR-03.5 | File CV lưu thành công được hệ thống cấp đường dẫn xem trực tiếp (PDF Preview) trên trình duyệt, không bắt buộc người dùng phải tải về máy mới xem được. |
 | FR-03.6 | Trường hợp file CV là dạng ảnh scan không chứa văn bản trích xuất được hoặc file bị lỗi font, hệ thống thông báo "File CV dạng ảnh scan không thể đọc nội dung, vui lòng tải CV dạng văn bản chuẩn". |
-| FR-03.7 | Ứng viên quản lý tối đa 20 bản nháp CV riêng tư; tạo từ ba mẫu classic/modern/minimal, đổi tên, sao chép và xóa. Không thay thế file CV mặc định đã upload. |
+| FR-03.7 | Ứng viên quản lý tối đa 20 bản nháp CV riêng tư; tạo từ sáu mẫu classic/modern/minimal/executive/elegant/technical, đổi mẫu, đổi tên, sao chép và xóa. Không thay thế file CV mặc định đã upload. |
 | FR-03.8 | CV gồm thông tin liên hệ, kinh nghiệm, học vấn, kỹ năng, dự án, chứng chỉ, ngoại ngữ và hoạt động. Được sắp xếp/ẩn mục, chọn màu/cỡ chữ/giãn dòng theo preset, thêm ảnh CV riêng tối đa 2 MB. |
 | FR-03.9 | Tự lưu bản nháp có revision; khi hai tab sửa cùng phiên bản, lần lưu cũ nhận 409 và không ghi đè nội dung mới. Cho phép lưu nháp thiếu nội dung, giữ nội dung đang nhập khi lỗi mạng. |
 | FR-03.10 | Xem trước và xuất PDF A4 chứa văn bản tiếng Việt; tối đa 5 trang và 5 MB cho CV do builder tạo. Trước xuất bắt buộc có họ tên, chức danh, email hợp lệ và ít nhất một mục nội dung. File tải xuống đặt tên theo họ tên trong bản xuất: `Tên ứng viên CV.pdf`, giữ dấu tiếng Việt và loại ký tự không hợp lệ trong tên file. |

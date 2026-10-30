@@ -4,12 +4,90 @@ import { execFileSync } from "node:child_process";
 import { readFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { emptyResume, TEMPLATE_KEYS } from "../src/features/resumes/schema";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 execFileSync(process.execPath, ["scripts/build-cv-renderer.mjs"], {
   cwd: root,
+});
+
+test("new templates have distinct printable layouts rather than falling back to classic", async () => {
+  const sample = JSON.parse(
+    await readFile(
+      path.join(root, "../tests/fixtures/resumes/showcase.json"),
+      "utf8",
+    ),
+  );
+  const positions = new Map<
+    string,
+    { name: number; experience: number; skills: number; entry: number }
+  >();
+  await mkdir(path.join(root, "test-results/resume-renderer"), {
+    recursive: true,
+  });
+  for (const template of ["executive", "elegant", "technical"]) {
+    const file = path.join(
+      root,
+      `test-results/resume-renderer/layout-${template}-${crypto.randomUUID()}.pdf`,
+    );
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      {
+        input: JSON.stringify({
+          document: { ...sample, template_key: template },
+        }),
+      },
+    );
+    const loading = getDocument({
+      data: new Uint8Array(await readFile(file)),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      assert.equal(
+        pdf.numPages,
+        1,
+        `${template}: showcase should fit on one page`,
+      );
+      const items = (await (await pdf.getPage(1)).getTextContent()).items;
+      const x = (text: string) => {
+        const item = items.find(
+          (item) =>
+            "str" in item &&
+            item.str.normalize("NFC").replace(/\s/g, "") ===
+              text.replace(/\s/g, ""),
+        );
+        assert.ok(item && "transform" in item, `${template}: missing ${text}`);
+        return item.transform[4];
+      };
+      positions.set(template, {
+        name: x("Nguyễn Minh An"),
+        experience: x("KINH NGHIỆM LÀM VIỆC"),
+        skills: x("KỸ NĂNG"),
+        entry: x("Product Designer"),
+      });
+    } finally {
+      await loading.destroy();
+    }
+  }
+  assert.ok(
+    positions.get("executive")!.name >= 54,
+    "executive identity should be inset inside its dark header",
+  );
+  assert.ok(
+    positions.get("elegant")!.entry >= 50,
+    "elegant entries should be inset beside the vertical rule",
+  );
+  assert.ok(
+    positions.get("technical")!.skills >
+      positions.get("technical")!.experience + 250,
+    "technical skills should appear in the right column",
+  );
 });
 test("all templates create paged Vietnamese text PDFs using local fonts", async () => {
   const output = path.join(root, "test-results/resume-renderer");
@@ -119,71 +197,143 @@ test("all templates create paged Vietnamese text PDFs using local fonts", async 
   }
 });
 
-test("sparse modern CVs use the page width and keep ordinary emails intact", async () => {
-  const doc = emptyResume();
-  doc.template_key = "modern";
-  doc.content.basics.full_name = "Nguyễn Minh An";
-  doc.content.basics.headline = "Project Manager";
-  doc.content.basics.email = "nguyen.minh.an1901@gmail.com";
-  doc.content.basics.phone = "0901234567";
-  doc.content.basics.city = "Khánh Hòa";
-  doc.content.skills = [
-    {
-      id: crypto.randomUUID(),
-      name: "Quản lý dự án",
-      detail:
-        "Lập kế hoạch, quản lý nguồn lực và phối hợp với các nhóm để hoàn thành mục tiêu đúng tiến độ.",
-    },
-  ];
-  doc.content.projects = [
-    {
-      id: crypto.randomUUID(),
-      name: "Ứng dụng tuyển dụng",
-      role: "",
-      url: "",
-      description: "",
-    },
-  ];
-  const file = path.join(
-    root,
-    "test-results/resume-renderer",
-    `sparse-modern-${crypto.randomUUID()}.pdf`,
+test("new layouts preserve photos, section visibility and reordered content", async () => {
+  const sample = JSON.parse(
+    await readFile(
+      path.join(root, "../tests/fixtures/resumes/showcase.json"),
+      "utf8",
+    ),
   );
-  await mkdir(path.dirname(file), { recursive: true });
-  execFileSync(
-    process.execPath,
-    [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
-    {
-      input: JSON.stringify({ document: doc }),
-    },
-  );
-  const loading = getDocument({
-    data: new Uint8Array(await readFile(file)),
-    standardFontDataUrl:
-      path
-        .join(root, "node_modules/pdfjs-dist/standard_fonts")
-        .replaceAll("\\", "/") + "/",
-  });
-  try {
-    const pdf = await loading.promise;
-    assert.equal(pdf.numPages, 1);
-    const items = (await (await pdf.getPage(1)).getTextContent()).items.filter(
-      (item) => "str" in item,
+  const photo = `data:image/png;base64,${(await readFile(path.join(root, "public/brand/logo.png"))).toString("base64")}`;
+  for (const template_key of ["executive", "elegant", "technical"]) {
+    const doc = structuredClone(sample);
+    doc.template_key = template_key;
+    doc.settings.accent = "teal";
+    doc.settings.font_size = "large";
+    doc.settings.line_spacing = "compact";
+    doc.settings.hidden_sections = ["projects"];
+    doc.settings.section_order = [
+      "education",
+      "experience",
+      "skills",
+      "languages",
+      "projects",
+      "certifications",
+      "activities",
+    ];
+    doc.content.basics.photo_asset_id = 1;
+    const file = path.join(
+      root,
+      `test-results/resume-renderer/photo-${template_key}-${crypto.randomUUID()}.pdf`,
     );
-    assert.ok(
-      items.some((item) => item.str === doc.content.basics.email),
-      "ordinary email should fit on one line",
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      { input: JSON.stringify({ document: doc, photo }) },
     );
-    assert.ok(
-      items.some(
-        (item) => item.str.includes("Lập kế hoạch") && item.width > 250,
-      ),
-      "skills should fill the available width when there is no main-column content",
-    );
-  } finally {
-    await loading.destroy();
+    const loading = getDocument({
+      data: new Uint8Array(await readFile(file)),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      let text = "";
+      let images = 0;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        text += (await page.getTextContent()).items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
+        images += (await page.getOperatorList()).fnArray.filter(
+          (op) => op === OPS.paintImageXObject,
+        ).length;
+      }
+      text = text.normalize("NFC").replace(/\s/g, "");
+      assert.ok(images > 0, `${template_key}: missing photo`);
+      assert.ok(
+        !text.includes("NềntảnghọctậpCùngTiến"),
+        `${template_key}: hidden project remains visible`,
+      );
+      assert.ok(
+        text.indexOf("CửnhânThiếtkếđồhọa") < text.indexOf("ProductDesigner"),
+        `${template_key}: section order ignored`,
+      );
+      assert.ok(text.includes("IELTS7.0"), `${template_key}: missing language`);
+    } finally {
+      await loading.destroy();
+    }
   }
 });
+
+for (const template of ["modern", "technical"] as const)
+  test(`sparse ${template} CVs use the page width and keep ordinary emails intact`, async () => {
+    const doc = emptyResume();
+    doc.template_key = template;
+    doc.content.basics.full_name = "Nguyễn Minh An";
+    doc.content.basics.headline = "Project Manager";
+    doc.content.basics.email = "nguyen.minh.an1901@gmail.com";
+    doc.content.basics.phone = "0901234567";
+    doc.content.basics.city = "Khánh Hòa";
+    doc.content.skills = [
+      {
+        id: crypto.randomUUID(),
+        name: "Quản lý dự án",
+        detail:
+          "Lập kế hoạch, quản lý nguồn lực và phối hợp với các nhóm để hoàn thành mục tiêu đúng tiến độ.",
+      },
+    ];
+    doc.content.projects = [
+      {
+        id: crypto.randomUUID(),
+        name: "Ứng dụng tuyển dụng",
+        role: "",
+        url: "",
+        description: "",
+      },
+    ];
+    const file = path.join(
+      root,
+      "test-results/resume-renderer",
+      `sparse-${template}-${crypto.randomUUID()}.pdf`,
+    );
+    await mkdir(path.dirname(file), { recursive: true });
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      {
+        input: JSON.stringify({ document: doc }),
+      },
+    );
+    const loading = getDocument({
+      data: new Uint8Array(await readFile(file)),
+      standardFontDataUrl:
+        path
+          .join(root, "node_modules/pdfjs-dist/standard_fonts")
+          .replaceAll("\\", "/") + "/",
+    });
+    try {
+      const pdf = await loading.promise;
+      assert.equal(pdf.numPages, 1);
+      const items = (
+        await (await pdf.getPage(1)).getTextContent()
+      ).items.filter((item) => "str" in item);
+      assert.ok(
+        items.some((item) => item.str === doc.content.basics.email),
+        "ordinary email should fit on one line",
+      );
+      assert.ok(
+        items.some(
+          (item) => item.str.includes("Lập kế hoạch") && item.width > 250,
+        ),
+        "skills should fill the available width when there is no main-column content",
+      );
+    } finally {
+      await loading.destroy();
+    }
+  });
 
 test("renderer rejects invalid input and never accepts user supplied font or image URLs", async () => {
   const draft = emptyResume();
@@ -357,6 +507,63 @@ test("valid multiline skill details and long contact text remain visible", async
       }
       assert.match(visible, /S65/, `${template}: missing final skill line`);
       assert.match(visible, /LAST/, `${template}: missing end of job title`);
+    } finally {
+      await loading.destroy();
+    }
+  }
+});
+
+test("all ten maximum-length contact links survive pagination in every template", async () => {
+  for (const template of TEMPLATE_KEYS) {
+    const doc = emptyResume();
+    doc.template_key = template;
+    doc.content.basics.full_name = "Nguyễn Minh An";
+    doc.content.basics.headline = "Kỹ sư phần mềm";
+    doc.content.basics.email = "an@example.test";
+    doc.content.basics.links = Array.from({ length: 10 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      label: "",
+      url: `https://example.test/${"x".repeat(950)}ENDCONTACT${index}`,
+    }));
+    doc.content.skills = [
+      { id: crypto.randomUUID(), name: "Laravel", detail: "API" },
+    ];
+    const file = path.join(
+      root,
+      "test-results/resume-renderer",
+      `contacts-${template}.pdf`,
+    );
+    execFileSync(
+      process.execPath,
+      [path.join(root, "dist/cv-renderer/render-cv.mjs"), file],
+      {
+        input: JSON.stringify({ document: doc }),
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    const loading = getDocument({ data: new Uint8Array(await readFile(file)) });
+    try {
+      const pdf = await loading.promise;
+      let visible = "";
+      for (let index = 1; index <= pdf.numPages; index++) {
+        const page = await pdf.getPage(index);
+        const items = (await page.getTextContent()).items;
+        visible += items
+          .filter(
+            (item) =>
+              "str" in item &&
+              item.transform[5] >= 42 &&
+              item.transform[5] <= page.view[3] - 30,
+          )
+          .map((item) => ("str" in item ? item.str : ""))
+          .join("");
+      }
+      visible = visible.replace(/\s/g, "");
+      for (const link of doc.content.basics.links)
+        assert.ok(
+          visible.includes(link.url),
+          `${template}: contact link was truncated`,
+        );
     } finally {
       await loading.destroy();
     }

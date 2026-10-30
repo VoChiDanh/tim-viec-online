@@ -10,7 +10,14 @@ export const SECTION_KEYS = [
   "activities",
 ] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
-export const TEMPLATE_KEYS = ["classic", "modern", "minimal"] as const;
+export const TEMPLATE_KEYS = [
+  "classic",
+  "modern",
+  "minimal",
+  "executive",
+  "elegant",
+  "technical",
+] as const;
 export const MAX_DOCUMENT_BYTES = 128 * 1024;
 const text = (max: number) =>
   z

@@ -46,7 +46,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
 }, info) => {
   await page.goto("/login?returnTo=%2Faccount%2Fresumes");
   await page
-    .getByLabel("Email", { exact: true })
+    .getByRole("textbox", { name: "Email", exact: true })
     .fill("candidate@frontend-e2e.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("BrowserTest1!");
   await Promise.all([
@@ -60,7 +60,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
   await expect(page).toHaveURL(/\/account\/resumes$/);
   await page.getByRole("link", { name: "Tạo CV mới", exact: true }).click();
   await page
-    .getByLabel("Tên CV", { exact: true })
+    .getByRole("textbox", { name: "Tên CV", exact: true })
     .fill("CV kiểm thử trình duyệt");
   await page.getByRole("radio", { name: /Hiện đại/ }).check();
   await page
@@ -100,7 +100,7 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
     },
   );
   const nameBeforeUpload = await page
-    .getByLabel("Tên CV", { exact: true })
+    .getByRole("textbox", { name: "Tên CV", exact: true })
     .inputValue();
   await page.locator('input[type="file"]').setInputFiles({
     name: "photo.png",
@@ -110,19 +110,28 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
       "base64",
     ),
   });
-  await expect(page.getByLabel("Tên CV", { exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("textbox", { name: "Tên CV", exact: true }),
+  ).toBeDisabled();
   releaseUpload();
-  await expect(page.getByLabel("Tên CV", { exact: true })).toBeEnabled();
-  await expect(page.getByLabel("Tên CV", { exact: true })).toHaveValue(
-    nameBeforeUpload,
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Tên CV", exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("textbox", { name: "Tên CV", exact: true }),
+  ).toHaveValue(nameBeforeUpload);
   await page.unroute(`**/api/backend/candidate/resumes/${resumeId}/assets`);
-  await page.getByLabel("Họ và tên", { exact: true }).fill("Nguyễn Minh An");
   await page
-    .getByLabel("Chức danh / vị trí mong muốn", { exact: true })
+    .getByRole("textbox", { name: "Họ và tên", exact: true })
+    .fill("Nguyễn Minh An");
+  await page
+    .getByRole("textbox", { name: "Chức danh / vị trí mong muốn", exact: true })
     .fill("Kỹ sư phần mềm");
   await page
-    .getByLabel("Giới thiệu / mục tiêu nghề nghiệp", { exact: true })
+    .getByRole("textbox", {
+      name: "Giới thiệu / mục tiêu nghề nghiệp",
+      exact: true,
+    })
     .fill("Xây dựng phần mềm phục vụ cộng đồng.");
   await goToStep(page, "Kinh nghiệm");
   await page
@@ -153,33 +162,65 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.reload();
   await goToStep(page, "Cá nhân");
-  await expect(page.getByLabel("Họ và tên", { exact: true })).toHaveValue(
-    "Nguyễn Minh An",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Họ và tên", exact: true }),
+  ).toHaveValue("Nguyễn Minh An");
+  await goToStep(page, "Giao diện");
   await expect(
     page.getByRole("combobox", { name: "Mẫu CV", exact: true }),
   ).toHaveText("Hiện đại");
+  await goToStep(page, "Cá nhân");
+  // Cached Next navigation hides effects before the autosave debounce expires.
+  const editorUrl = page.url();
+  const resumedName = "CV kiểm thử trình duyệt sau điều hướng";
+  await page
+    .getByRole("textbox", { name: "Tên CV", exact: true })
+    .fill(resumedName);
+  await page
+    .getByRole("banner")
+    .getByRole("link", { name: "TimViecOnline — Tìm việc làm", exact: true })
+    .click();
+  await expect(page).toHaveURL("http://localhost:3127/");
+  await page.goBack();
+  await expect(page).toHaveURL(editorUrl);
+  await goToStep(page, "Cá nhân");
+  await expect(
+    page.getByRole("textbox", { name: "Tên CV", exact: true }),
+  ).toHaveValue(resumedName);
+  await page.getByRole("button", { name: "Lưu ngay", exact: true }).click();
+  await expect(page.locator(".resume-save-status")).toHaveText("Đã lưu");
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(
+        `/api/backend/candidate/resumes/${resumeId}`,
+      );
+      return (await response.json()).data.name;
+    })
+    .toBe(resumedName);
   // A second tab must retain its edits after a revision conflict.
   const other = await page.context().newPage();
   await other.goto(page.url());
   await goToStep(other, "Cá nhân");
-  await expect(other.getByLabel("Họ và tên", { exact: true })).toHaveValue(
-    "Nguyễn Minh An",
-  );
+  await expect(
+    other.getByRole("textbox", { name: "Họ và tên", exact: true }),
+  ).toHaveValue("Nguyễn Minh An");
   await page
-    .getByLabel("Chức danh / vị trí mong muốn", { exact: true })
+    .getByRole("textbox", { name: "Chức danh / vị trí mong muốn", exact: true })
     .fill("Kỹ sư phần mềm cao cấp");
   await page.getByRole("button", { name: "Lưu ngay", exact: true }).click();
   await expect(page.locator(".resume-save-status")).toHaveText("Đã lưu");
   await other
-    .getByLabel("Chức danh / vị trí mong muốn", { exact: true })
+    .getByRole("textbox", { name: "Chức danh / vị trí mong muốn", exact: true })
     .fill("Nội dung chưa lưu từ tab thứ hai");
   await other.getByRole("button", { name: "Lưu ngay", exact: true }).click();
   await expect(other.locator(".resume-save-status")).toHaveText(
     "Có xung đột phiên bản",
   );
   await expect(
-    other.getByLabel("Chức danh / vị trí mong muốn", { exact: true }),
+    other.getByRole("textbox", {
+      name: "Chức danh / vị trí mong muốn",
+      exact: true,
+    }),
   ).toHaveValue("Nội dung chưa lưu từ tab thứ hai");
   await other
     .getByRole("button", { name: "Lưu thành CV mới", exact: true })
@@ -187,19 +228,25 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
   await expect(other).not.toHaveURL(page.url());
   await goToStep(other, "Cá nhân");
   await expect(
-    other.getByLabel("Chức danh / vị trí mong muốn", { exact: true }),
+    other.getByRole("textbox", {
+      name: "Chức danh / vị trí mong muốn",
+      exact: true,
+    }),
   ).toHaveValue("Nội dung chưa lưu từ tab thứ hai");
   await other.reload();
   await goToStep(other, "Cá nhân");
   await expect(
-    other.getByLabel("Chức danh / vị trí mong muốn", { exact: true }),
+    other.getByRole("textbox", {
+      name: "Chức danh / vị trí mong muốn",
+      exact: true,
+    }),
   ).toHaveValue("Nội dung chưa lưu từ tab thứ hai");
   const copyId = other.url().match(/resumes\/(\d+)/)![1];
   await other.close();
   await page.request.delete(`/api/backend/candidate/resumes/${copyId}`, {
     headers: { Origin: "http://localhost:3127" },
   });
-  await page.getByRole("button", { name: "Xuất PDF", exact: true }).click();
+  await goToStep(page, "Xuất PDF");
   await page.getByRole("button", { name: "Tạo bản PDF", exact: true }).click();
   await expect(page.locator(".resume-export-status")).toContainText(
     "Đang tạo PDF",
@@ -242,7 +289,9 @@ test("a candidate creates, saves, previews, exports and applies with an immutabl
       () => document.documentElement.scrollWidth - innerWidth,
     ),
   ).toBeLessThanOrEqual(1);
-  await expect(page.getByLabel("Họ và tên", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Họ và tên", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Xem trước", exact: true }).click();
   await expect(page.getByTitle("Bản PDF xem trước")).toBeVisible();
   await expectPaintedPdf(page);

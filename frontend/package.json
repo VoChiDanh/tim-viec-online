@@ -18,7 +18,8 @@
     "test:backend": "playwright test --config playwright.backend.config.ts",
     "build:cv-renderer": "node scripts/build-cv-renderer.mjs",
     "test:cv-renderer": "tsx --test tests/resume-renderer.test.mts",
-    "test:cv-preview": "tsx --test tests/resume-preview.test.mts"
+    "test:cv-preview": "tsx --test tests/resume-preview.test.mts",
+    "test:cv-lifecycle": "node --test tests/resume-editor-activity.test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "4.9.0",

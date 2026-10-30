@@ -17,7 +17,7 @@ sample = json.loads(
 )
 covers = {}
 with tempfile.TemporaryDirectory(prefix="resume-covers-") as temporary:
-    for template in ("classic", "modern", "minimal"):
+    for template in ("classic", "modern", "minimal", "executive", "elegant", "technical"):
         sample["template_key"] = template
         output = pathlib.Path(temporary) / f"{template}.pdf"
         subprocess.run(

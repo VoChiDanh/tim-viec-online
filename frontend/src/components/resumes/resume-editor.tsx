@@ -62,8 +62,9 @@ export function ResumeEditor({
     document: ResumeDocument;
   } | null>(null);
   const [error, setError] = useState("");
+  const loadedId = useRef<number | null>(null);
   useEffect(() => {
-    if (!connected) return;
+    if (!connected || loadedId.current === id) return;
     let active = true;
     apiRequest<ResumeDetail>(`/candidate/resumes/${id}`)
       .then(async (result) => {
@@ -84,7 +85,10 @@ export function ResumeEditor({
             // An unavailable starter must not prevent opening an existing CV.
           }
         }
-        if (active) setInitial({ detail: result.data, document });
+        if (active) {
+          loadedId.current = id;
+          setInitial({ detail: result.data, document });
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -139,39 +143,49 @@ function Editor({
   );
   const [pollExpired, setPollExpired] = useState(false);
   const engine = useRef<ResumeAutosave<ResumeDocument> | null>(null);
+  const baseline = useRef({ initial, initialDocument });
+  const active = useRef(false);
   useEffect(() => {
-    const saver = new ResumeAutosave<ResumeDocument>(
-      initial.revision,
-      async (value, base_revision, signal) => {
-        const parsed = resumeDocumentSchema.safeParse(value);
-        if (!parsed.success)
-          throw new Error(
-            parsed.error.issues[0]?.message || "Kiểm tra nội dung CV.",
+    active.current = true;
+    const { initial, initialDocument } = baseline.current;
+    if (!engine.current) {
+      engine.current = new ResumeAutosave<ResumeDocument>(
+        initial.revision,
+        async (value, base_revision, signal) => {
+          const parsed = resumeDocumentSchema.safeParse(value);
+          if (!parsed.success)
+            throw new Error(
+              parsed.error.issues[0]?.message || "Kiểm tra nội dung CV.",
+            );
+          const result = await apiRequest<ResumeDetail>(
+            `/candidate/resumes/${initial.id}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ ...parsed.data, base_revision }),
+              signal,
+            },
           );
-        const result = await apiRequest<ResumeDetail>(
-          `/candidate/resumes/${initial.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ ...parsed.data, base_revision }),
-            signal,
-          },
-        );
-        if (signal.aborted) throw new Error("Phiên chỉnh sửa đã đóng.");
-        setRevision(result.data.revision);
-        return result.data.revision;
-      },
-      (state, failure) => {
-        setStatus(state);
-        if (failure) setError((failure as Error).message);
-        else setError("");
-      },
-    );
-    engine.current = saver;
-    if (
-      JSON.stringify(initialDocument) !==
-      JSON.stringify(documentFromDetail(initial))
-    )
-      saver.change(initialDocument);
+          if (signal.aborted) throw new Error("Phiên chỉnh sửa đã đóng.");
+          return result.data.revision;
+        },
+        (state, failure) => {
+          if (!active.current) return;
+          setRevision(engine.current!.revision);
+          setStatus(state);
+          if (failure) setError((failure as Error).message);
+          else setError("");
+        },
+      );
+      if (
+        JSON.stringify(initialDocument) !==
+        JSON.stringify(documentFromDetail(initial))
+      )
+        engine.current.change(initialDocument);
+    }
+    const saver = engine.current;
+    setRevision(saver.revision);
+    setStatus(saver.status);
+    setError(saver.error instanceof Error ? saver.error.message : "");
     const warn = (event: BeforeUnloadEvent) => {
       if (saver.dirty) {
         event.preventDefault();
@@ -180,11 +194,14 @@ function Editor({
     };
     window.addEventListener("beforeunload", warn);
     return () => {
-      saver.dispose();
-      engine.current = null;
+      // Next keeps editor state in Activity while hiding its effects. Keep the
+      // draft and revision together, and finish pending saves when leaving.
+      active.current = false;
+      if (saver.dirty && saver.status !== "conflict")
+        void saver.flush().catch(() => {});
       window.removeEventListener("beforeunload", warn);
     };
-  }, [initial, initialDocument]);
+  }, []);
   function change(value: ResumeDocument) {
     setDoc(value);
     engine.current?.change(value);
